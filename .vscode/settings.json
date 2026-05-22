@@ -1,0 +1,23 @@
+{
+  "files.exclude": {
+    "**/.git": true
+  },
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true
+  },
+  "search.exclude": {
+    "**/.git": true
+  },
+  "files.associations": {
+    ".env.example": "dotenv",
+    ".env": "dotenv"
+  },
+  "markdown.validate.enabled": true,
+  "editor.formatOnSave": true,
+  "editor.rulers": [
+    100
+  ],
+  "git.autofetch": true
+}
+

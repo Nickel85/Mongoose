@@ -1,0 +1,8 @@
+{
+  "recommendations": [
+    "davidanson.vscode-markdownlint",
+    "mikestead.dotenv",
+    "streetsidesoftware.code-spell-checker"
+  ]
+}
+
