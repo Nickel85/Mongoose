@@ -8,13 +8,19 @@ Each agent lives in its own directory under `agents/`. An agent directory should
 
 Capabilities for an agent live under that agent's `capabilities/` directory. Each capability gets its own folder with a `README.md` describing what it does, when to use it, inputs, outputs, and any important constraints.
 
+Executable agents should expose an `agent.py` entrypoint. The preferred pattern is to support an `ask` command that accepts a natural-language request, routes it to the best capability, and prints the result.
+
 ```text
 agents/
   <agent-name>/
+    agent.py
     README.md
+    router.py
+    config.py
     capabilities/
       <capability-name>/
         README.md
+        <capability_program>.py
 ```
 
 ## Adding An Agent
@@ -23,6 +29,21 @@ agents/
 2. Update the agent `README.md` with the agent's particulars.
 3. Add capability folders under `agents/<agent-name>/capabilities/`.
 4. Document each capability in its own `README.md`.
+5. Add or update `agent.py` and `router.py` when capabilities should be callable from natural-language requests.
+
+## Running An Agent
+
+From the repository root, call an agent through its `agent.py` entrypoint:
+
+```powershell
+python agents\personal-cfo\agent.py ask "Hey Nick, get me my latest budget."
+```
+
+For direct capability calls:
+
+```powershell
+python agents\personal-cfo\agent.py ynab-budget-summary
+```
 
 ## VS Code Setup
 
@@ -41,5 +62,7 @@ The `.env` file is ignored by Git. Commit `.env.example` only.
 
 - `agents/`: All agent definitions.
 - `agents/personal-cfo/`: Personal finance agent for analyzing YNAB budget data.
+- `agents/personal-cfo/agent.py`: Personal CFO command-line entrypoint.
+- `agents/personal-cfo/router.py`: Natural-language request router.
 - `agents/_template/`: Starter template for a new agent.
 - `agents/_template/capabilities/_template/`: Starter template for a new capability.

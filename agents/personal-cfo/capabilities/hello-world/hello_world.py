@@ -21,6 +21,11 @@ class YnabConnectionResult:
     message: str
 
 
+def configure_output() -> None:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
+
 def repo_root() -> Path:
     return Path(__file__).resolve().parents[4]
 
@@ -143,6 +148,7 @@ def run_with_status(name: str = "there") -> tuple[bool, str]:
 
 
 def main() -> None:
+    configure_output()
     args = parse_args()
     ok, output = run_with_status(args.name)
     print(output)

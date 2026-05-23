@@ -10,6 +10,15 @@ from types import ModuleType
 
 
 AGENT_ROOT = Path(__file__).resolve().parent
+if str(AGENT_ROOT) not in sys.path:
+    sys.path.insert(0, str(AGENT_ROOT))
+
+from router import route_request
+
+
+def configure_output() -> None:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 
 def load_module(module_name: str, module_path: Path) -> ModuleType:
@@ -35,6 +44,30 @@ def run_hello_world_with_status(name: str) -> tuple[bool, str]:
     return module.run_with_status(name)
 
 
+def run_ynab_budget_summary() -> tuple[bool, str]:
+    module_path = (
+        AGENT_ROOT
+        / "capabilities"
+        / "ynab-budget-summary"
+        / "ynab_budget_summary.py"
+    )
+    module = load_module("personal_cfo_ynab_budget_summary", module_path)
+    return module.load_latest_summary()
+
+
+def answer_request(request: str) -> tuple[bool, str]:
+    route = route_request(request)
+
+    if route.capability == "hello-world":
+        ok, output = run_hello_world_with_status("Nick")
+    elif route.capability == "ynab-budget-summary":
+        ok, output = run_ynab_budget_summary()
+    else:
+        return False, f"I do not know how to run capability: {route.capability}"
+
+    return ok, f"Request: {request}\nCapability: {route.capability}\nReason: {route.reason}\n\n{output}"
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Run Personal CFO agent capabilities."
@@ -55,15 +88,44 @@ def build_parser() -> argparse.ArgumentParser:
         help="Optional name or context to include in the greeting.",
     )
 
+    subparsers.add_parser(
+        "ynab-budget-summary",
+        help="Summarize the latest available YNAB budget state.",
+    )
+
+    ask = subparsers.add_parser(
+        "ask",
+        help="Route a natural-language request to the right capability.",
+    )
+    ask.add_argument(
+        "request",
+        help="Natural-language request for the Personal CFO agent.",
+    )
+
     return parser
 
 
 def main() -> None:
+    configure_output()
     parser = build_parser()
     args = parser.parse_args()
 
     if args.capability == "hello-world":
         ok, output = run_hello_world_with_status(args.name)
+        print(output)
+        if not ok:
+            sys.exit(1)
+        return
+
+    if args.capability == "ynab-budget-summary":
+        ok, output = run_ynab_budget_summary()
+        print(output)
+        if not ok:
+            sys.exit(1)
+        return
+
+    if args.capability == "ask":
+        ok, output = answer_request(args.request)
         print(output)
         if not ok:
             sys.exit(1)

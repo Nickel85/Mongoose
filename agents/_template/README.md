@@ -24,7 +24,22 @@ Document the capabilities this agent contains.
 
 Explain how to run, invoke, or work with this agent.
 
+Preferred command-line shape:
+
+```powershell
+python agents\<agent-name>\agent.py ask "Natural-language request here."
+```
+
+Direct capability commands can also be documented here when useful:
+
+```powershell
+python agents\<agent-name>\agent.py <capability-name>
+```
+
+## Routing
+
+Explain how natural-language requests map to capabilities. If the agent has a `router.py`, document the major routing keywords, defaults, and fallback behavior.
+
 ## Notes
 
 Add implementation notes, known limitations, or maintenance guidance.
-

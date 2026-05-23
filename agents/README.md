@@ -8,9 +8,22 @@ Use `agents/_template/` as the starting point for a new agent. Each agent should
 
 ```text
 <agent-name>/
+  agent.py
   README.md
+  router.py
+  config.py
   capabilities/
     <capability-name>/
       README.md
+      <capability_program>.py
 ```
 
+## Running Agents
+
+Agents that expose a command-line runner should be called from the repository root:
+
+```powershell
+python agents\<agent-name>\agent.py ask "Natural-language request here."
+```
+
+The `ask` command should route the request to the appropriate capability.

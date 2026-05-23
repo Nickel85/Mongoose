@@ -71,7 +71,7 @@ Expected output:
 ```text
 Hello, Nick.
 Personal CFO is ready to review your financial life.
-YNAB connection succeeded. Found 1 plan(s).
+YNAB connection succeeded. Found <count> plan(s).
 ```
 
 If `.env` does not contain `YNAB_ACCESS_TOKEN`, the command exits with an error and tells you to add the token. The token is never printed.

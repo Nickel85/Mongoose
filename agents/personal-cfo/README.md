@@ -67,6 +67,14 @@ Run agent capabilities through `agent.py`.
 From the repository root:
 
 ```powershell
+python agents\personal-cfo\agent.py ask "Hey Nick, get me my latest budget."
+```
+
+The `ask` command routes natural-language requests to the best available capability.
+
+You can also call capabilities directly:
+
+```powershell
 python agents\personal-cfo\agent.py hello-world
 ```
 
@@ -74,6 +82,12 @@ With a custom name:
 
 ```powershell
 python agents\personal-cfo\agent.py hello-world --name "Nick"
+```
+
+Latest budget summary:
+
+```powershell
+python agents\personal-cfo\agent.py ynab-budget-summary
 ```
 
 The `hello-world` capability also tests the YNAB API connection by loading `YNAB_ACCESS_TOKEN` from the repository root `.env` file and calling the YNAB plans endpoint.
@@ -107,10 +121,18 @@ Expected output:
 ```text
 Hello, Nick.
 Personal CFO is ready to review your financial life.
-YNAB connection succeeded. Found 1 plan(s).
+YNAB connection succeeded. Found <count> plan(s).
 ```
 
 In VS Code, open a terminal from the repository root before running the command.
+
+## Internal Structure
+
+- `agent.py`: Command-line entrypoint.
+- `router.py`: Routes natural-language requests to capabilities.
+- `config.py`: Loads local environment values from `.env`.
+- `ynab_api.py`: Minimal read-only YNAB API helper.
+- `capabilities/`: Capability implementations and documentation.
 
 ## Roadmap
 

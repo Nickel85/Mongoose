@@ -37,6 +37,32 @@ The output should include:
 - Questions or follow-up data needed.
 - Recommendations only when supported by the data.
 
+The current starter implementation returns a latest budget snapshot with the selected YNAB plan, open on-budget accounts, total on-budget account balance, category counts, and any negative category balances that need review.
+
+## Usage
+
+From the repository root, let the agent route a natural-language request:
+
+```powershell
+python agents\personal-cfo\agent.py ask "Hey Nick, get me my latest budget."
+```
+
+Or call the capability directly:
+
+```powershell
+python agents\personal-cfo\agent.py ynab-budget-summary
+```
+
+The command reads `YNAB_ACCESS_TOKEN` and `YNAB_BUDGET_ID` from the repository root `.env` file.
+
+Example prompts that route here:
+
+```powershell
+python agents\personal-cfo\agent.py ask "Hey Nick, get me my latest budget."
+python agents\personal-cfo\agent.py ask "What categories need my attention?"
+python agents\personal-cfo\agent.py ask "Summarize my current financial picture."
+```
+
 ## Workflow
 
 1. Authenticate to the YNAB API using a bearer token.
