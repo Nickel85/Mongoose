@@ -90,6 +90,12 @@ Latest budget summary:
 python agents\personal-cfo\agent.py ynab-budget-summary
 ```
 
+After running the user-local installer, you can call this agent from any new terminal:
+
+```powershell
+Nick "Get me my latest budget"
+```
+
 The `hello-world` capability also tests the YNAB API connection by loading `YNAB_ACCESS_TOKEN` from the repository root `.env` file and calling the YNAB plans endpoint.
 
 If the token is configured correctly, the command reports that the connection succeeded and shows how many plans were found. It does not print the token.

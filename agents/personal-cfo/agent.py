@@ -99,6 +99,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     ask.add_argument(
         "request",
+        nargs=argparse.REMAINDER,
         help="Natural-language request for the Personal CFO agent.",
     )
 
@@ -125,7 +126,11 @@ def main() -> None:
         return
 
     if args.capability == "ask":
-        ok, output = answer_request(args.request)
+        request = " ".join(args.request).strip()
+        if not request:
+            parser.error("ask requires a natural-language request.")
+
+        ok, output = answer_request(request)
         print(output)
         if not ok:
             sys.exit(1)

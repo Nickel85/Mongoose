@@ -45,6 +45,24 @@ For direct capability calls:
 python agents\personal-cfo\agent.py ynab-budget-summary
 ```
 
+## Install The Nick Command
+
+Install the Personal CFO agent as a user-local `Nick` command without administrator privileges:
+
+```text
+.\install.cmd
+```
+
+Then open a new terminal and run:
+
+```powershell
+Nick "Get me my latest budget"
+```
+
+On a fresh machine, clone or download this repo first, then run `install.cmd` from the repo root.
+
+See [install/README.md](install/README.md) for install, update, and uninstall details.
+
 ## VS Code Setup
 
 This repository includes workspace settings in `.vscode/`.
@@ -64,5 +82,7 @@ The `.env` file is ignored by Git. Commit `.env.example` only.
 - `agents/personal-cfo/`: Personal finance agent for analyzing YNAB budget data.
 - `agents/personal-cfo/agent.py`: Personal CFO command-line entrypoint.
 - `agents/personal-cfo/router.py`: Natural-language request router.
+- `install.cmd`: One-file no-admin installer for the `Nick` command.
+- `install/`: User-local installer scripts for commands like `Nick`.
 - `agents/_template/`: Starter template for a new agent.
 - `agents/_template/capabilities/_template/`: Starter template for a new capability.
