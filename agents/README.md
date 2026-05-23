@@ -8,6 +8,7 @@ Use `agents/_template/` as the starting point for a new agent. Each agent should
 
 ```text
 <agent-name>/
+  agent.json
   agent.py
   README.md
   router.py
@@ -17,6 +18,28 @@ Use `agents/_template/` as the starting point for a new agent. Each agent should
       README.md
       <capability_program>.py
 ```
+
+## Install Metadata
+
+Installable agents include an `agent.json` manifest. The root installer discovers available agents by scanning `agents/*/agent.json`.
+
+```json
+{
+  "commandName": "AgentName",
+  "displayName": "Agent Display Name",
+  "entrypointPath": "agent.py",
+  "example": "Natural-language request here",
+  "description": "Short description of what this agent does."
+}
+```
+
+The `commandName` is passed to the shared root installer:
+
+```text
+.\install.cmd AgentName
+```
+
+`commandName` must be unique across all agents because it becomes the installed command. `entrypointPath` only needs to be valid inside that agent directory, so multiple agents can use `agent.py`.
 
 ## Running Agents
 

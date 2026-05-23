@@ -6,3 +6,6 @@
 # Python
 __pycache__/
 *.py[cod]
+
+# Test artifacts
+.test-localappdata/

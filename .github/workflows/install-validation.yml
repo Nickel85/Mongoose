@@ -1,0 +1,19 @@
+name: Install Validation
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  validate-install:
+    name: Validate no-admin agent install
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate installer and agent manifests
+        shell: pwsh
+        run: ./tests/install-validation.ps1
+

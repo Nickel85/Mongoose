@@ -12,6 +12,24 @@ Describe the agent's working style, boundaries, assumptions, and any important d
 
 List any tools, services, credentials, models, files, or runtime dependencies required by this agent.
 
+## Install Metadata
+
+Each installable agent should include an `agent.json` manifest. The root installer discovers agents automatically by scanning `agents/*/agent.json`.
+
+```json
+{
+  "commandName": "AgentName",
+  "displayName": "Agent Display Name",
+  "entrypointPath": "agent.py",
+  "example": "Natural-language request here",
+  "description": "Short description of what this agent does."
+}
+```
+
+The `commandName` is the command users pass to `install.cmd` and the command that gets installed in the user-local bin directory.
+
+`commandName` must be unique across all agents. `entrypointPath` is relative to this agent directory, so `agent.py` is fine even when other agents also have their own `agent.py`.
+
 ## Capabilities
 
 Document the capabilities this agent contains.

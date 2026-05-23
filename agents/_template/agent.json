@@ -1,0 +1,7 @@
+{
+  "commandName": "AgentName",
+  "displayName": "Agent Display Name",
+  "entrypointPath": "agent.py",
+  "example": "Natural-language request here",
+  "description": "Short description of what this agent does."
+}

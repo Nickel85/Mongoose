@@ -41,6 +41,58 @@ YNAB_BUDGET_ID=
 
 Never commit the real `.env` file or paste the YNAB access token into documentation, logs, examples, or prompts.
 
+## Install
+
+Install Personal CFO as the user-local `Nick` command without administrator privileges.
+
+From the repository root:
+
+```text
+.\install.cmd Nick
+```
+
+All agents use `.\install.cmd <agent-install-name>`. Personal CFO's install name is `Nick`. If an agent does not exist, the installer prints the available agent names.
+
+The installer discovers this agent from [agent.json](agent.json):
+
+```json
+{
+  "commandName": "Nick",
+  "displayName": "Personal CFO",
+  "entrypointPath": "agent.py",
+  "example": "Get me my latest budget",
+  "description": "Personal finance agent for YNAB budget analysis and financial summaries."
+}
+```
+
+The installer creates:
+
+```text
+%LOCALAPPDATA%\Agents\bin\Nick.cmd
+```
+
+It also adds that folder to the current user's `PATH`. Open a new terminal after installing.
+
+Then run:
+
+```powershell
+Nick "Get me my latest budget"
+```
+
+Unquoted requests work too:
+
+```powershell
+Nick Get me my latest budget
+```
+
+If the current terminal cannot find `Nick` yet, open a new terminal or call the launcher directly:
+
+```powershell
+& "$env:LOCALAPPDATA\Agents\bin\Nick.cmd" "Get me my latest budget"
+```
+
+For installer internals, update notes, and uninstall instructions, see [../../install/README.md](../../install/README.md).
+
 ## Capabilities
 
 | Capability | Description |
@@ -135,6 +187,7 @@ In VS Code, open a terminal from the repository root before running the command.
 ## Internal Structure
 
 - `agent.py`: Command-line entrypoint.
+- `agent.json`: Install metadata discovered by the root installer. Its `commandName` is globally unique; its `entrypointPath` is relative to this directory.
 - `router.py`: Routes natural-language requests to capabilities.
 - `config.py`: Loads local environment values from `.env`.
 - `ynab_api.py`: Minimal read-only YNAB API helper.

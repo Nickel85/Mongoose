@@ -1,6 +1,8 @@
-# Install
+# Personal CFO Install
 
-Install the Personal CFO agent as a user-local `Nick` command without administrator privileges.
+Install a known agent as a user-local command without administrator privileges.
+
+This file documents installer internals and operational details. The primary user-facing install command is also documented in [../agents/personal-cfo/README.md](../agents/personal-cfo/README.md).
 
 ## Requirements
 
@@ -14,15 +16,39 @@ Install the Personal CFO agent as a user-local `Nick` command without administra
 From the repository root:
 
 ```text
-.\install.cmd
+.\install.cmd Nick
 ```
 
-You can also double-click `install.cmd` from File Explorer.
+The install argument is the agent name. Currently available agents:
+
+- `Nick`
+
+The installer discovers available agents by scanning:
+
+```text
+agents\*\agent.json
+```
+
+Template directories beginning with `_` are ignored. If you pass a name that does not exist, the installer prints the available names and exits without installing anything.
+
+An agent manifest looks like:
+
+```json
+{
+  "commandName": "Nick",
+  "displayName": "Personal CFO",
+  "entrypointPath": "agent.py",
+  "example": "Get me my latest budget",
+  "description": "Personal finance agent for YNAB budget analysis and financial summaries."
+}
+```
+
+The `commandName` must be unique across all agents because it becomes the installed command. The `entrypointPath` is relative to that agent's directory, so each agent can use the same local filename, such as `agent.py`.
 
 The one-file installer calls the PowerShell installer internally:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\install\install-nick.ps1
+powershell -ExecutionPolicy Bypass -File .\install\install-nick.ps1 -AgentName Nick
 ```
 
 The installer creates:
@@ -40,7 +66,7 @@ Clone or download this repository, then run the installer:
 ```powershell
 git clone https://github.com/Nickel85/Agents.git
 cd Agents
-.\install.cmd
+.\install.cmd Nick
 ```
 
 Create `.env` from the example and add your local values:
@@ -83,7 +109,7 @@ Pull the latest repository changes. The installed launcher points at this repo's
 If you move the repository to another folder, rerun:
 
 ```text
-.\install.cmd
+.\install.cmd Nick
 ```
 
 ## Uninstall
