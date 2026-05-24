@@ -6,12 +6,26 @@ This directory contains local validation scripts that are also run by GitHub Act
 
 The workflow lives at `.github/workflows/install-validation.yml`.
 
-It runs on:
+The mongoose package build workflow lives at `.github/workflows/mongoose-build.yml`.
+
+The mongoose command smoke workflow lives at `.github/workflows/mongoose-smoke.yml`.
+
+Install validation runs on:
 
 - `push`
 - `pull_request`
 
-The workflow uses `windows-latest` because the installer is currently Windows-focused.
+The mongoose build workflow runs on:
+
+- pull requests targeting `main`
+- pushes to `main`
+- version tags matching `v*`
+
+It uploads `dist/mongoose.exe` as an Actions artifact. On version tags, it also attaches `mongoose.exe` to the GitHub Release.
+
+The mongoose smoke workflow runs on the same pull request, push, and tag triggers. It builds `mongoose.exe`, then smoke-tests `list`, `install`, `uninstall`, and `update`.
+
+All workflows use `windows-latest` because the installer and executable are currently Windows-focused.
 
 ## Install Validation
 
@@ -44,4 +58,56 @@ This test verifies:
 - generated launchers call the configured entrypoint and the `ask` command.
 
 The test uses `.test-localappdata/` as a temporary local AppData substitute. That folder is ignored by Git.
+
+## Mongoose Validation
+
+Script:
+
+```text
+tests/mongoose-validation.ps1
+```
+
+Run locally from the repository root:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tests\mongoose-validation.ps1
+```
+
+This test verifies:
+
+- the Python-backed `mongoose` CLI exists.
+- `mongoose setup` writes configuration against the local repo.
+- `mongoose --help` includes install and update guidance.
+- `mongoose list` discovers available agents from `agent.json`.
+- installing a missing agent fails and prints available agents.
+- `mongoose install Nick` creates a user-local `Nick.cmd` launcher.
+- the generated launcher calls the agent through `ask`.
+- `mongoose uninstall Nick` removes the launcher.
+
+The test uses `.test-localappdata-mongoose/` as a temporary local AppData substitute. That folder is ignored by Git.
+
+## Mongoose EXE Smoke
+
+Script:
+
+```text
+tests/mongoose-exe-smoke.ps1
+```
+
+Run locally from the repository root after building `dist\mongoose.exe`:
+
+```powershell
+.\build-mongoose.cmd
+powershell -ExecutionPolicy Bypass -File .\tests\mongoose-exe-smoke.ps1
+```
+
+This test verifies the built executable can:
+
+- run `mongoose setup` against the local repo.
+- run `mongoose list` and discover `Nick`.
+- run `mongoose install Nick` and create `Nick.cmd`.
+- run `mongoose uninstall Nick` and remove `Nick.cmd`.
+- run `mongoose update` against a local Git-backed registry URL and clone the registry.
+
+The test uses `.test-localappdata-mongoose-exe/` and `.test-mongoose-update-registry/` as temporary folders. Both are ignored by Git.
 

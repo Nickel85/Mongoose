@@ -1,0 +1,46 @@
+name: Mongoose Smoke
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+
+jobs:
+  smoke-mongoose:
+    name: Smoke test mongoose commands
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Set up MSYS2 GCC
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: mingw-w64-ucrt-x86_64-gcc
+          path-type: inherit
+
+      - name: Add GCC to PATH
+        shell: pwsh
+        run: echo "C:\msys64\ucrt64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Build mongoose.exe
+        shell: cmd
+        run: build-mongoose.cmd
+
+      - name: Smoke test list, install, uninstall, and update
+        shell: pwsh
+        run: ./tests/mongoose-exe-smoke.ps1
+

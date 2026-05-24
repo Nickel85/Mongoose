@@ -17,3 +17,7 @@ jobs:
         shell: pwsh
         run: ./tests/install-validation.ps1
 
+      - name: Validate mongoose CLI
+        shell: pwsh
+        run: ./tests/mongoose-validation.ps1
+

@@ -45,6 +45,21 @@ Never commit the real `.env` file or paste the YNAB access token into documentat
 
 Install Personal CFO as the user-local `Nick` command without administrator privileges.
 
+Preferred package-manager flow:
+
+```powershell
+mongoose install Nick
+```
+
+If Mongoose is not installed yet, build and install it from the repository root:
+
+```text
+.\build-mongoose.cmd
+.\install-mongoose.cmd
+```
+
+Legacy direct installer:
+
 From the repository root:
 
 ```text

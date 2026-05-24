@@ -1,8 +1,8 @@
-# Personal CFO Install
+# Legacy Agent Install
 
 Install a known agent as a user-local command without administrator privileges.
 
-This file documents installer internals and operational details. The primary user-facing install command is also documented in [../agents/personal-cfo/README.md](../agents/personal-cfo/README.md).
+This folder contains the original direct agent installer. The preferred package-manager flow is now documented in [../mongoose/README.md](../mongoose/README.md).
 
 ## Requirements
 

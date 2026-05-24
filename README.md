@@ -42,19 +42,27 @@ agents/
 
 ## Installing An Agent
 
-All agents use the same root installer pattern:
+The preferred installer is `mongoose`, the package-manager CLI for this repository.
+
+Build and install it from the repository root:
 
 ```text
-.\install.cmd <agent-install-name>
+.\build-mongoose.cmd
+.\install-mongoose.cmd
 ```
 
-For example, Personal CFO installs as `Nick`:
+Then use:
 
-```text
-.\install.cmd Nick
+```powershell
+mongoose list
+mongoose install Nick
+mongoose uninstall Nick
+mongoose update
 ```
 
-The installer discovers installable agents by scanning `agents/*/agent.json`. Add that manifest when creating a new agent and it will appear in the installer automatically.
+`mongoose update` pulls down registry changes from the configured GitHub-backed registry.
+
+The installer discovers installable agents by scanning `agents/*/agent.json`. Add that manifest when creating a new agent and it will appear in `mongoose list` automatically.
 
 Each manifest's `entrypointPath` is resolved relative to that agent's directory. Multiple agents can use `agent.py`; they just cannot share the same `commandName`.
 
@@ -65,6 +73,8 @@ Each agent README contains the agent-specific install name, configuration, examp
 - [Personal CFO install instructions](agents/personal-cfo/README.md)
 
 Installers should not require administrator privileges. User-local command shims, configuration files, and secrets should stay scoped to the current user wherever possible.
+
+See [mongoose/README.md](mongoose/README.md) for package-manager details.
 
 ## VS Code Setup
 
@@ -83,6 +93,10 @@ The `.env` file is ignored by Git. Commit `.env.example` only.
 
 Tests live in `tests/` and are run by GitHub Actions on `push` and `pull_request`. See [tests/README.md](tests/README.md) for the current test list and local run instructions.
 
+`mongoose.exe` is built by GitHub Actions for pull requests targeting `main`, pushes to `main`, and version tags. Pull request builds upload `mongoose.exe` as an Actions artifact, and version tag builds attach it to the GitHub Release.
+
+GitHub Actions also smoke-tests the built executable by running `mongoose list`, `mongoose install`, `mongoose uninstall`, and `mongoose update`.
+
 ## Directory Guide
 
 - `agents/`: All agent definitions.
@@ -92,6 +106,9 @@ Tests live in `tests/` and are run by GitHub Actions on `push` and `pull_request
 - `agents/personal-cfo/router.py`: Natural-language request router.
 - `install.cmd`: One-file no-admin installer for installable agents.
 - `install/`: User-local installer support scripts.
+- `mongoose/`: Package-manager CLI and launcher source.
+- `build-mongoose.cmd`: Builds `dist/mongoose.exe`.
+- `install-mongoose.cmd`: Installs `mongoose.exe` as a user-local CLI.
 - `tests/`: Local validation scripts also used by GitHub Actions.
 - `agents/_template/`: Starter template for a new agent.
 - `agents/_template/capabilities/_template/`: Starter template for a new capability.

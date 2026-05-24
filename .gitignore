@@ -9,3 +9,11 @@ __pycache__/
 
 # Test artifacts
 .test-localappdata/
+.test-localappdata-mongoose/
+.test-localappdata-exe/
+.test-localappdata-mongoose-exe/
+.test-mongoose-update-registry/
+
+# Build artifacts
+dist/
+mongoose/launcher/mongoose_py.inc
