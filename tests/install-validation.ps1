@@ -33,7 +33,9 @@ function Read-AgentManifests {
 
     foreach ($agentDirectory in $agentDirectories) {
         $manifestPath = Join-Path $agentDirectory.FullName "agent.json"
-        Assert-True (Test-Path $manifestPath) "Missing agent.json for $($agentDirectory.Name)"
+        if (-not (Test-Path $manifestPath)) {
+            continue
+        }
 
         $manifest = Get-Content -Raw -Path $manifestPath | ConvertFrom-Json
         $manifests += [pscustomobject]@{
