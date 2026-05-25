@@ -1,4 +1,4 @@
-"""Shared configuration helpers for Personal CFO."""
+"""Shared configuration helpers for Midas."""
 
 from __future__ import annotations
 

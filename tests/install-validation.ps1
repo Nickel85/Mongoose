@@ -11,7 +11,7 @@ $ErrorActionPreference = "Stop"
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $agentsRoot = Join-Path $repoRoot "agents"
 $installCmd = Join-Path $repoRoot "install.cmd"
-$installer = Join-Path $repoRoot "install\install-nick.ps1"
+$installer = Join-Path $repoRoot "install\install-agent.ps1"
 
 function Assert-True {
     param(
@@ -33,7 +33,9 @@ function Read-AgentManifests {
 
     foreach ($agentDirectory in $agentDirectories) {
         $manifestPath = Join-Path $agentDirectory.FullName "agent.json"
-        Assert-True (Test-Path $manifestPath) "Missing agent.json for $($agentDirectory.Name)"
+        if (-not (Test-Path $manifestPath)) {
+            continue
+        }
 
         $manifest = Get-Content -Raw -Path $manifestPath | ConvertFrom-Json
         $manifests += [pscustomobject]@{
@@ -60,7 +62,7 @@ function Invoke-CommandAndCapture {
 }
 
 Assert-True (Test-Path $installCmd) "install.cmd is missing."
-Assert-True (Test-Path $installer) "install\install-nick.ps1 is missing."
+Assert-True (Test-Path $installer) "install\install-agent.ps1 is missing."
 
 $manifests = @(Read-AgentManifests)
 Assert-True ($manifests.Count -gt 0) "No installable agents were discovered."

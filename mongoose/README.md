@@ -74,13 +74,13 @@ mongoose list
 Install an agent:
 
 ```powershell
-mongoose install Nick
+mongoose install Midas
 ```
 
 Uninstall an agent:
 
 ```powershell
-mongoose uninstall Nick
+mongoose uninstall Midas
 ```
 
 Pull down registry updates:

@@ -44,13 +44,13 @@ The current starter implementation returns a latest budget snapshot with the sel
 From the repository root, let the agent route a natural-language request:
 
 ```powershell
-python agents\personal-cfo\agent.py ask "Hey Nick, get me my latest budget."
+python agents\midas\agent.py ask "Hey Midas, get me my latest budget."
 ```
 
 Or call the capability directly:
 
 ```powershell
-python agents\personal-cfo\agent.py ynab-budget-summary
+python agents\midas\agent.py ynab-budget-summary
 ```
 
 The command reads `YNAB_ACCESS_TOKEN` and `YNAB_BUDGET_ID` from the repository root `.env` file.
@@ -58,9 +58,9 @@ The command reads `YNAB_ACCESS_TOKEN` and `YNAB_BUDGET_ID` from the repository r
 Example prompts that route here:
 
 ```powershell
-python agents\personal-cfo\agent.py ask "Hey Nick, get me my latest budget."
-python agents\personal-cfo\agent.py ask "What categories need my attention?"
-python agents\personal-cfo\agent.py ask "Summarize my current financial picture."
+python agents\midas\agent.py ask "Hey Midas, get me my latest budget."
+python agents\midas\agent.py ask "What categories need my attention?"
+python agents\midas\agent.py ask "Summarize my current financial picture."
 ```
 
 ## Workflow

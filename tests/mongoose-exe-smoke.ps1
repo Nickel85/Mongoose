@@ -72,17 +72,17 @@ Assert-True ($setup.ExitCode -eq 0) "mongoose setup failed. Output: $($setup.Out
 
 $list = Invoke-MongooseExe -Arguments @("list")
 Assert-True ($list.ExitCode -eq 0) "mongoose list failed. Output: $($list.Output)"
-Assert-True ($list.Output -match "Nick") "mongoose list did not include Nick."
+Assert-True ($list.Output -match "Midas") "mongoose list did not include Midas."
 
-$install = Invoke-MongooseExe -Arguments @("install", "Nick")
-Assert-True ($install.ExitCode -eq 0) "mongoose install Nick failed. Output: $($install.Output)"
+$install = Invoke-MongooseExe -Arguments @("install", "Midas")
+Assert-True ($install.ExitCode -eq 0) "mongoose install Midas failed. Output: $($install.Output)"
 
-$nickLauncher = Join-Path $testLocalAppData "Agents\bin\Nick.cmd"
-Assert-True (Test-Path $nickLauncher) "mongoose install did not create Nick launcher."
+$nickLauncher = Join-Path $testLocalAppData "Agents\bin\Midas.cmd"
+Assert-True (Test-Path $nickLauncher) "mongoose install did not create Midas launcher."
 
-$uninstall = Invoke-MongooseExe -Arguments @("uninstall", "Nick")
-Assert-True ($uninstall.ExitCode -eq 0) "mongoose uninstall Nick failed. Output: $($uninstall.Output)"
-Assert-True (-not (Test-Path $nickLauncher)) "mongoose uninstall did not remove Nick launcher."
+$uninstall = Invoke-MongooseExe -Arguments @("uninstall", "Midas")
+Assert-True ($uninstall.ExitCode -eq 0) "mongoose uninstall Midas failed. Output: $($uninstall.Output)"
+Assert-True (-not (Test-Path $nickLauncher)) "mongoose uninstall did not remove Midas launcher."
 
 $setupForUpdate = Invoke-MongooseExe -Arguments @(
     "setup",
@@ -95,6 +95,6 @@ Assert-True ($setupForUpdate.ExitCode -eq 0) "mongoose setup for update failed. 
 
 $update = Invoke-MongooseExe -Arguments @("update")
 Assert-True ($update.ExitCode -eq 0) "mongoose update failed. Output: $($update.Output)"
-Assert-True (Test-Path (Join-Path $testCloneRoot "agents\personal-cfo\agent.json")) "mongoose update did not clone the registry."
+Assert-True (Test-Path (Join-Path $testCloneRoot "agents\midas\agent.json")) "mongoose update did not clone the registry."
 
 Write-Host "Mongoose EXE smoke tests passed."

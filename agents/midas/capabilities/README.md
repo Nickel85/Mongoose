@@ -1,6 +1,6 @@
 # Capabilities
 
-This directory contains the capabilities available to Personal CFO.
+This directory contains the capabilities available to Midas.
 
 Each capability should live in its own folder and include a `README.md` that explains its role, inputs, outputs, constraints, and examples.
 
@@ -13,10 +13,10 @@ Each capability should live in its own folder and include a `README.md` that exp
 
 ## Natural-Language Routing
 
-Use the agent-level `ask` command to let Personal CFO choose the capability:
+Use the agent-level `ask` command to let Midas choose the capability:
 
 ```powershell
-python agents\personal-cfo\agent.py ask "Hey Nick, get me my latest budget."
+python agents\midas\agent.py ask "Hey Midas, get me my latest budget."
 ```
 
 Current routing behavior:

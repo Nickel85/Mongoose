@@ -1,4 +1,4 @@
-"""Command runner for the Personal CFO agent."""
+"""Command runner for the Midas agent."""
 
 from __future__ import annotations
 
@@ -34,13 +34,13 @@ def load_module(module_name: str, module_path: Path) -> ModuleType:
 
 def run_hello_world(name: str) -> str:
     module_path = AGENT_ROOT / "capabilities" / "hello-world" / "hello_world.py"
-    module = load_module("personal_cfo_hello_world", module_path)
+    module = load_module("midas_hello_world", module_path)
     return module.run(name)
 
 
 def run_hello_world_with_status(name: str) -> tuple[bool, str]:
     module_path = AGENT_ROOT / "capabilities" / "hello-world" / "hello_world.py"
-    module = load_module("personal_cfo_hello_world", module_path)
+    module = load_module("midas_hello_world", module_path)
     return module.run_with_status(name)
 
 
@@ -51,7 +51,7 @@ def run_ynab_budget_summary() -> tuple[bool, str]:
         / "ynab-budget-summary"
         / "ynab_budget_summary.py"
     )
-    module = load_module("personal_cfo_ynab_budget_summary", module_path)
+    module = load_module("midas_ynab_budget_summary", module_path)
     return module.load_latest_summary()
 
 
@@ -59,7 +59,7 @@ def answer_request(request: str) -> tuple[bool, str]:
     route = route_request(request)
 
     if route.capability == "hello-world":
-        ok, output = run_hello_world_with_status("Nick")
+        ok, output = run_hello_world_with_status("Midas")
     elif route.capability == "ynab-budget-summary":
         ok, output = run_ynab_budget_summary()
     else:
@@ -70,7 +70,7 @@ def answer_request(request: str) -> tuple[bool, str]:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Run Personal CFO agent capabilities."
+        description="Run Midas agent capabilities."
     )
     subparsers = parser.add_subparsers(
         dest="capability",
@@ -100,7 +100,7 @@ def build_parser() -> argparse.ArgumentParser:
     ask.add_argument(
         "request",
         nargs=argparse.REMAINDER,
-        help="Natural-language request for the Personal CFO agent.",
+        help="Natural-language request for the Midas agent.",
     )
 
     return parser
