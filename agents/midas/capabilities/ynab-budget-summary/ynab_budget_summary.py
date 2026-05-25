@@ -1,4 +1,4 @@
-"""Read-only YNAB budget summary capability for Personal CFO."""
+"""Read-only YNAB budget summary capability for Midas."""
 
 from __future__ import annotations
 
@@ -92,7 +92,7 @@ def load_latest_summary() -> tuple[bool, str]:
     ]
 
     lines = [
-        "Personal CFO budget summary",
+        "Midas budget summary",
         f"Date: {date.today().isoformat()}",
         f"Plan: {name}",
         f"Plans available: {len(plans)}",

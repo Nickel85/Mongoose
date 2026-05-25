@@ -1,14 +1,14 @@
-# Personal CFO
+# Midas
 
 ## Purpose
 
-Personal CFO is an agent for understanding and improving personal finances. It starts as an accountant for YNAB budget data: summarizing balances, spending, cash flow, category activity, and financial changes over time.
+Midas is an agent for understanding and improving personal finances. It starts as an accountant for YNAB budget data: summarizing balances, spending, cash flow, category activity, and financial changes over time.
 
 Over time, this agent should grow from reporting what happened into explaining why it happened and recommending what to do next.
 
 ## Behavior
 
-Personal CFO should be:
+Midas should be:
 
 - Accurate before clever.
 - Clear about assumptions, missing data, and uncertainty.
@@ -43,12 +43,12 @@ Never commit the real `.env` file or paste the YNAB access token into documentat
 
 ## Install
 
-Install Personal CFO as the user-local `Nick` command without administrator privileges.
+Install Midas as the user-local `Midas` command without administrator privileges.
 
 Preferred package-manager flow:
 
 ```powershell
-mongoose install Nick
+mongoose install Midas
 ```
 
 If Mongoose is not installed yet, build and install it from the repository root:
@@ -63,17 +63,17 @@ Legacy direct installer:
 From the repository root:
 
 ```text
-.\install.cmd Nick
+.\install.cmd Midas
 ```
 
-All agents use `.\install.cmd <agent-install-name>`. Personal CFO's install name is `Nick`. If an agent does not exist, the installer prints the available agent names.
+All agents use `.\install.cmd <agent-install-name>`. Midas's install name is `Midas`. If an agent does not exist, the installer prints the available agent names.
 
 The installer discovers this agent from [agent.json](agent.json):
 
 ```json
 {
-  "commandName": "Nick",
-  "displayName": "Personal CFO",
+  "commandName": "Midas",
+  "displayName": "Midas",
   "entrypointPath": "agent.py",
   "example": "Get me my latest budget",
   "description": "Personal finance agent for YNAB budget analysis and financial summaries."
@@ -83,7 +83,7 @@ The installer discovers this agent from [agent.json](agent.json):
 The installer creates:
 
 ```text
-%LOCALAPPDATA%\Agents\bin\Nick.cmd
+%LOCALAPPDATA%\Agents\bin\Midas.cmd
 ```
 
 It also adds that folder to the current user's `PATH`. Open a new terminal after installing.
@@ -91,19 +91,19 @@ It also adds that folder to the current user's `PATH`. Open a new terminal after
 Then run:
 
 ```powershell
-Nick "Get me my latest budget"
+Midas "Get me my latest budget"
 ```
 
 Unquoted requests work too:
 
 ```powershell
-Nick Get me my latest budget
+Midas Get me my latest budget
 ```
 
-If the current terminal cannot find `Nick` yet, open a new terminal or call the launcher directly:
+If the current terminal cannot find `Midas` yet, open a new terminal or call the launcher directly:
 
 ```powershell
-& "$env:LOCALAPPDATA\Agents\bin\Nick.cmd" "Get me my latest budget"
+& "$env:LOCALAPPDATA\Agents\bin\Midas.cmd" "Get me my latest budget"
 ```
 
 For installer internals, update notes, and uninstall instructions, see [../../install/README.md](../../install/README.md).
@@ -134,7 +134,7 @@ Run agent capabilities through `agent.py`.
 From the repository root:
 
 ```powershell
-python agents\personal-cfo\agent.py ask "Hey Nick, get me my latest budget."
+python agents\midas\agent.py ask "Hey Midas, get me my latest budget."
 ```
 
 The `ask` command routes natural-language requests to the best available capability.
@@ -142,25 +142,25 @@ The `ask` command routes natural-language requests to the best available capabil
 You can also call capabilities directly:
 
 ```powershell
-python agents\personal-cfo\agent.py hello-world
+python agents\midas\agent.py hello-world
 ```
 
 With a custom name:
 
 ```powershell
-python agents\personal-cfo\agent.py hello-world --name "Nick"
+python agents\midas\agent.py hello-world --name "Midas"
 ```
 
 Latest budget summary:
 
 ```powershell
-python agents\personal-cfo\agent.py ynab-budget-summary
+python agents\midas\agent.py ynab-budget-summary
 ```
 
 After running the user-local installer, you can call this agent from any new terminal:
 
 ```powershell
-Nick "Get me my latest budget"
+Midas "Get me my latest budget"
 ```
 
 The `hello-world` capability also tests the YNAB API connection by loading `YNAB_ACCESS_TOKEN` from the repository root `.env` file and calling the YNAB plans endpoint.
@@ -170,7 +170,7 @@ If the token is configured correctly, the command reports that the connection su
 To see available options:
 
 ```powershell
-python agents\personal-cfo\agent.py --help
+python agents\midas\agent.py --help
 ```
 
 ## Run The Sample Capability Directly
@@ -180,20 +180,20 @@ The `hello-world` capability is the first executable Python capability for this 
 From the repository root, run:
 
 ```powershell
-python agents\personal-cfo\capabilities\hello-world\hello_world.py
+python agents\midas\capabilities\hello-world\hello_world.py
 ```
 
 With a custom name:
 
 ```powershell
-python agents\personal-cfo\capabilities\hello-world\hello_world.py --name "Nick"
+python agents\midas\capabilities\hello-world\hello_world.py --name "Midas"
 ```
 
 Expected output:
 
 ```text
-Hello, Nick.
-Personal CFO is ready to review your financial life.
+Hello, Midas.
+Midas is ready to review your financial life.
 YNAB connection succeeded. Found <count> plan(s).
 ```
 

@@ -1,4 +1,4 @@
-"""Minimal YNAB API client for read-only Personal CFO capabilities."""
+"""Minimal YNAB API client for read-only Midas capabilities."""
 
 from __future__ import annotations
 

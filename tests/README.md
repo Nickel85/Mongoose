@@ -44,7 +44,7 @@ powershell -ExecutionPolicy Bypass -File .\tests\install-validation.ps1
 This test verifies:
 
 - `install.cmd` exists.
-- `install/install-nick.ps1` exists.
+- `install/install-agent.ps1` exists.
 - every real agent directory has an `agent.json`.
 - template directories beginning with `_` are ignored.
 - each manifest has `commandName`, `displayName`, `entrypointPath`, `example`, and `description`.
@@ -80,9 +80,9 @@ This test verifies:
 - `mongoose --help` includes install and update guidance.
 - `mongoose list` discovers available agents from `agent.json`.
 - installing a missing agent fails and prints available agents.
-- `mongoose install Nick` creates a user-local `Nick.cmd` launcher.
+- `mongoose install Midas` creates a user-local `Midas.cmd` launcher.
 - the generated launcher calls the agent through `ask`.
-- `mongoose uninstall Nick` removes the launcher.
+- `mongoose uninstall Midas` removes the launcher.
 
 The test uses `.test-localappdata-mongoose/` as a temporary local AppData substitute. That folder is ignored by Git.
 
@@ -104,9 +104,9 @@ powershell -ExecutionPolicy Bypass -File .\tests\mongoose-exe-smoke.ps1
 This test verifies the built executable can:
 
 - run `mongoose setup` against the local repo.
-- run `mongoose list` and discover `Nick`.
-- run `mongoose install Nick` and create `Nick.cmd`.
-- run `mongoose uninstall Nick` and remove `Nick.cmd`.
+- run `mongoose list` and discover `Midas`.
+- run `mongoose install Midas` and create `Midas.cmd`.
+- run `mongoose uninstall Midas` and remove `Midas.cmd`.
 - run `mongoose update` against a local Git-backed registry URL and clone the registry.
 
 The test uses `.test-localappdata-mongoose-exe/` and `.test-mongoose-update-registry/` as temporary folders. Both are ignored by Git.

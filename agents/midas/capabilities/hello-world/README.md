@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Provide a minimal Python capability that proves the Personal CFO agent can call a local program and connect to the YNAB API.
+Provide a minimal Python capability that proves the Midas agent can call a local program and connect to the YNAB API.
 
 This capability is intentionally simple. It is the starting pattern for future executable capabilities that read configuration, call APIs, transform data, and return structured summaries.
 
@@ -24,7 +24,7 @@ Use this capability when:
 ## Outputs
 
 - A short greeting printed to standard output.
-- A reminder that Personal CFO is ready to review finances.
+- A reminder that Midas is ready to review finances.
 - YNAB API connection status.
 
 ## Usage
@@ -45,32 +45,32 @@ python --version
 Preferred agent-level command from the repository root:
 
 ```powershell
-python agents\personal-cfo\agent.py hello-world
+python agents\midas\agent.py hello-world
 ```
 
 With a custom name:
 
 ```powershell
-python agents\personal-cfo\agent.py hello-world --name "Nick"
+python agents\midas\agent.py hello-world --name "Midas"
 ```
 
 You can also run the capability directly:
 
 ```powershell
-python agents\personal-cfo\capabilities\hello-world\hello_world.py
+python agents\midas\capabilities\hello-world\hello_world.py
 ```
 
 With a custom name:
 
 ```powershell
-python agents\personal-cfo\capabilities\hello-world\hello_world.py --name "Nick"
+python agents\midas\capabilities\hello-world\hello_world.py --name "Midas"
 ```
 
 Expected output:
 
 ```text
-Hello, Nick.
-Personal CFO is ready to review your financial life.
+Hello, Midas.
+Midas is ready to review your financial life.
 YNAB connection succeeded. Found <count> plan(s).
 ```
 
@@ -84,7 +84,7 @@ If `.env` does not contain `YNAB_ACCESS_TOKEN`, the command exits with an error 
 4. Run:
 
 ```powershell
-python agents\personal-cfo\agent.py hello-world --name "Nick"
+python agents\midas\agent.py hello-world --name "Midas"
 ```
 
 ### Help
@@ -92,13 +92,13 @@ python agents\personal-cfo\agent.py hello-world --name "Nick"
 To see agent-level command options:
 
 ```powershell
-python agents\personal-cfo\agent.py --help
+python agents\midas\agent.py --help
 ```
 
 To see direct capability options:
 
 ```powershell
-python agents\personal-cfo\capabilities\hello-world\hello_world.py --help
+python agents\midas\capabilities\hello-world\hello_world.py --help
 ```
 
 ## Constraints

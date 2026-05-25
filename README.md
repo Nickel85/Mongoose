@@ -6,7 +6,7 @@ Repository of agents for personal use. Each agent is compartmentalized in its ow
 
 | Agent | Description | Documentation |
 | --- | --- | --- |
-| Personal CFO | Personal finance agent for YNAB budget analysis, financial summaries, and future recommendations. | [agents/personal-cfo/README.md](agents/personal-cfo/README.md) |
+| Midas | Personal finance agent for YNAB budget analysis, financial summaries, and future recommendations. | [agents/midas/README.md](agents/midas/README.md) |
 
 ## Structure
 
@@ -55,8 +55,8 @@ Then use:
 
 ```powershell
 mongoose list
-mongoose install Nick
-mongoose uninstall Nick
+mongoose install Midas
+mongoose uninstall Midas
 mongoose update
 ```
 
@@ -70,7 +70,7 @@ If the requested agent does not exist, the installer prints the available agent 
 
 Each agent README contains the agent-specific install name, configuration, examples, and any extra setup:
 
-- [Personal CFO install instructions](agents/personal-cfo/README.md)
+- [Midas install instructions](agents/midas/README.md)
 
 Installers should not require administrator privileges. User-local command shims, configuration files, and secrets should stay scoped to the current user wherever possible.
 
@@ -100,10 +100,10 @@ GitHub Actions also smoke-tests the built executable by running `mongoose list`,
 ## Directory Guide
 
 - `agents/`: All agent definitions.
-- `agents/personal-cfo/`: Personal finance agent for analyzing YNAB budget data.
-- `agents/personal-cfo/agent.json`: Install metadata for the `Nick` command.
-- `agents/personal-cfo/agent.py`: Personal CFO command-line entrypoint.
-- `agents/personal-cfo/router.py`: Natural-language request router.
+- `agents/midas/`: Personal finance agent for analyzing YNAB budget data.
+- `agents/midas/agent.json`: Install metadata for the `Midas` command.
+- `agents/midas/agent.py`: Midas command-line entrypoint.
+- `agents/midas/router.py`: Natural-language request router.
 - `install.cmd`: One-file no-admin installer for installable agents.
 - `install/`: User-local installer support scripts.
 - `mongoose/`: Package-manager CLI and launcher source.

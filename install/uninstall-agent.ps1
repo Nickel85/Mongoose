@@ -1,11 +1,11 @@
 <#
 .SYNOPSIS
-Removes the user-local Nick command installed by install-nick.ps1.
+Removes the user-local Midas command installed by install-agent.ps1.
 #>
 
 [CmdletBinding()]
 param(
-    [string]$AgentName = "Nick"
+    [string]$AgentName = "Midas"
 )
 
 $ErrorActionPreference = "Stop"

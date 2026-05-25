@@ -17,7 +17,7 @@ from typing import Any
 APP_ROOT = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "Agents" / "mongoose"
 CONFIG_PATH = APP_ROOT / "config.json"
 USER_BIN = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "Agents" / "bin"
-DEFAULT_REGISTRY_URL = "https://github.com/Nickel85/Agents.git"
+DEFAULT_REGISTRY_URL = "https://github.com/Midasel85/Agents.git"
 
 
 def configure_output() -> None:
@@ -232,15 +232,15 @@ def cmd_update(_: argparse.Namespace) -> int:
 def build_parser() -> argparse.ArgumentParser:
     examples = """examples:
   mongoose list
-  mongoose install Nick
-  mongoose uninstall Nick
+  mongoose install Midas
+  mongoose uninstall Midas
   mongoose update
   mongoose setup --registry-root C:\\path\\to\\Agents
 
 workflow:
   1. Run `mongoose list` to see available agents.
   2. Run `mongoose install <agent>` to install one as a command.
-  3. Run the installed agent command, such as `Nick "Get me my latest budget"`.
+  3. Run the installed agent command, such as `Midas "Get me my latest budget"`.
   4. Run `mongoose update` to pull registry changes from GitHub.
 """
     parser = argparse.ArgumentParser(
@@ -273,7 +273,7 @@ workflow:
         help="Install an agent as a user-local command.",
         description="Install an agent command into the user-local Agents bin directory.",
     )
-    install.add_argument("agent", help="Agent commandName to install, such as Nick.")
+    install.add_argument("agent", help="Agent commandName to install, such as Midas.")
     install.set_defaults(handler=cmd_install)
 
     uninstall = subparsers.add_parser(
@@ -281,7 +281,7 @@ workflow:
         help="Uninstall a user-local agent command.",
         description="Remove an installed agent command from the user-local Agents bin directory.",
     )
-    uninstall.add_argument("agent", help="Agent commandName to remove, such as Nick.")
+    uninstall.add_argument("agent", help="Agent commandName to remove, such as Midas.")
     uninstall.set_defaults(handler=cmd_uninstall)
 
     update = subparsers.add_parser(

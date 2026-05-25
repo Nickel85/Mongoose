@@ -1,6 +1,6 @@
 {
-  "commandName": "Nick",
-  "displayName": "Personal CFO",
+  "commandName": "Midas",
+  "displayName": "Midas",
   "entrypointPath": "agent.py",
   "example": "Get me my latest budget",
   "description": "Personal finance agent for YNAB budget analysis and financial summaries."

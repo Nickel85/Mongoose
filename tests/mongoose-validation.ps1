@@ -46,30 +46,30 @@ Assert-True ($setup.ExitCode -eq 0) "mongoose setup failed. Output: $($setup.Out
 
 $help = Invoke-Mongoose -Arguments @("--help")
 Assert-True ($help.ExitCode -eq 0) "mongoose --help failed. Output: $($help.Output)"
-Assert-True ($help.Output -match "mongoose install Nick") "mongoose --help did not include install example."
+Assert-True ($help.Output -match "mongoose install Midas") "mongoose --help did not include install example."
 Assert-True ($help.Output -match "mongoose update") "mongoose --help did not include update guidance."
 
 $list = Invoke-Mongoose -Arguments @("list")
 Assert-True ($list.ExitCode -eq 0) "mongoose list failed. Output: $($list.Output)"
-Assert-True ($list.Output -match "Nick") "mongoose list did not include Nick."
+Assert-True ($list.Output -match "Midas") "mongoose list did not include Midas."
 
 $missing = Invoke-Mongoose -Arguments @("install", "DefinitelyMissingAgent")
 Assert-True ($missing.ExitCode -ne 0) "mongoose install unexpectedly succeeded for a missing agent."
 Assert-True ($missing.Output -match "does not exist") "missing-agent output did not explain the failure."
 Assert-True ($missing.Output -match "Available agents") "missing-agent output did not list available agents."
 
-$install = Invoke-Mongoose -Arguments @("install", "Nick")
-Assert-True ($install.ExitCode -eq 0) "mongoose install Nick failed. Output: $($install.Output)"
+$install = Invoke-Mongoose -Arguments @("install", "Midas")
+Assert-True ($install.ExitCode -eq 0) "mongoose install Midas failed. Output: $($install.Output)"
 
-$launcherPath = Join-Path $testLocalAppData "Agents\bin\Nick.cmd"
-Assert-True (Test-Path $launcherPath) "mongoose did not create Nick launcher."
+$launcherPath = Join-Path $testLocalAppData "Agents\bin\Midas.cmd"
+Assert-True (Test-Path $launcherPath) "mongoose did not create Midas launcher."
 
 $launcher = Get-Content -Raw -Path $launcherPath
-Assert-True ($launcher -match "\sask\s") "Nick launcher does not call ask."
-Assert-True ($launcher -match "personal-cfo") "Nick launcher does not point at Personal CFO."
+Assert-True ($launcher -match "\sask\s") "Midas launcher does not call ask."
+Assert-True ($launcher -match "midas") "Midas launcher does not point at Midas."
 
-$uninstall = Invoke-Mongoose -Arguments @("uninstall", "Nick")
-Assert-True ($uninstall.ExitCode -eq 0) "mongoose uninstall Nick failed. Output: $($uninstall.Output)"
-Assert-True (-not (Test-Path $launcherPath)) "mongoose uninstall did not remove Nick launcher."
+$uninstall = Invoke-Mongoose -Arguments @("uninstall", "Midas")
+Assert-True ($uninstall.ExitCode -eq 0) "mongoose uninstall Midas failed. Output: $($uninstall.Output)"
+Assert-True (-not (Test-Path $launcherPath)) "mongoose uninstall did not remove Midas launcher."
 
 Write-Host "Mongoose validation passed."

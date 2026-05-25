@@ -1,4 +1,4 @@
-"""Natural-language request routing for Personal CFO."""
+"""Natural-language request routing for Midas."""
 
 from __future__ import annotations
 
@@ -42,6 +42,6 @@ def route_request(request: str) -> Route:
 
     return Route(
         capability="ynab-budget-summary",
-        reason="Defaulting to the financial summary capability for Personal CFO.",
+        reason="Defaulting to the financial summary capability for Midas.",
     )
 

@@ -2,14 +2,14 @@
 setlocal
 
 set "SCRIPT_DIR=%~dp0"
-set "INSTALLER=%SCRIPT_DIR%install\install-nick.ps1"
+set "INSTALLER=%SCRIPT_DIR%install\install-agent.ps1"
 set "AGENT_NAME=%~1"
 
 if "%AGENT_NAME%"=="" (
     echo Usage: install.cmd ^<agent-name^>
     echo.
     echo Available agents:
-    echo   Nick
+    echo   Midas
     exit /b 1
 )
 
