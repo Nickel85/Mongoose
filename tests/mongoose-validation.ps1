@@ -48,6 +48,14 @@ $help = Invoke-Mongoose -Arguments @("--help")
 Assert-True ($help.ExitCode -eq 0) "mongoose --help failed. Output: $($help.Output)"
 Assert-True ($help.Output -match "mongoose install Midas") "mongoose --help did not include install example."
 Assert-True ($help.Output -match "mongoose update") "mongoose --help did not include update guidance."
+Assert-True ($help.Output -match "mongoose state --init") "mongoose --help did not include state guidance."
+
+$state = Invoke-Mongoose -Arguments @("state", "--init", "--json")
+Assert-True ($state.ExitCode -eq 0) "mongoose state failed. Output: $($state.Output)"
+$statePaths = $state.Output | ConvertFrom-Json
+Assert-True (Test-Path $statePaths.state) "mongoose state did not create the shared state directory."
+Assert-True (Test-Path $statePaths.logs) "mongoose state did not create the log directory."
+Assert-True (Test-Path $statePaths.jobs) "mongoose state did not create the jobs directory."
 
 $list = Invoke-Mongoose -Arguments @("list")
 Assert-True ($list.ExitCode -eq 0) "mongoose list failed. Output: $($list.Output)"

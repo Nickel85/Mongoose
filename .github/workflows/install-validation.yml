@@ -21,3 +21,7 @@ jobs:
         shell: pwsh
         run: ./tests/mongoose-validation.ps1
 
+      - name: Validate mongoose local state
+        shell: pwsh
+        run: python ./tests/mongoose-state-validation.py
+

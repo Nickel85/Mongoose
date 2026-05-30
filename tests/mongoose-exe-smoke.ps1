@@ -70,6 +70,13 @@ $env:LOCALAPPDATA = $testLocalAppData
 $setup = Invoke-MongooseExe -Arguments @("setup", "--registry-root", $repoRoot)
 Assert-True ($setup.ExitCode -eq 0) "mongoose setup failed. Output: $($setup.Output)"
 
+$state = Invoke-MongooseExe -Arguments @("state", "--init", "--json")
+Assert-True ($state.ExitCode -eq 0) "mongoose state failed. Output: $($state.Output)"
+$statePaths = $state.Output | ConvertFrom-Json
+Assert-True (Test-Path $statePaths.state) "mongoose state did not create the shared state directory."
+Assert-True (Test-Path $statePaths.logs) "mongoose state did not create the log directory."
+Assert-True (Test-Path $statePaths.jobs) "mongoose state did not create the jobs directory."
+
 $list = Invoke-MongooseExe -Arguments @("list")
 Assert-True ($list.ExitCode -eq 0) "mongoose list failed. Output: $($list.Output)"
 Assert-True ($list.Output -match "Midas") "mongoose list did not include Midas."

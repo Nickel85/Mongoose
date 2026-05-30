@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timedelta, timezone
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -14,10 +16,28 @@ from pathlib import Path
 from typing import Any
 
 
-APP_ROOT = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "Agents" / "mongoose"
+AGENTS_ROOT = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "Agents"
+APP_ROOT = AGENTS_ROOT / "mongoose"
 CONFIG_PATH = APP_ROOT / "config.json"
-USER_BIN = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "Agents" / "bin"
+USER_BIN = AGENTS_ROOT / "bin"
+STATE_ROOT = AGENTS_ROOT / "state"
+LOG_ROOT = AGENTS_ROOT / "logs"
+JOBS_ROOT = STATE_ROOT / "jobs"
+AGENT_STATE_ROOT = STATE_ROOT / "agents"
+NON_SECRET_CONFIG_ROOT = STATE_ROOT / "config"
 DEFAULT_REGISTRY_URL = "https://github.com/Midasel85/Agents.git"
+DEFAULT_LOG_RETENTION_DAYS = 30
+SECRET_KEYWORDS = (
+    "access_token",
+    "api_key",
+    "authorization",
+    "password",
+    "secret",
+    "token",
+)
+SECRET_TEXT_PATTERN = re.compile(
+    r"(?i)\b(access_token|api_key|authorization|password|secret|token)\s*[:=]\s*([^\s,;]+)"
+)
 
 
 def configure_output() -> None:
@@ -34,12 +54,117 @@ def load_config() -> dict[str, Any]:
             "registryPath": str(APP_ROOT / "registry" / "Agents"),
         }
 
-    return json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+    return read_json(CONFIG_PATH)
 
 
 def save_config(config: dict[str, Any]) -> None:
-    APP_ROOT.mkdir(parents=True, exist_ok=True)
-    CONFIG_PATH.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+    write_json_atomic(CONFIG_PATH, config)
+
+
+def state_contract() -> dict[str, str]:
+    return {
+        "root": str(AGENTS_ROOT),
+        "bin": str(USER_BIN),
+        "mongoose": str(APP_ROOT),
+        "mongooseConfig": str(CONFIG_PATH),
+        "registry": str(APP_ROOT / "registry" / "Agents"),
+        "state": str(STATE_ROOT),
+        "nonSecretConfig": str(NON_SECRET_CONFIG_ROOT),
+        "agentState": str(AGENT_STATE_ROOT),
+        "jobs": str(JOBS_ROOT),
+        "logs": str(LOG_ROOT),
+    }
+
+
+def ensure_state_layout() -> dict[str, str]:
+    paths = state_contract()
+    for key, value in paths.items():
+        path = Path(value)
+        if key == "mongooseConfig":
+            path.parent.mkdir(parents=True, exist_ok=True)
+        elif key == "registry":
+            path.parent.mkdir(parents=True, exist_ok=True)
+        else:
+            path.mkdir(parents=True, exist_ok=True)
+    return paths
+
+
+def atomic_write_text(path: Path, content: str, encoding: str = "utf-8") -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp_path = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    try:
+        temp_path.write_text(content, encoding=encoding)
+        os.replace(temp_path, path)
+    finally:
+        if temp_path.exists():
+            temp_path.unlink()
+
+
+def read_json(path: Path, default: Any | None = None) -> Any:
+    if not path.exists():
+        return default
+
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Could not read JSON file: {path}") from exc
+
+
+def write_json_atomic(path: Path, data: Any) -> None:
+    atomic_write_text(path, json.dumps(data, indent=2, sort_keys=True) + "\n")
+
+
+def is_secret_key(key: str) -> bool:
+    normalized = key.lower().replace("-", "_")
+    return any(keyword in normalized for keyword in SECRET_KEYWORDS)
+
+
+def redact_secrets(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {
+            key: "[redacted]" if is_secret_key(str(key)) else redact_secrets(item)
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [redact_secrets(item) for item in value]
+    return value
+
+
+def redact_secret_text(message: str) -> str:
+    return SECRET_TEXT_PATTERN.sub(lambda match: f"{match.group(1)}=[redacted]", message)
+
+
+def append_log(component: str, message: str, level: str = "INFO", **metadata: Any) -> Path:
+    ensure_state_layout()
+    safe_component = re.sub(r"[^A-Za-z0-9_.-]+", "-", component).strip(".-") or "mongoose"
+    log_path = LOG_ROOT / f"{safe_component}.jsonl"
+    record = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "level": level.upper(),
+        "component": safe_component,
+        "message": redact_secret_text(message),
+    }
+    if metadata:
+        record["metadata"] = redact_secrets(metadata)
+    with log_path.open("a", encoding="utf-8") as file:
+        file.write(json.dumps(record, sort_keys=True) + "\n")
+    return log_path
+
+
+def cleanup_logs(retention_days: int = DEFAULT_LOG_RETENTION_DAYS) -> list[Path]:
+    if retention_days < 0:
+        raise ValueError("retention_days must be zero or greater")
+    if not LOG_ROOT.exists():
+        return []
+
+    cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
+    removed: list[Path] = []
+    for log_path in LOG_ROOT.glob("*.jsonl"):
+        modified = datetime.fromtimestamp(log_path.stat().st_mtime, timezone.utc)
+        if modified < cutoff:
+            log_path.unlink()
+            removed.append(log_path)
+    return removed
 
 
 def registry_path(config: dict[str, Any]) -> Path:
@@ -120,6 +245,7 @@ def local_registry_source(registry_url: str) -> Path | None:
 
 
 def cmd_setup(args: argparse.Namespace) -> int:
+    ensure_state_layout()
     registry_root = Path(args.registry_root).expanduser().resolve()
     config = {
         "registryUrl": args.registry_url,
@@ -134,6 +260,23 @@ def cmd_setup(args: argparse.Namespace) -> int:
     print("")
     print("Try:")
     print("mongoose list")
+    return 0
+
+
+def cmd_state(args: argparse.Namespace) -> int:
+    paths = ensure_state_layout() if args.init else state_contract()
+    if args.cleanup_logs:
+        removed = cleanup_logs(args.log_retention_days)
+        print(f"Removed {len(removed)} expired log file(s).")
+        print("")
+
+    if args.json:
+        print(json.dumps(paths, indent=2, sort_keys=True))
+        return 0
+
+    print("Mongoose local state:")
+    for name, path in paths.items():
+        print(f"  {name}: {path}")
     return 0
 
 
@@ -235,6 +378,7 @@ def build_parser() -> argparse.ArgumentParser:
   mongoose install Midas
   mongoose uninstall Midas
   mongoose update
+  mongoose state --init
   mongoose setup --registry-root C:\\path\\to\\Agents
 
 workflow:
@@ -259,6 +403,26 @@ workflow:
     setup.add_argument("--registry-root", required=True, help="Local registry checkout path.")
     setup.add_argument("--registry-url", default=DEFAULT_REGISTRY_URL, help="Git registry URL.")
     setup.set_defaults(handler=cmd_setup)
+
+    state = subparsers.add_parser(
+        "state",
+        help="Show or initialize local Mongoose state paths.",
+        description="Show the shared user-local state, config, job, and log paths used by Mongoose.",
+    )
+    state.add_argument("--init", action="store_true", help="Create the local state directory layout.")
+    state.add_argument("--json", action="store_true", help="Print paths as JSON.")
+    state.add_argument(
+        "--cleanup-logs",
+        action="store_true",
+        help="Remove JSONL log files older than the retention period.",
+    )
+    state.add_argument(
+        "--log-retention-days",
+        type=int,
+        default=DEFAULT_LOG_RETENTION_DAYS,
+        help="Number of days of logs to keep when --cleanup-logs is used.",
+    )
+    state.set_defaults(handler=cmd_state)
 
     list_parser = subparsers.add_parser(
         "list",
@@ -298,7 +462,11 @@ def main() -> int:
     configure_output()
     parser = build_parser()
     args = parser.parse_args()
-    return args.handler(args)
+    try:
+        return args.handler(args)
+    except ValueError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":

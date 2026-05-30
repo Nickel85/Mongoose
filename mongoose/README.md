@@ -91,6 +91,40 @@ mongoose update
 
 `mongoose update` uses the configured registry path. If the registry is a Git checkout, it runs `git pull --ff-only`. If the configured registry path does not exist, it clones the configured GitHub registry URL.
 
+Show the user-local state contract:
+
+```powershell
+mongoose state
+mongoose state --init --json
+```
+
+`mongoose state --init` creates the shared no-admin directory layout under `%LOCALAPPDATA%\Agents`.
+
+## Local State
+
+Mongoose keeps user-local state outside the repository so install metadata, runtime files, logs, and future agent configuration do not need administrator access and do not get committed by accident.
+
+The shared layout is:
+
+```text
+%LOCALAPPDATA%\Agents\
+  bin\                 Installed command shims and mongoose.exe
+  mongoose\            Mongoose CLI config and registry metadata
+    config.json        Registry configuration
+    registry\Agents\   Default cloned registry location
+  state\
+    config\            Non-secret shared configuration
+    agents\            Agent-scoped local state
+    jobs\              Future job metadata
+  logs\                JSONL logs
+```
+
+Only non-secret configuration belongs under `state\config`. Access tokens, API keys, passwords, and other credentials should stay in environment variables or future secret storage. Mongoose redacts secret-like keys and `token=value` style text before writing structured logs.
+
+Logs are JSONL files under `%LOCALAPPDATA%\Agents\logs`. Use `mongoose state --cleanup-logs` to remove log files older than the default 30-day retention window. Pass `--log-retention-days <days>` to use a different retention window.
+
+To reset local Mongoose state, uninstall agent commands first if needed, then remove `%LOCALAPPDATA%\Agents`. Reinstall with `install-mongoose.cmd` or rerun `mongoose setup`.
+
 ## Registry
 
 Mongoose reads installable agents from:
