@@ -10,6 +10,7 @@ __pycache__/
 # Test artifacts
 .test-localappdata/
 .test-localappdata-mongoose/
+.test-localappdata-mongoose-state/
 .test-localappdata-exe/
 .test-localappdata-mongoose-exe/
 .test-mongoose-update-registry/

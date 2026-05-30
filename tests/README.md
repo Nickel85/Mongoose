@@ -78,6 +78,7 @@ This test verifies:
 - the Python-backed `mongoose` CLI exists.
 - `mongoose setup` writes configuration against the local repo.
 - `mongoose --help` includes install and update guidance.
+- `mongoose state --init --json` reports and creates shared local state paths.
 - `mongoose list` discovers available agents from `agent.json`.
 - installing a missing agent fails and prints available agents.
 - `mongoose install Midas` creates a user-local `Midas.cmd` launcher.
@@ -85,6 +86,32 @@ This test verifies:
 - `mongoose uninstall Midas` removes the launcher.
 
 The test uses `.test-localappdata-mongoose/` as a temporary local AppData substitute. That folder is ignored by Git.
+
+## Mongoose State Validation
+
+Script:
+
+```text
+tests/mongoose-state-validation.py
+```
+
+Run locally from the repository root:
+
+```powershell
+python .\tests\mongoose-state-validation.py
+```
+
+This test verifies:
+
+- shared state directories are created under `%LOCALAPPDATA%\Agents`.
+- atomic JSON writes round trip through the helper API.
+- missing JSON files can return a caller-provided default.
+- corrupted JSON raises an error that includes the file path.
+- secret-like keys and log messages are redacted.
+- expired JSONL log files are removed by retention cleanup.
+- `mongoose state --init --json` reports the expected path contract.
+
+The test uses `.test-localappdata-mongoose-state/` as a temporary local AppData substitute. That folder is ignored by Git.
 
 ## Mongoose EXE Smoke
 
