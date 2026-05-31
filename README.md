@@ -72,6 +72,15 @@ Installed agent metadata is stored under `%LOCALAPPDATA%\Agents\state\agents`. R
 
 If the requested agent does not exist, Mongoose prints the available agent names.
 
+Manifests can also declare capability metadata, supported task types, configuration requirements, compatibility constraints, and optional LLM needs. Mongoose reads that metadata without importing agent code:
+
+```powershell
+mongoose validate
+mongoose show Njord
+```
+
+Secrets do not belong in manifests. Manifests should reference configuration names such as `YNAB_ACCESS_TOKEN`; actual tokens stay in environment variables, user-local config, or future Mongoose secret/profile storage.
+
 Each agent README contains the agent-specific install name, configuration, examples, and any extra setup:
 
 - [Njord install instructions](agents/njord/README.md)

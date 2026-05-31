@@ -27,10 +27,26 @@ function Assert-True {
 function Invoke-Mongoose {
     param([string[]]$Arguments)
 
-    $output = & python $mongooseCli @Arguments 2>&1
+    $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+    $startInfo.FileName = "python"
+    $quotedArguments = @('"' + ($mongooseCli -replace '"', '\"') + '"') + ($Arguments | ForEach-Object {
+        '"' + ($_ -replace '"', '\"') + '"'
+    })
+    $startInfo.Arguments = $quotedArguments -join " "
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = $true
+    $startInfo.UseShellExecute = $false
+
+    $process = New-Object System.Diagnostics.Process
+    $process.StartInfo = $startInfo
+    [void]$process.Start()
+    $stdout = $process.StandardOutput.ReadToEnd()
+    $stderr = $process.StandardError.ReadToEnd()
+    $process.WaitForExit()
+
     return [pscustomobject]@{
-        ExitCode = $LASTEXITCODE
-        Output = ($output | Out-String)
+        ExitCode = $process.ExitCode
+        Output = ($stdout + $stderr)
     }
 }
 
@@ -72,6 +88,44 @@ print("ARGS=" + "|".join(sys.argv[1:]))
     return $agentDirectory
 }
 
+function New-InvalidFixtureAgent {
+    $agentDirectory = Join-Path $fixtureRoot "agents\invalid"
+    New-Item -ItemType Directory -Path $agentDirectory -Force | Out-Null
+    Set-Content -Path (Join-Path $agentDirectory "agent.py") -Value "print('invalid')" -Encoding ASCII
+    $manifest = @{
+        commandName = "Invalid"
+        displayName = "Invalid"
+        entrypointPath = "missing.py"
+        example = "invalid"
+        description = "Invalid fixture."
+        capabilities = @(
+            @{
+                name = "broken"
+                description = "Broken fixture."
+                taskTypes = "not-a-list"
+            }
+        )
+    } | ConvertTo-Json -Depth 5
+    Set-Content -Path (Join-Path $agentDirectory "agent.json") -Value $manifest -Encoding ASCII
+    return $agentDirectory
+}
+
+function New-UnsupportedSchemaFixtureAgent {
+    $agentDirectory = Join-Path $fixtureRoot "agents\unsupported-schema"
+    New-Item -ItemType Directory -Path $agentDirectory -Force | Out-Null
+    Set-Content -Path (Join-Path $agentDirectory "agent.py") -Value "print('unsupported schema')" -Encoding ASCII
+    $manifest = @{
+        schemaVersion = 999
+        commandName = "UnsupportedSchema"
+        displayName = "Unsupported Schema"
+        entrypointPath = "agent.py"
+        example = "unsupported"
+        description = "Fixture with a manifest schema newer than this Mongoose supports."
+    } | ConvertTo-Json -Depth 5
+    Set-Content -Path (Join-Path $agentDirectory "agent.json") -Value $manifest -Encoding ASCII
+    return $agentDirectory
+}
+
 Assert-True (Test-Path $mongooseCli) "mongoose CLI is missing."
 
 if (Test-Path $testLocalAppData) {
@@ -83,6 +137,7 @@ if (Test-Path $fixtureRoot) {
 New-Item -ItemType Directory -Path $testLocalAppData -Force | Out-Null
 $alphaPath = New-FixtureAgent -Name "Alpha" -Description "Alpha fixture agent."
 $betaPath = New-FixtureAgent -Name "Beta" -Description "Beta fixture agent."
+$invalidPath = New-InvalidFixtureAgent
 $env:LOCALAPPDATA = $testLocalAppData
 
 $setup = Invoke-Mongoose -Arguments @("setup", "--registry-root", $repoRoot)
@@ -93,6 +148,7 @@ Assert-True ($help.ExitCode -eq 0) "mongoose --help failed. Output: $($help.Outp
 Assert-True ($help.Output -match "mongoose install Njord") "mongoose --help did not include install example."
 Assert-True ($help.Output -match "mongoose show Njord") "mongoose --help did not include show example."
 Assert-True ($help.Output -match "mongoose run Njord") "mongoose --help did not include run example."
+Assert-True ($help.Output -match "mongoose validate") "mongoose --help did not include validate example."
 Assert-True ($help.Output -match "mongoose remove Njord") "mongoose --help did not include remove example."
 Assert-True ($help.Output -match "mongoose update") "mongoose --help did not include update guidance."
 Assert-True ($help.Output -match "mongoose state --init") "mongoose --help did not include state guidance."
@@ -107,6 +163,10 @@ Assert-True (Test-Path $statePaths.jobs) "mongoose state did not create the jobs
 $list = Invoke-Mongoose -Arguments @("list")
 Assert-True ($list.ExitCode -eq 0) "mongoose list failed. Output: $($list.Output)"
 Assert-True ($list.Output -match "Njord") "mongoose list did not include Njord."
+
+$validateRegistry = Invoke-Mongoose -Arguments @("validate")
+Assert-True ($validateRegistry.ExitCode -eq 0) "mongoose validate failed. Output: $($validateRegistry.Output)"
+Assert-True ($validateRegistry.Output -match "Validated") "mongoose validate did not report validated manifests."
 
 $missing = Invoke-Mongoose -Arguments @("install", "DefinitelyMissingAgent")
 Assert-True ($missing.ExitCode -ne 0) "mongoose install unexpectedly succeeded for a missing agent."
@@ -130,6 +190,10 @@ $showNjord = Invoke-Mongoose -Arguments @("show", "Njord")
 Assert-True ($showNjord.ExitCode -eq 0) "mongoose show Njord failed. Output: $($showNjord.Output)"
 Assert-True ($showNjord.Output -match "Status: installed") "mongoose show Njord did not report installed status."
 Assert-True ($showNjord.Output -match "Capabilities") "mongoose show Njord did not include capabilities."
+Assert-True ($showNjord.Output -match "Manifest schema: 1") "mongoose show Njord did not include manifest schema."
+Assert-True ($showNjord.Output -match "Task types: finance") "mongoose show Njord did not include task types."
+Assert-True ($showNjord.Output -match "Required config: YNAB_ACCESS_TOKEN") "mongoose show Njord did not include configuration requirements."
+Assert-True ($showNjord.Output -match "LLM mode: none") "mongoose show Njord did not include LLM metadata."
 
 $installedList = Invoke-Mongoose -Arguments @("list", "--installed")
 Assert-True ($installedList.ExitCode -eq 0) "mongoose list --installed failed. Output: $($installedList.Output)"
@@ -139,6 +203,21 @@ $uninstall = Invoke-Mongoose -Arguments @("uninstall", "Njord")
 Assert-True ($uninstall.ExitCode -eq 0) "mongoose uninstall Njord failed. Output: $($uninstall.Output)"
 Assert-True (-not (Test-Path $launcherPath)) "mongoose uninstall did not remove Njord launcher."
 Assert-True (-not (Test-Path $njordStatePath)) "mongoose uninstall did not remove Njord installed state."
+
+$validateInvalid = Invoke-Mongoose -Arguments @("validate", $invalidPath)
+Assert-True ($validateInvalid.ExitCode -ne 0) "mongoose validate unexpectedly passed invalid fixture. Output: $($validateInvalid.Output)"
+Assert-True ($validateInvalid.Output -match "Invalid agent manifest") "invalid manifest output did not identify the manifest."
+Assert-True ($validateInvalid.Output -match "entrypointPath does not exist") "invalid manifest output did not explain the missing entrypoint."
+Assert-True ($validateInvalid.Output -match "taskTypes must be a list") "invalid manifest output did not explain invalid capability taskTypes."
+
+Remove-Item -Path $invalidPath -Recurse -Force
+
+$unsupportedSchemaPath = New-UnsupportedSchemaFixtureAgent
+$validateUnsupportedSchema = Invoke-Mongoose -Arguments @("validate", $unsupportedSchemaPath)
+Assert-True ($validateUnsupportedSchema.ExitCode -ne 0) "mongoose validate unexpectedly passed unsupported schema fixture. Output: $($validateUnsupportedSchema.Output)"
+Assert-True ($validateUnsupportedSchema.Output -match "schemaVersion 999 is newer than supported version 1") "unsupported schema output did not explain the compatibility failure."
+
+Remove-Item -Path $unsupportedSchemaPath -Recurse -Force
 
 $setupFixtures = Invoke-Mongoose -Arguments @("setup", "--registry-root", $fixtureRoot)
 Assert-True ($setupFixtures.ExitCode -eq 0) "mongoose setup for fixture registry failed. Output: $($setupFixtures.Output)"

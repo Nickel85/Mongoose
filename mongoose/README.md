@@ -97,6 +97,13 @@ Show installed metadata and discovered capabilities:
 mongoose show Njord
 ```
 
+Validate manifests:
+
+```powershell
+mongoose validate
+mongoose validate agents\njord
+```
+
 Run an installed agent entrypoint through Mongoose:
 
 ```powershell
@@ -173,4 +180,79 @@ When an agent is installed, Mongoose writes a small installed-agent record under
 That record stores the manifest, source path, entrypoint, launcher path, install timestamp, version, and discovered capability metadata. It does not copy or delete the source package. `mongoose remove <agent>` removes the launcher and installed-agent record only.
 
 Capabilities are discovered from a manifest `capabilities` array when present. If the manifest does not declare capabilities yet, Mongoose falls back to listing folders under `capabilities\`. The richer manifest contract is tracked separately in issue #26.
+
+## Manifest Contract
+
+Mongoose reads `agent.json` without importing agent code. Current manifests are backward-compatible with the original required fields and may opt into richer metadata with `schemaVersion: 1`.
+
+Required fields:
+
+```json
+{
+  "commandName": "Njord",
+  "displayName": "Njord",
+  "entrypointPath": "agent.py",
+  "example": "Get me my latest budget",
+  "description": "Personal finance agent for YNAB budget analysis and financial summaries."
+}
+```
+
+Recommended metadata:
+
+```json
+{
+  "schemaVersion": 1,
+  "id": "njord",
+  "version": "0.1.0",
+  "entrypoints": {
+    "default": "agent.py"
+  },
+  "taskTypes": ["finance", "budget", "ynab"],
+  "requiredInputs": ["YNAB_ACCESS_TOKEN", "YNAB_BUDGET_ID"],
+  "configuration": {
+    "required": ["YNAB_ACCESS_TOKEN", "YNAB_BUDGET_ID"],
+    "optional": [],
+    "secretRefs": ["YNAB_ACCESS_TOKEN"]
+  },
+  "compatibility": {
+    "platforms": ["windows"],
+    "python": ">=3.11",
+    "mongooseManifestSchema": 1
+  },
+  "llm": {
+    "mode": "none",
+    "deterministicFallback": "All current capabilities run without an LLM."
+  },
+  "capabilities": [
+    {
+      "name": "ynab-budget-summary",
+      "displayName": "YNAB Budget Summary",
+      "description": "Read YNAB data and summarize the current budget state.",
+      "entrypointPath": "agent.py",
+      "taskTypes": ["finance", "budget-summary", "ynab"],
+      "requiredInputs": ["YNAB_ACCESS_TOKEN", "YNAB_BUDGET_ID"],
+      "configuration": {
+        "required": ["YNAB_ACCESS_TOKEN", "YNAB_BUDGET_ID"],
+        "optional": [],
+        "secretRefs": ["YNAB_ACCESS_TOKEN"]
+      },
+      "llm": {
+        "mode": "none",
+        "deterministicFallback": "Summary uses deterministic reads and calculations."
+      }
+    }
+  ]
+}
+```
+
+LLM metadata is descriptive only at this layer. Provider credentials and API keys must not be stored in manifests. Agents should reference configuration names or future Mongoose LLM profile names; actual secrets belong in environment variables or future Mongoose secret/profile storage.
+
+Schema version policy:
+
+- Keep `schemaVersion` unchanged for additive optional metadata that older Mongoose versions can ignore safely.
+- Increment `schemaVersion` for breaking manifest contract changes: new required fields, renamed or removed fields, changed field types or meanings, changed entrypoint invocation semantics, changed capability routing semantics, or required configuration/LLM contract changes.
+- Update `SUPPORTED_MANIFEST_SCHEMA_VERSION`, this policy, the manifest examples, and the validation tests in the same change that introduces a breaking manifest contract.
+- Mongoose rejects manifests with a `schemaVersion` newer than it supports, so agent authors get an explicit compatibility failure instead of a confusing install or runtime error.
+
+Invalid manifests fail `mongoose validate`, registry listing, installation, or show commands with actionable errors. Mongoose validates relative entrypoints, capability metadata shape, supported schema versions, and obvious secret-bearing keys.
 
