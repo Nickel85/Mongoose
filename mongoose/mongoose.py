@@ -529,6 +529,137 @@ def load_installed_agent(command_name: str) -> dict[str, Any] | None:
     return record if isinstance(record, dict) else None
 
 
+def unique_strings(values: list[str]) -> list[str]:
+    seen: set[str] = set()
+    unique: list[str] = []
+    for value in values:
+        normalized = value.lower()
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        unique.append(value)
+    return unique
+
+
+def required_configuration_names(agent: dict[str, Any], capability: dict[str, Any]) -> list[str]:
+    names: list[str] = []
+    names.extend(string_list(agent.get("requiredInputs", [])))
+    names.extend(string_list(capability.get("requiredInputs", [])))
+
+    for source in (agent.get("configuration", {}), capability.get("configuration", {})):
+        if isinstance(source, dict):
+            names.extend(string_list(source.get("required", [])))
+
+    return unique_strings(names)
+
+
+def missing_required_configuration(agent: dict[str, Any], capability: dict[str, Any]) -> list[str]:
+    return [name for name in required_configuration_names(agent, capability) if not os.environ.get(name)]
+
+
+def capability_entrypoint(agent: dict[str, Any], capability: dict[str, Any]) -> Path:
+    entrypoint_path = str(capability.get("entrypointPath", "")).strip()
+    if not entrypoint_path:
+        return Path(str(agent.get("entrypoint", "")))
+    return (Path(str(agent.get("sourcePath", ""))) / entrypoint_path).resolve()
+
+
+def installed_capability_records(installed: dict[str, dict[str, Any]] | None = None) -> list[dict[str, Any]]:
+    agents = installed if installed is not None else load_installed_agents()
+    records: list[dict[str, Any]] = []
+    for command_name, agent in sorted(agents.items()):
+        for capability in list_value(agent.get("capabilities", [])):
+            if not isinstance(capability, dict):
+                continue
+            capability_name = str(capability.get("name", "")).strip()
+            if not capability_name:
+                continue
+            task_types = unique_strings(
+                string_list(capability.get("taskTypes", [])) + string_list(agent.get("taskTypes", []))
+            )
+            records.append(
+                {
+                    "agent": agent,
+                    "agentName": command_name,
+                    "capability": capability,
+                    "capabilityName": capability_name,
+                    "displayName": str(capability.get("displayName", capability_name)).strip(),
+                    "description": str(capability.get("description", "")).strip(),
+                    "taskTypes": task_types,
+                    "entrypoint": capability_entrypoint(agent, capability),
+                }
+            )
+    return records
+
+
+def route_search_text(record: dict[str, Any]) -> str:
+    values = [
+        record["agentName"],
+        record["capabilityName"],
+        record.get("displayName", ""),
+        record.get("description", ""),
+        *record.get("taskTypes", []),
+    ]
+    return " ".join(str(value).lower() for value in values if value)
+
+
+def route_score(record: dict[str, Any], query: str) -> int:
+    normalized_query = query.lower()
+    if not normalized_query.strip():
+        return 0
+
+    text = route_search_text(record)
+    score = 0
+    for task_type in record.get("taskTypes", []):
+        normalized_task_type = task_type.lower()
+        if normalized_task_type and normalized_task_type in normalized_query:
+            score += 5
+    for token in re.findall(r"[a-z0-9][a-z0-9_-]*", normalized_query):
+        if token and token in text:
+            score += 1
+    return score
+
+
+def format_route_candidate(record: dict[str, Any]) -> str:
+    task_types = record.get("taskTypes", [])
+    suffix = f" [{', '.join(task_types)}]" if task_types else ""
+    return f"{record['agentName']}::{record['capabilityName']}{suffix}"
+
+
+def matching_route_candidates(args: argparse.Namespace) -> tuple[list[dict[str, Any]], str]:
+    capabilities = installed_capability_records()
+    if args.agent:
+        capabilities = [
+            record for record in capabilities if record["agentName"].lower() == args.agent.lower()
+        ]
+    if args.capability:
+        capabilities = [
+            record
+            for record in capabilities
+            if record["capabilityName"].lower() == args.capability.lower()
+        ]
+
+    query = " ".join(args.request or []).strip()
+    if args.task_type:
+        requested = args.task_type.lower()
+        direct_matches = [
+            record
+            for record in capabilities
+            if requested in {task_type.lower() for task_type in record.get("taskTypes", [])}
+        ]
+        if not query or len(direct_matches) <= 1:
+            return direct_matches, query
+        capabilities = direct_matches
+
+    scored = [(route_score(record, query), record) for record in capabilities]
+    scored = [(score, record) for score, record in scored if score > 0]
+    if not scored:
+        return [], query
+
+    best_score = max(score for score, _record in scored)
+    return [record for score, record in scored if score == best_score], query
+
+
 def ensure_registry(config: dict[str, Any]) -> Path:
     root = registry_path(config)
     if root.exists():
@@ -638,6 +769,29 @@ def cmd_list(args: argparse.Namespace) -> int:
         for command_name, agent in sorted(installed.items()):
             print(f"  {command_name} - {agent.get('sourcePath', '')}")
 
+    return 0
+
+
+def cmd_capabilities(_: argparse.Namespace) -> int:
+    capabilities = installed_capability_records()
+    if not capabilities:
+        print("No installed capabilities found.")
+        print("Install an agent first: mongoose install <agent>")
+        return 0
+
+    print("Installed capabilities:")
+    for record in capabilities:
+        line = f"  {format_route_candidate(record)}"
+        description = record.get("description")
+        if description:
+            line = f"{line} - {description}"
+        print(line)
+        required = required_configuration_names(record["agent"], record["capability"])
+        if required:
+            print(f"    required config: {', '.join(required)}")
+        llm = record["capability"].get("llm", {})
+        if isinstance(llm, dict) and llm.get("mode", "none") != "none":
+            print(f"    llm: {llm.get('mode')}")
     return 0
 
 
@@ -793,6 +947,75 @@ def cmd_run(args: argparse.Namespace) -> int:
     return completed.returncode
 
 
+def cmd_route(args: argparse.Namespace) -> int:
+    installed = load_installed_agents()
+    if not installed:
+        print("No installed agents found.")
+        print("Install an agent first: mongoose install <agent>")
+        return 1
+
+    all_capabilities = installed_capability_records(installed)
+    if not all_capabilities:
+        print("No installed capabilities found.")
+        print("Install agents with manifest capability metadata before routing.")
+        return 1
+
+    matches, query = matching_route_candidates(args)
+    if not matches:
+        print("No installed capability can handle that request.")
+        if args.task_type:
+            print(f"Requested task type: {args.task_type}")
+        elif query:
+            print(f"Request: {query}")
+        print("")
+        print("Installed capabilities:")
+        for record in all_capabilities:
+            print(f"  {format_route_candidate(record)}")
+        return 1
+
+    if len(matches) > 1:
+        print("Ambiguous request. More than one installed capability matched:")
+        for record in matches:
+            print(f"  {format_route_candidate(record)}")
+        print("")
+        print("Refine with --agent, --capability, or a more specific --task-type.")
+        return 1
+
+    selected = matches[0]
+    missing = missing_required_configuration(selected["agent"], selected["capability"])
+    if missing:
+        print(f"Selected {format_route_candidate(selected)}, but required configuration is missing:")
+        for name in missing:
+            print(f"  {name}")
+        print("")
+        print("Set the missing environment variables or choose another capability.")
+        return 1
+
+    llm = selected["capability"].get("llm", {})
+    if isinstance(llm, dict) and llm.get("mode") == "required":
+        print(f"Selected {format_route_candidate(selected)}, but it requires an LLM runtime.")
+        print("Mongoose LLM runtime configuration is not available yet.")
+        return 1
+
+    entrypoint = Path(str(selected["entrypoint"]))
+    if not entrypoint.exists():
+        print(f"Selected {format_route_candidate(selected)}, but its entrypoint does not exist: {entrypoint}")
+        return 1
+
+    agent_args = [selected["capabilityName"], *(args.request or [])]
+    print(f"Selected: {format_route_candidate(selected)}")
+    if args.dry_run:
+        print(f"Entrypoint: {entrypoint}")
+        print(f"Arguments: {' '.join(agent_args)}")
+        return 0
+
+    completed = subprocess.run(
+        [sys.executable, str(entrypoint), *agent_args],
+        check=False,
+    )
+    return completed.returncode
+
+
 def cmd_update(_: argparse.Namespace) -> int:
     config = load_config()
     root = registry_path(config)
@@ -858,10 +1081,12 @@ def build_parser() -> argparse.ArgumentParser:
     examples = """examples:
   mongoose list
   mongoose list --installed
+  mongoose capabilities
   mongoose install Njord
   mongoose install C:\\path\\to\\agent
   mongoose show Njord
   mongoose run Njord config status
+  mongoose route --task-type budget-summary "current budget"
   mongoose validate
   mongoose remove Njord
   mongoose update
@@ -872,8 +1097,9 @@ workflow:
   1. Run `mongoose list` to see available agents.
   2. Run `mongoose install <agent-or-path>` to install one as a command.
   3. Run `mongoose show <agent>` to inspect installed metadata and capabilities.
-  4. Run `mongoose run <agent> ...` or the installed agent command directly.
-  5. Run `mongoose update` to pull registry changes from GitHub.
+  4. Run `mongoose capabilities` to inspect routeable installed capabilities.
+  5. Run `mongoose route --task-type <type> ...` or `mongoose run <agent> ...`.
+  6. Run `mongoose update` to pull registry changes from GitHub.
 """
     parser = argparse.ArgumentParser(
         prog="mongoose",
@@ -925,6 +1151,14 @@ workflow:
     )
     list_parser.set_defaults(handler=cmd_list)
 
+    capabilities = subparsers.add_parser(
+        "capabilities",
+        aliases=["caps"],
+        help="List installed routeable capabilities.",
+        description="List capability metadata from installed agent manifests for Mongoose routing.",
+    )
+    capabilities.set_defaults(handler=cmd_capabilities)
+
     install = subparsers.add_parser(
         "install",
         help="Install an agent as a user-local command.",
@@ -962,6 +1196,29 @@ workflow:
         help="Arguments to pass to the agent entrypoint.",
     )
     run_parser.set_defaults(handler=cmd_run)
+
+    route = subparsers.add_parser(
+        "route",
+        help="Route a request to an installed agent capability.",
+        description="Select an installed agent capability by task type or request text, then dispatch to it.",
+    )
+    route.add_argument(
+        "--task-type",
+        help="Direct task classification hint, such as budget-summary or finance.",
+    )
+    route.add_argument("--agent", help="Restrict routing to one installed agent commandName.")
+    route.add_argument("--capability", help="Restrict routing to one capability name.")
+    route.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show the selected capability and invocation without running it.",
+    )
+    route.add_argument(
+        "request",
+        nargs=argparse.REMAINDER,
+        help="Request words to pass to the selected capability.",
+    )
+    route.set_defaults(handler=cmd_route)
 
     validate = subparsers.add_parser(
         "validate",

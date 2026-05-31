@@ -67,6 +67,31 @@ print("ARGS=" + "|".join(sys.argv[1:]))
 "@
     Set-Content -Path (Join-Path $agentDirectory "agent.py") -Value $agentPython -Encoding ASCII
 
+    $capabilities = @(
+        @{
+            name = "echo"
+            description = "Echo fixture arguments."
+            taskTypes = @("test", "echo")
+            entrypointPath = "agent.py"
+        }
+    )
+    if ($Name -eq "Alpha") {
+        $capabilities += @{
+            name = "plan"
+            description = "Plan fixture work."
+            taskTypes = @("planning", "work-plan")
+            entrypointPath = "agent.py"
+        }
+    }
+    if ($Name -eq "Beta") {
+        $capabilities += @{
+            name = "report"
+            description = "Build fixture reports and summaries."
+            taskTypes = @("report", "summary")
+            entrypointPath = "agent.py"
+        }
+    }
+
     $manifest = @{
         commandName = $Name
         displayName = $Name
@@ -74,14 +99,7 @@ print("ARGS=" + "|".join(sys.argv[1:]))
         entrypointPath = "agent.py"
         example = "hello from $Name"
         description = $Description
-        capabilities = @(
-            @{
-                name = "echo"
-                description = "Echo fixture arguments."
-                taskTypes = @("test", "echo")
-                entrypointPath = "agent.py"
-            }
-        )
+        capabilities = $capabilities
     } | ConvertTo-Json -Depth 5
     Set-Content -Path (Join-Path $agentDirectory "agent.json") -Value $manifest -Encoding ASCII
 
@@ -145,9 +163,11 @@ Assert-True ($setup.ExitCode -eq 0) "mongoose setup failed. Output: $($setup.Out
 
 $help = Invoke-Mongoose -Arguments @("--help")
 Assert-True ($help.ExitCode -eq 0) "mongoose --help failed. Output: $($help.Output)"
+Assert-True ($help.Output -match "mongoose capabilities") "mongoose --help did not include capabilities example."
 Assert-True ($help.Output -match "mongoose install Njord") "mongoose --help did not include install example."
 Assert-True ($help.Output -match "mongoose show Njord") "mongoose --help did not include show example."
 Assert-True ($help.Output -match "mongoose run Njord") "mongoose --help did not include run example."
+Assert-True ($help.Output -match "mongoose route") "mongoose --help did not include route example."
 Assert-True ($help.Output -match "mongoose validate") "mongoose --help did not include validate example."
 Assert-True ($help.Output -match "mongoose remove Njord") "mongoose --help did not include remove example."
 Assert-True ($help.Output -match "mongoose update") "mongoose --help did not include update guidance."
@@ -234,10 +254,45 @@ $alphaStatePath = Join-Path $testLocalAppData "Agents\state\agents\Alpha.json"
 Assert-True (Test-Path $alphaLauncher) "mongoose install by path did not create Alpha launcher."
 Assert-True (Test-Path $alphaStatePath) "mongoose install by path did not write Alpha state."
 
+$installBetaByPath = Invoke-Mongoose -Arguments @("install", $betaPath)
+Assert-True ($installBetaByPath.ExitCode -eq 0) "mongoose install by path for Beta failed. Output: $($installBetaByPath.Output)"
+$betaLauncher = Join-Path $testLocalAppData "Agents\bin\Beta.cmd"
+$betaStatePath = Join-Path $testLocalAppData "Agents\state\agents\Beta.json"
+Assert-True (Test-Path $betaLauncher) "mongoose install by path did not create Beta launcher."
+Assert-True (Test-Path $betaStatePath) "mongoose install by path did not write Beta state."
+
 $showAlpha = Invoke-Mongoose -Arguments @("show", "Alpha")
 Assert-True ($showAlpha.ExitCode -eq 0) "mongoose show Alpha failed. Output: $($showAlpha.Output)"
 Assert-True ($showAlpha.Output -match "Version: 1.0.0") "mongoose show Alpha did not include version."
 Assert-True ($showAlpha.Output -match "echo") "mongoose show Alpha did not include capability metadata."
+
+$capabilities = Invoke-Mongoose -Arguments @("capabilities")
+Assert-True ($capabilities.ExitCode -eq 0) "mongoose capabilities failed. Output: $($capabilities.Output)"
+Assert-True ($capabilities.Output -match "Alpha::echo") "mongoose capabilities did not include Alpha echo."
+Assert-True ($capabilities.Output -match "Alpha::plan") "mongoose capabilities did not include Alpha plan."
+Assert-True ($capabilities.Output -match "Beta::report") "mongoose capabilities did not include Beta report."
+
+$routeAlpha = Invoke-Mongoose -Arguments @("route", "--task-type", "work-plan", "build", "steps")
+Assert-True ($routeAlpha.ExitCode -eq 0) "mongoose route did not dispatch to Alpha. Output: $($routeAlpha.Output)"
+Assert-True ($routeAlpha.Output -match "Selected: Alpha::plan") "mongoose route did not select Alpha plan."
+Assert-True ($routeAlpha.Output -match "Alpha fixture agent") "mongoose route did not execute Alpha fixture."
+Assert-True ($routeAlpha.Output -match "ARGS=plan\|build\|steps") "mongoose route did not pass Alpha capability arguments."
+
+$routeBeta = Invoke-Mongoose -Arguments @("route", "please", "build", "a", "summary")
+Assert-True ($routeBeta.ExitCode -eq 0) "mongoose route did not dispatch to Beta from natural-language request. Output: $($routeBeta.Output)"
+Assert-True ($routeBeta.Output -match "Selected: Beta::report") "mongoose route did not select Beta report."
+Assert-True ($routeBeta.Output -match "Beta fixture agent") "mongoose route did not execute Beta fixture."
+Assert-True ($routeBeta.Output -match "ARGS=report\|please\|build\|a\|summary") "mongoose route did not pass Beta capability arguments."
+
+$ambiguousRoute = Invoke-Mongoose -Arguments @("route", "--task-type", "test", "--dry-run")
+Assert-True ($ambiguousRoute.ExitCode -ne 0) "mongoose route unexpectedly resolved an ambiguous task type. Output: $($ambiguousRoute.Output)"
+Assert-True ($ambiguousRoute.Output -match "Ambiguous request") "ambiguous route output did not explain ambiguity."
+Assert-True ($ambiguousRoute.Output -match "Alpha::echo") "ambiguous route output did not include Alpha echo."
+Assert-True ($ambiguousRoute.Output -match "Beta::echo") "ambiguous route output did not include Beta echo."
+
+$missingRoute = Invoke-Mongoose -Arguments @("route", "--task-type", "definitely-missing")
+Assert-True ($missingRoute.ExitCode -ne 0) "mongoose route unexpectedly resolved unsupported task type. Output: $($missingRoute.Output)"
+Assert-True ($missingRoute.Output -match "No installed capability can handle") "unsupported route output did not explain the failure."
 
 $runAlpha = Invoke-Mongoose -Arguments @("run", "Alpha", "echo", "hello")
 Assert-True ($runAlpha.ExitCode -eq 0) "mongoose run Alpha failed. Output: $($runAlpha.Output)"
@@ -248,6 +303,11 @@ $removeAlpha = Invoke-Mongoose -Arguments @("remove", "Alpha")
 Assert-True ($removeAlpha.ExitCode -eq 0) "mongoose remove Alpha failed. Output: $($removeAlpha.Output)"
 Assert-True (-not (Test-Path $alphaLauncher)) "mongoose remove did not remove Alpha launcher."
 Assert-True (-not (Test-Path $alphaStatePath)) "mongoose remove did not remove Alpha state."
+
+$removeBeta = Invoke-Mongoose -Arguments @("remove", "Beta")
+Assert-True ($removeBeta.ExitCode -eq 0) "mongoose remove Beta failed. Output: $($removeBeta.Output)"
+Assert-True (-not (Test-Path $betaLauncher)) "mongoose remove did not remove Beta launcher."
+Assert-True (-not (Test-Path $betaStatePath)) "mongoose remove did not remove Beta state."
 
 Write-Host "Mongoose validation passed."
 
