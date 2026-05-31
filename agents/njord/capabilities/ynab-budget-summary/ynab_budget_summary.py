@@ -1,4 +1,4 @@
-"""Read-only YNAB budget summary capability for Midas."""
+"""Read-only YNAB budget summary capability for Njord."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ AGENT_ROOT = Path(__file__).resolve().parents[2]
 if str(AGENT_ROOT) not in sys.path:
     sys.path.insert(0, str(AGENT_ROOT))
 
-from config import ynab_budget_id
+from config import ConfigFileError, current_config_snapshot
 from ynab_api import choose_plan, format_currency, get_plan, list_plans
 
 
@@ -27,6 +27,32 @@ def plan_label(plan: dict[str, Any]) -> str:
 
 
 def load_latest_summary() -> tuple[bool, str]:
+    try:
+        config = current_config_snapshot()
+    except ConfigFileError as exc:
+        return (
+            False,
+            "\n".join(
+                [
+                    str(exc),
+                    "Run 'Njord config status' after fixing the configuration file.",
+                ]
+            ),
+        )
+
+    configured_id = config["budget_id"]
+    if not config["token"]:
+        return (
+            False,
+            "YNAB_ACCESS_TOKEN is not configured. Run 'Njord config status' for setup details.",
+        )
+
+    if not configured_id:
+        return (
+            False,
+            "YNAB_BUDGET_ID is not configured. Run 'Njord config status' to validate available plans.",
+        )
+
     plans_result = list_plans()
     if not plans_result.ok:
         return False, plans_result.message
@@ -35,7 +61,6 @@ def load_latest_summary() -> tuple[bool, str]:
     if not plans:
         return False, "YNAB connection succeeded, but no plans were returned."
 
-    configured_id = ynab_budget_id()
     selected_plan = choose_plan(plans, configured_id)
     if selected_plan is None:
         return False, "No YNAB plan could be selected."
@@ -72,7 +97,7 @@ def load_latest_summary() -> tuple[bool, str]:
     ]
 
     lines = [
-        "Midas budget summary",
+        "Njord budget summary",
         f"Date: {date.today().isoformat()}",
         f"Plan: {name}",
         f"Plans available: {len(plans)}",
@@ -137,3 +162,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

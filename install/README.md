@@ -16,12 +16,12 @@ This folder contains the original direct agent installer. The preferred package-
 From the repository root:
 
 ```text
-.\install.cmd Midas
+.\install.cmd Njord
 ```
 
 The install argument is the agent name. Currently available agents:
 
-- `Midas`
+- `Njord`
 
 The installer discovers available agents by scanning:
 
@@ -35,8 +35,8 @@ An agent manifest looks like:
 
 ```json
 {
-  "commandName": "Midas",
-  "displayName": "Midas",
+  "commandName": "Njord",
+  "displayName": "Njord",
   "entrypointPath": "agent.py",
   "example": "Get me my latest budget",
   "description": "Personal finance agent for YNAB budget analysis and financial summaries."
@@ -48,13 +48,13 @@ The `commandName` must be unique across all agents because it becomes the instal
 The one-file installer calls the PowerShell installer internally:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\install\install-agent.ps1 -AgentName Midas
+powershell -ExecutionPolicy Bypass -File .\install\install-agent.ps1 -AgentName Njord
 ```
 
 The installer creates:
 
 ```text
-%LOCALAPPDATA%\Agents\bin\Midas.cmd
+%LOCALAPPDATA%\Agents\bin\Njord.cmd
 ```
 
 It also adds that folder to the current user's `PATH`. No administrator privileges are required.
@@ -64,9 +64,9 @@ It also adds that folder to the current user's `PATH`. No administrator privileg
 Clone or download this repository, then run the installer:
 
 ```powershell
-git clone https://github.com/Midasel85/Agents.git
+git clone https://github.com/Nickel85/Agents.git
 cd Agents
-.\install.cmd Midas
+.\install.cmd Njord
 ```
 
 Create `.env` from the example and add your local values:
@@ -81,25 +81,25 @@ notepad .env
 Open a new terminal, then run:
 
 ```powershell
-Midas "Get me my latest budget"
+Njord "Get me my latest budget"
 ```
 
 Unquoted requests also work:
 
 ```powershell
-Midas Get me my latest budget
+Njord Get me my latest budget
 ```
 
 Both commands call:
 
 ```powershell
-python agents\midas\agent.py ask "Get me my latest budget"
+python agents\njord\agent.py ask "Get me my latest budget"
 ```
 
-If the current terminal cannot find `Midas` yet, either open a new terminal or call the launcher directly:
+If the current terminal cannot find `Njord` yet, either open a new terminal or call the launcher directly:
 
 ```powershell
-& "$env:LOCALAPPDATA\Agents\bin\Midas.cmd" "Get me my latest budget"
+& "$env:LOCALAPPDATA\Agents\bin\Njord.cmd" "Get me my latest budget"
 ```
 
 ## Update
@@ -109,7 +109,7 @@ Pull the latest repository changes. The installed launcher points at this repo's
 If you move the repository to another folder, rerun:
 
 ```text
-.\install.cmd Midas
+.\install.cmd Njord
 ```
 
 ## Uninstall
@@ -119,3 +119,4 @@ From the repository root:
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\install\uninstall-agent.ps1
 ```
+

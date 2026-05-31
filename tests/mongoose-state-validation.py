@@ -69,7 +69,7 @@ redacted = mongoose.redact_secrets(
     {
         "YNAB_ACCESS_TOKEN": "secret-token",
         "visible": "safe",
-        "nested": {"api_key": "secret-key", "name": "Midas"},
+        "nested": {"api_key": "secret-key", "name": "Njord"},
     }
 )
 assert_true(redacted["YNAB_ACCESS_TOKEN"] == "[redacted]", "Token key was not redacted.")
@@ -77,7 +77,7 @@ assert_true(redacted["nested"]["api_key"] == "[redacted]", "API key was not reda
 assert_true(redacted["visible"] == "safe", "Non-secret key was incorrectly redacted.")
 
 log_path = mongoose.append_log(
-    "midas/config",
+    "njord/config",
     "Configured token=secret-token and password:secret-password",
     access_token="secret-token",
     visible="safe",
@@ -123,3 +123,4 @@ assert_true("Could not read JSON file" in result.stderr, "Corrupted config error
 assert_true("Traceback" not in result.stderr, "Corrupted config printed a traceback.")
 
 print("Mongoose state validation passed.")
+

@@ -20,7 +20,7 @@ Use this capability when the user asks to:
 ## Inputs
 
 - YNAB API token or OAuth access token loaded from `YNAB_ACCESS_TOKEN`.
-- Budget or plan identifier loaded from `YNAB_BUDGET_ID`, or permission to use the default budget.
+- Budget or plan identifier loaded from `YNAB_BUDGET_ID`.
 - Date range, if the user wants a specific period.
 - Optional focus area, such as income, spending, debt, savings, category groups, or cash flow.
 
@@ -44,28 +44,34 @@ The current starter implementation returns a latest budget snapshot with the sel
 From the repository root, let the agent route a natural-language request:
 
 ```powershell
-python agents\midas\agent.py ask "Hey Midas, get me my latest budget."
+python agents\njord\agent.py ask "Hey Njord, get me my latest budget."
 ```
 
 Or call the capability directly:
 
 ```powershell
-python agents\midas\agent.py ynab-budget-summary
+python agents\njord\agent.py ynab-budget-summary
 ```
 
-The command reads `YNAB_ACCESS_TOKEN` and `YNAB_BUDGET_ID` from the repository root `.env` file.
+The command reads `YNAB_ACCESS_TOKEN` and `YNAB_BUDGET_ID` from environment variables, the preferred user-local config file, or the repository root `.env` file.
+
+Check setup before running summaries:
+
+```powershell
+python agents\njord\agent.py config status
+```
 
 Example prompts that route here:
 
 ```powershell
-python agents\midas\agent.py ask "Hey Midas, get me my latest budget."
-python agents\midas\agent.py ask "What categories need my attention?"
-python agents\midas\agent.py ask "Summarize my current financial picture."
+python agents\njord\agent.py ask "Hey Njord, get me my latest budget."
+python agents\njord\agent.py ask "What categories need my attention?"
+python agents\njord\agent.py ask "Summarize my current financial picture."
 ```
 
 ## Workflow
 
-1. Authenticate to the YNAB API through the shared `agents/midas/ynab_api.py` read layer.
+1. Authenticate to the YNAB API through the shared `agents/njord/ynab_api.py` read layer.
 2. Resolve the target budget or plan.
 3. Retrieve relevant accounts, categories, months, and transactions.
 4. Normalize YNAB milliunit amounts and ISO dates consistently.
@@ -93,7 +99,7 @@ Common data needed by this capability includes:
 
 - Start read-only.
 - Never expose API tokens in logs, summaries, commits, or examples.
-- Load secrets from environment variables or a local ignored `.env` file.
+- Load secrets from environment variables, the preferred user-local config file, or a local ignored `.env` file.
 - Do not modify YNAB data without a separate write capability and explicit user approval.
 - Treat financial recommendations as guidance, not professional financial advice.
 - Be explicit when data is missing, stale, excluded, or outside the requested date range.
@@ -120,3 +126,4 @@ Expected response:
 - Account balance movement.
 - New or unusually large transactions.
 - Explanation of likely causes, with uncertainty called out.
+

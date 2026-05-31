@@ -1,4 +1,4 @@
-"""Natural-language request routing for Midas."""
+"""Natural-language request routing for Njord."""
 
 from __future__ import annotations
 
@@ -14,6 +14,13 @@ class Route:
 def route_request(request: str) -> Route:
     normalized = request.lower()
 
+    config_terms = (
+        "config",
+        "configuration",
+        "credential",
+        "credentials",
+        "setup",
+    )
     budget_terms = (
         "budget",
         "financial",
@@ -27,6 +34,12 @@ def route_request(request: str) -> Route:
         "account",
     )
     greeting_terms = ("hello", "hi", "hey", "test", "connection")
+
+    if any(term in normalized for term in config_terms) and "status" in normalized:
+        return Route(
+            capability="config-status",
+            reason="The request asks for local YNAB configuration status.",
+        )
 
     if any(term in normalized for term in budget_terms):
         return Route(
@@ -42,6 +55,7 @@ def route_request(request: str) -> Route:
 
     return Route(
         capability="ynab-budget-summary",
-        reason="Defaulting to the financial summary capability for Midas.",
+        reason="Defaulting to the financial summary capability for Njord.",
     )
+
 

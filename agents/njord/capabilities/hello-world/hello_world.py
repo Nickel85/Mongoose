@@ -1,4 +1,4 @@
-"""Hello world capability for the Midas agent."""
+"""Hello world capability for the Njord agent."""
 
 from __future__ import annotations
 
@@ -46,14 +46,14 @@ def build_greeting(name: str, connection_result: YnabConnectionResult) -> str:
     cleaned_name = name.strip() or "there"
     return (
         f"Hello, {cleaned_name}.\n"
-        "Midas is ready to review your financial life.\n"
+        "Njord is ready to review your financial life.\n"
         f"{connection_result.message}"
     )
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Run the Midas hello world capability."
+        description="Run the Njord hello world capability."
     )
     parser.add_argument(
         "--name",
@@ -87,3 +87,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

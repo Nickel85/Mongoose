@@ -81,9 +81,9 @@ This test verifies:
 - `mongoose state --init --json` reports and creates shared local state paths.
 - `mongoose list` discovers available agents from `agent.json`.
 - installing a missing agent fails and prints available agents.
-- `mongoose install Midas` creates a user-local `Midas.cmd` launcher.
+- `mongoose install Njord` creates a user-local `Njord.cmd` launcher.
 - the generated launcher calls the agent through `ask`.
-- `mongoose uninstall Midas` removes the launcher.
+- `mongoose uninstall Njord` removes the launcher.
 
 The test uses `.test-localappdata-mongoose/` as a temporary local AppData substitute. That folder is ignored by Git.
 
@@ -135,7 +135,29 @@ This test verifies the read-only YNAB API foundation without calling the live AP
 - configured plan selection is deterministic.
 - missing tokens, auth failures, 404s, rate limits, malformed JSON, URL errors, and timeouts return structured errors.
 - error messages do not leak token-like details.
-- malformed response shapes produce actionable messages.
+      - malformed response shapes produce actionable messages.
+
+## YNAB Config Validation
+
+Script:
+
+```text
+tests/njord-config-validation.py
+```
+
+Run locally from the repository root:
+
+```powershell
+python .\tests\njord-config-validation.py
+```
+
+This test verifies Njord YNAB configuration handling without calling the live API:
+
+- the preferred user-local config file can supply `YNAB_ACCESS_TOKEN` and `YNAB_BUDGET_ID`.
+- missing tokens produce actionable status output.
+- configured budget/plan IDs are validated against returned plans.
+- installed-command style `Njord config status` routing works through `ask`.
+- secret values are not printed in status output.
 
 ## Mongoose EXE Smoke
 
@@ -155,10 +177,11 @@ powershell -ExecutionPolicy Bypass -File .\tests\mongoose-exe-smoke.ps1
 This test verifies the built executable can:
 
 - run `mongoose setup` against the local repo.
-- run `mongoose list` and discover `Midas`.
-- run `mongoose install Midas` and create `Midas.cmd`.
-- run `mongoose uninstall Midas` and remove `Midas.cmd`.
+- run `mongoose list` and discover `Njord`.
+- run `mongoose install Njord` and create `Njord.cmd`.
+- run `mongoose uninstall Njord` and remove `Njord.cmd`.
 - run `mongoose update` against a local Git-backed registry URL and clone the registry.
 
 The test uses `.test-localappdata-mongoose-exe/` and `.test-mongoose-update-registry/` as temporary folders. Both are ignored by Git.
+
 

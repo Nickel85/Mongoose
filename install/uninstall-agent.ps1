@@ -1,11 +1,11 @@
 <#
 .SYNOPSIS
-Removes the user-local Midas command installed by install-agent.ps1.
+Removes the user-local Njord command installed by install-agent.ps1.
 #>
 
 [CmdletBinding()]
 param(
-    [string]$AgentName = "Midas"
+    [string]$AgentName = "Njord"
 )
 
 $ErrorActionPreference = "Stop"
@@ -21,3 +21,4 @@ if (Test-Path $launcherPath) {
 }
 
 Write-Host "The user PATH entry for $installBin was left in place in case other agents use it."
+

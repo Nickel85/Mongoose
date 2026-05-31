@@ -15,7 +15,7 @@ def assert_true(condition: object, message: str) -> None:
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-AGENT_ROOT = REPO_ROOT / "agents" / "midas"
+AGENT_ROOT = REPO_ROOT / "agents" / "njord"
 if str(AGENT_ROOT) not in sys.path:
     sys.path.insert(0, str(AGENT_ROOT))
 
@@ -175,3 +175,4 @@ assert_true(not missing_list.ok, "Missing list response unexpectedly succeeded."
 assert_true("'accounts' list" in missing_list.message, "Missing list message was not actionable.")
 
 print("YNAB API validation passed.")
+

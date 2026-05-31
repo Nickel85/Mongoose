@@ -46,7 +46,7 @@ Assert-True ($setup.ExitCode -eq 0) "mongoose setup failed. Output: $($setup.Out
 
 $help = Invoke-Mongoose -Arguments @("--help")
 Assert-True ($help.ExitCode -eq 0) "mongoose --help failed. Output: $($help.Output)"
-Assert-True ($help.Output -match "mongoose install Midas") "mongoose --help did not include install example."
+Assert-True ($help.Output -match "mongoose install Njord") "mongoose --help did not include install example."
 Assert-True ($help.Output -match "mongoose update") "mongoose --help did not include update guidance."
 Assert-True ($help.Output -match "mongoose state --init") "mongoose --help did not include state guidance."
 
@@ -59,25 +59,26 @@ Assert-True (Test-Path $statePaths.jobs) "mongoose state did not create the jobs
 
 $list = Invoke-Mongoose -Arguments @("list")
 Assert-True ($list.ExitCode -eq 0) "mongoose list failed. Output: $($list.Output)"
-Assert-True ($list.Output -match "Midas") "mongoose list did not include Midas."
+Assert-True ($list.Output -match "Njord") "mongoose list did not include Njord."
 
 $missing = Invoke-Mongoose -Arguments @("install", "DefinitelyMissingAgent")
 Assert-True ($missing.ExitCode -ne 0) "mongoose install unexpectedly succeeded for a missing agent."
 Assert-True ($missing.Output -match "does not exist") "missing-agent output did not explain the failure."
 Assert-True ($missing.Output -match "Available agents") "missing-agent output did not list available agents."
 
-$install = Invoke-Mongoose -Arguments @("install", "Midas")
-Assert-True ($install.ExitCode -eq 0) "mongoose install Midas failed. Output: $($install.Output)"
+$install = Invoke-Mongoose -Arguments @("install", "Njord")
+Assert-True ($install.ExitCode -eq 0) "mongoose install Njord failed. Output: $($install.Output)"
 
-$launcherPath = Join-Path $testLocalAppData "Agents\bin\Midas.cmd"
-Assert-True (Test-Path $launcherPath) "mongoose did not create Midas launcher."
+$launcherPath = Join-Path $testLocalAppData "Agents\bin\Njord.cmd"
+Assert-True (Test-Path $launcherPath) "mongoose did not create Njord launcher."
 
 $launcher = Get-Content -Raw -Path $launcherPath
-Assert-True ($launcher -match "\sask\s") "Midas launcher does not call ask."
-Assert-True ($launcher -match "midas") "Midas launcher does not point at Midas."
+Assert-True ($launcher -match "\sask\s") "Njord launcher does not call ask."
+Assert-True ($launcher -match "njord") "Njord launcher does not point at Njord."
 
-$uninstall = Invoke-Mongoose -Arguments @("uninstall", "Midas")
-Assert-True ($uninstall.ExitCode -eq 0) "mongoose uninstall Midas failed. Output: $($uninstall.Output)"
-Assert-True (-not (Test-Path $launcherPath)) "mongoose uninstall did not remove Midas launcher."
+$uninstall = Invoke-Mongoose -Arguments @("uninstall", "Njord")
+Assert-True ($uninstall.ExitCode -eq 0) "mongoose uninstall Njord failed. Output: $($uninstall.Output)"
+Assert-True (-not (Test-Path $launcherPath)) "mongoose uninstall did not remove Njord launcher."
 
 Write-Host "Mongoose validation passed."
+

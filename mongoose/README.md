@@ -74,13 +74,13 @@ mongoose list
 Install an agent:
 
 ```powershell
-mongoose install Midas
+mongoose install Njord
 ```
 
 Uninstall an agent:
 
 ```powershell
-mongoose uninstall Midas
+mongoose uninstall Njord
 ```
 
 Pull down registry updates:
@@ -134,3 +134,4 @@ agents\*\agent.json
 ```
 
 Each manifest provides the installed command name and local entrypoint for that agent.
+

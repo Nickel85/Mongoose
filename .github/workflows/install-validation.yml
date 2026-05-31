@@ -28,3 +28,7 @@ jobs:
       - name: Validate YNAB read API foundation
         shell: pwsh
         run: python ./tests/ynab-api-validation.py
+
+      - name: Validate YNAB config handling
+        shell: pwsh
+        run: python ./tests/njord-config-validation.py

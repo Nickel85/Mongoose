@@ -1,4 +1,4 @@
-"""Read-only YNAB API client helpers for Midas capabilities."""
+"""Read-only YNAB API client helpers for Njord capabilities."""
 
 from __future__ import annotations
 
@@ -158,7 +158,8 @@ class YnabClient:
                 ok=False,
                 data={},
                 message=(
-                    "YNAB_ACCESS_TOKEN is not set. Add it to the repository root .env file."
+                    "YNAB_ACCESS_TOKEN is not configured. Run 'Njord config status' "
+                    "or add it to the preferred user-local config file."
                 ),
             )
 
@@ -185,7 +186,7 @@ class YnabClient:
                 return YnabApiResult(
                     ok=False,
                     data={},
-                    message="YNAB access token was rejected. Check YNAB_ACCESS_TOKEN in .env.",
+                    message="YNAB access token was rejected. Run 'Njord config status' and refresh YNAB_ACCESS_TOKEN.",
                     status_code=error.code,
                 )
 
@@ -316,4 +317,5 @@ def list_transactions(
 
 def list_scheduled_transactions(plan_id: str) -> YnabResourceResult:
     return client().list_scheduled_transactions(plan_id)
+
 

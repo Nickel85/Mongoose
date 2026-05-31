@@ -1,6 +1,6 @@
 # Capabilities
 
-This directory contains the capabilities available to Midas.
+This directory contains the capabilities available to Njord.
 
 Each capability should live in its own folder and include a `README.md` that explains its role, inputs, outputs, constraints, and examples.
 
@@ -13,10 +13,10 @@ Each capability should live in its own folder and include a `README.md` that exp
 
 ## Natural-Language Routing
 
-Use the agent-level `ask` command to let Midas choose the capability:
+Use the agent-level `ask` command to let Njord choose the capability:
 
 ```powershell
-python agents\midas\agent.py ask "Hey Midas, get me my latest budget."
+python agents\njord\agent.py ask "Hey Njord, get me my latest budget."
 ```
 
 Current routing behavior:
@@ -24,3 +24,4 @@ Current routing behavior:
 - Budget, money, spending, financial, account, cash, YNAB, latest, and summary requests route to `ynab-budget-summary`.
 - Greeting, hello, test, and connection requests route to `hello-world`.
 - Unknown requests default to `ynab-budget-summary` because this agent is finance-focused.
+
