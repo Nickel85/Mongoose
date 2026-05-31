@@ -110,6 +110,22 @@ function New-InvalidFixtureAgent {
     return $agentDirectory
 }
 
+function New-UnsupportedSchemaFixtureAgent {
+    $agentDirectory = Join-Path $fixtureRoot "agents\unsupported-schema"
+    New-Item -ItemType Directory -Path $agentDirectory -Force | Out-Null
+    Set-Content -Path (Join-Path $agentDirectory "agent.py") -Value "print('unsupported schema')" -Encoding ASCII
+    $manifest = @{
+        schemaVersion = 999
+        commandName = "UnsupportedSchema"
+        displayName = "Unsupported Schema"
+        entrypointPath = "agent.py"
+        example = "unsupported"
+        description = "Fixture with a manifest schema newer than this Mongoose supports."
+    } | ConvertTo-Json -Depth 5
+    Set-Content -Path (Join-Path $agentDirectory "agent.json") -Value $manifest -Encoding ASCII
+    return $agentDirectory
+}
+
 Assert-True (Test-Path $mongooseCli) "mongoose CLI is missing."
 
 if (Test-Path $testLocalAppData) {
@@ -195,6 +211,13 @@ Assert-True ($validateInvalid.Output -match "entrypointPath does not exist") "in
 Assert-True ($validateInvalid.Output -match "taskTypes must be a list") "invalid manifest output did not explain invalid capability taskTypes."
 
 Remove-Item -Path $invalidPath -Recurse -Force
+
+$unsupportedSchemaPath = New-UnsupportedSchemaFixtureAgent
+$validateUnsupportedSchema = Invoke-Mongoose -Arguments @("validate", $unsupportedSchemaPath)
+Assert-True ($validateUnsupportedSchema.ExitCode -ne 0) "mongoose validate unexpectedly passed unsupported schema fixture. Output: $($validateUnsupportedSchema.Output)"
+Assert-True ($validateUnsupportedSchema.Output -match "schemaVersion 999 is newer than supported version 1") "unsupported schema output did not explain the compatibility failure."
+
+Remove-Item -Path $unsupportedSchemaPath -Recurse -Force
 
 $setupFixtures = Invoke-Mongoose -Arguments @("setup", "--registry-root", $fixtureRoot)
 Assert-True ($setupFixtures.ExitCode -eq 0) "mongoose setup for fixture registry failed. Output: $($setupFixtures.Output)"

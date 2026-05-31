@@ -247,5 +247,12 @@ Recommended metadata:
 
 LLM metadata is descriptive only at this layer. Provider credentials and API keys must not be stored in manifests. Agents should reference configuration names or future Mongoose LLM profile names; actual secrets belong in environment variables or future Mongoose secret/profile storage.
 
+Schema version policy:
+
+- Keep `schemaVersion` unchanged for additive optional metadata that older Mongoose versions can ignore safely.
+- Increment `schemaVersion` for breaking manifest contract changes: new required fields, renamed or removed fields, changed field types or meanings, changed entrypoint invocation semantics, changed capability routing semantics, or required configuration/LLM contract changes.
+- Update `SUPPORTED_MANIFEST_SCHEMA_VERSION`, this policy, the manifest examples, and the validation tests in the same change that introduces a breaking manifest contract.
+- Mongoose rejects manifests with a `schemaVersion` newer than it supports, so agent authors get an explicit compatibility failure instead of a confusing install or runtime error.
+
 Invalid manifests fail `mongoose validate`, registry listing, installation, or show commands with actionable errors. Mongoose validates relative entrypoints, capability metadata shape, supported schema versions, and obvious secret-bearing keys.
 

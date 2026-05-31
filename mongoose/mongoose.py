@@ -27,6 +27,7 @@ AGENT_STATE_ROOT = STATE_ROOT / "agents"
 NON_SECRET_CONFIG_ROOT = STATE_ROOT / "config"
 DEFAULT_REGISTRY_URL = "https://github.com/Nickel85/Agents.git"
 DEFAULT_LOG_RETENTION_DAYS = 30
+# Increment only for breaking manifest contract changes. Additive optional metadata stays on the same version.
 SUPPORTED_MANIFEST_SCHEMA_VERSION = 1
 COMMAND_NAME_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9_-]*$")
 SECRET_KEYWORDS = (
