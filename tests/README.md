@@ -77,7 +77,7 @@ This test verifies:
 
 - the Python-backed `mongoose` CLI exists.
 - `mongoose setup` writes configuration against the local repo.
-- `mongoose --help` includes install and update guidance.
+- `mongoose --help` includes install, routing, and update guidance.
 - `mongoose state --init --json` reports and creates shared local state paths.
 - `mongoose list` discovers available agents from `agent.json`.
 - installing a missing agent fails and prints available agents.
@@ -85,6 +85,9 @@ This test verifies:
 - `mongoose install <local path>` installs a fixture agent from its manifest.
 - `mongoose list --installed` shows installed agent state.
 - `mongoose show <agent>` displays manifest, version, source, entrypoint, and capability metadata.
+- `mongoose capabilities` enumerates routeable installed capability metadata.
+- `mongoose route` selects and dispatches capabilities by task type or request text.
+- ambiguous and unsupported routes fail with actionable messages.
 - `mongoose validate` checks manifest shape, compatibility metadata, capability metadata, and secret-free declarations.
 - `mongoose run <agent> ...` dispatches to an installed fixture agent entrypoint.
 - `mongoose remove <agent>` removes the launcher and installed state without deleting source files.

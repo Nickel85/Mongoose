@@ -13,6 +13,7 @@ The CLI can:
 - list available agents
 - install an agent command from the configured registry or a local agent path
 - inspect installed agent metadata and capabilities
+- enumerate and route across installed capabilities by task type
 - run an installed agent entrypoint
 - remove an installed agent command and state
 - update the local agent registry from GitHub
@@ -95,6 +96,20 @@ Show installed metadata and discovered capabilities:
 
 ```powershell
 mongoose show Njord
+```
+
+List routeable installed capabilities:
+
+```powershell
+mongoose capabilities
+```
+
+Route a request to an installed capability:
+
+```powershell
+mongoose route --task-type budget-summary "current budget"
+mongoose route "summarize my current budget"
+mongoose route --task-type budget-summary --dry-run
 ```
 
 Validate manifests:
@@ -180,6 +195,27 @@ When an agent is installed, Mongoose writes a small installed-agent record under
 That record stores the manifest, source path, entrypoint, launcher path, install timestamp, version, and discovered capability metadata. It does not copy or delete the source package. `mongoose remove <agent>` removes the launcher and installed-agent record only.
 
 Capabilities are discovered from a manifest `capabilities` array when present. If the manifest does not declare capabilities yet, Mongoose falls back to listing folders under `capabilities\`. The richer manifest contract is tracked separately in issue #26.
+
+## Capability Routing
+
+`mongoose route` is the deterministic Mongoose orchestrator. It reads installed-agent records from `%LOCALAPPDATA%\Agents\state\agents`, enumerates declared capabilities, and selects one capability without importing agent code.
+
+Selection works in this order:
+
+- `--agent` and `--capability` restrict the candidate set when provided.
+- `--task-type <type>` matches declared capability `taskTypes`; agent-level `taskTypes` are used as fallback metadata for each capability.
+- Without `--task-type`, Mongoose scores the request text against capability names, display names, descriptions, and task types.
+- If exactly one installed capability matches, Mongoose dispatches to that capability.
+- If multiple capabilities tie, Mongoose reports an ambiguous request and asks for `--agent`, `--capability`, or a more specific `--task-type`.
+- If nothing matches, Mongoose lists installed capabilities so the user can see what is currently routeable.
+
+Before dispatching, Mongoose checks that required environment-backed configuration is present and that the selected capability does not require an unavailable LLM runtime. Dispatch uses this stable invocation shape:
+
+```text
+python <capability entrypoint> <capability name> <request arguments...>
+```
+
+Capability-specific `entrypointPath` overrides the agent default entrypoint. `--dry-run` prints the selected capability, entrypoint, and argument vector without executing agent code.
 
 ## Manifest Contract
 
