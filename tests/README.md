@@ -113,6 +113,30 @@ This test verifies:
 
 The test uses `.test-localappdata-mongoose-state/` as a temporary local AppData substitute. That folder is ignored by Git.
 
+## YNAB API Validation
+
+Script:
+
+```text
+tests/ynab-api-validation.py
+```
+
+Run locally from the repository root:
+
+```powershell
+python .\tests\ynab-api-validation.py
+```
+
+This test verifies the read-only YNAB API foundation without calling the live API:
+
+- plans, plan details, accounts, categories, months, transactions, and scheduled transactions parse from fixture responses.
+- transaction query parameters normalize dates and optional filters.
+- milliunit currency values and ISO dates normalize consistently.
+- configured plan selection is deterministic.
+- missing tokens, auth failures, 404s, rate limits, malformed JSON, URL errors, and timeouts return structured errors.
+- error messages do not leak token-like details.
+- malformed response shapes produce actionable messages.
+
 ## Mongoose EXE Smoke
 
 Script:

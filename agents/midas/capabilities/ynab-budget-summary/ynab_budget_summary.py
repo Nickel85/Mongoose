@@ -14,7 +14,7 @@ if str(AGENT_ROOT) not in sys.path:
     sys.path.insert(0, str(AGENT_ROOT))
 
 from config import ynab_budget_id
-from ynab_api import get_json
+from ynab_api import choose_plan, format_currency, get_plan, list_plans
 
 
 def configure_output() -> None:
@@ -22,36 +22,16 @@ def configure_output() -> None:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 
-def milliunits_to_currency(amount: int | float | None) -> float:
-    return (amount or 0) / 1000
-
-
-def currency(amount: int | float | None) -> str:
-    return f"${milliunits_to_currency(amount):,.2f}"
-
-
-def choose_plan(plans: list[dict[str, Any]], configured_id: str) -> dict[str, Any] | None:
-    if configured_id:
-        for plan in plans:
-            if plan.get("id") == configured_id:
-                return plan
-
-    if len(plans) == 1:
-        return plans[0]
-
-    return plans[0] if plans else None
-
-
 def plan_label(plan: dict[str, Any]) -> str:
     return plan.get("name") or plan.get("id") or "selected YNAB plan"
 
 
 def load_latest_summary() -> tuple[bool, str]:
-    plans_result = get_json("plans")
+    plans_result = list_plans()
     if not plans_result.ok:
         return False, plans_result.message
 
-    plans = plans_result.data.get("data", {}).get("plans", [])
+    plans = plans_result.items
     if not plans:
         return False, "YNAB connection succeeded, but no plans were returned."
 
@@ -67,8 +47,8 @@ def load_latest_summary() -> tuple[bool, str]:
             "YNAB_BUDGET_ID is set, but it did not match any returned YNAB plan.",
         )
 
-    plan_result = get_json(f"plans/{selected_id}")
-    plan_data = plan_result.data.get("data", {}).get("plan", {}) if plan_result.ok else {}
+    plan_result = get_plan(selected_id)
+    plan_data = plan_result.data if plan_result.ok else {}
 
     name = plan_label(plan_data or selected_plan)
     accounts = plan_data.get("accounts", [])
@@ -114,7 +94,7 @@ def load_latest_summary() -> tuple[bool, str]:
             "",
             "Snapshot",
             f"- Open on-budget accounts: {len(on_budget_accounts)}",
-            f"- On-budget account balance: {currency(total_balance)}",
+            f"- On-budget account balance: {format_currency(total_balance)}",
             f"- Categories with assigned balances: {len(categories_with_balance)}",
             f"- Categories needing review: {len(underfunded_categories)}",
         ]
@@ -124,7 +104,9 @@ def load_latest_summary() -> tuple[bool, str]:
         lines.append("")
         lines.append("Categories needing review")
         for category in underfunded_categories[:5]:
-            lines.append(f"- {category.get('name', 'Unnamed category')}: {currency(category.get('balance'))}")
+            lines.append(
+                f"- {category.get('name', 'Unnamed category')}: {format_currency(category.get('balance'))}"
+            )
 
     lines.extend(
         [

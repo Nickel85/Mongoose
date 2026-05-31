@@ -103,8 +103,8 @@ python agents\midas\capabilities\hello-world\hello_world.py --help
 
 ## Constraints
 
-- This capability reads `YNAB_ACCESS_TOKEN` from `.env`.
-- This capability calls `https://api.ynab.com/v1/plans`.
+- This capability reads YNAB through the shared `agents/midas/ynab_api.py` read layer.
+- The shared read layer loads `YNAB_ACCESS_TOKEN` from `.env`, calls the YNAB plans endpoint, and redacts token-like details from errors.
 - This capability does not modify files or financial data.
 - This capability never prints the token.
 
