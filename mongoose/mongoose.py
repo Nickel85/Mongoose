@@ -27,6 +27,8 @@ AGENT_STATE_ROOT = STATE_ROOT / "agents"
 NON_SECRET_CONFIG_ROOT = STATE_ROOT / "config"
 DEFAULT_REGISTRY_URL = "https://github.com/Nickel85/Agents.git"
 DEFAULT_LOG_RETENTION_DAYS = 30
+SUPPORTED_MANIFEST_SCHEMA_VERSION = 1
+COMMAND_NAME_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9_-]*$")
 SECRET_KEYWORDS = (
     "access_token",
     "api_key",
@@ -38,6 +40,27 @@ SECRET_KEYWORDS = (
 SECRET_TEXT_PATTERN = re.compile(
     r"(?i)\b(access_token|api_key|authorization|password|secret|token)\s*[:=]\s*([^\s,;]+)"
 )
+MANIFEST_SECRET_KEYS = {
+    "access_token",
+    "api_key",
+    "authorization",
+    "client_secret",
+    "password",
+    "secret",
+    "token",
+}
+
+
+class ManifestValidationError(ValueError):
+    def __init__(self, manifest_path: Path, errors: list[str]) -> None:
+        self.manifest_path = manifest_path
+        self.errors = errors
+        super().__init__(self.format_message())
+
+    def format_message(self) -> str:
+        lines = [f"Invalid agent manifest: {self.manifest_path}"]
+        lines.extend(f"- {error}" for error in self.errors)
+        return "\n".join(lines)
 
 
 def configure_output() -> None:
@@ -188,16 +211,153 @@ def agent_manifest_paths(root: Path) -> list[Path]:
     return manifests
 
 
+def list_value(value: Any) -> list[Any]:
+    return value if isinstance(value, list) else []
+
+
+def string_list(value: Any) -> list[str]:
+    return [str(item).strip() for item in list_value(value) if str(item).strip()]
+
+
+def manifest_secret_key(key: str) -> bool:
+    normalized = key.lower().replace("-", "_")
+    return normalized in MANIFEST_SECRET_KEYS
+
+
+def find_manifest_secret_values(value: Any, path: str = "") -> list[str]:
+    errors: list[str] = []
+    if isinstance(value, dict):
+        for key, item in value.items():
+            item_path = f"{path}.{key}" if path else str(key)
+            if manifest_secret_key(str(key)) and str(item).strip():
+                errors.append(f"{item_path} must not contain a secret value.")
+            errors.extend(find_manifest_secret_values(item, item_path))
+    elif isinstance(value, list):
+        for index, item in enumerate(value):
+            errors.extend(find_manifest_secret_values(item, f"{path}[{index}]"))
+    return errors
+
+
+def validate_manifest(manifest: dict[str, Any], manifest_path: Path) -> None:
+    errors: list[str] = []
+
+    required_string_fields = (
+        "commandName",
+        "displayName",
+        "entrypointPath",
+        "example",
+        "description",
+    )
+    for field_name in required_string_fields:
+        if not str(manifest.get(field_name, "")).strip():
+            errors.append(f"Missing required string field: {field_name}")
+
+    command_name = str(manifest.get("commandName", "")).strip()
+    if command_name and not COMMAND_NAME_PATTERN.match(command_name):
+        errors.append("commandName must start with a letter and contain only letters, numbers, '_' or '-'.")
+
+    schema_version = manifest.get("schemaVersion", SUPPORTED_MANIFEST_SCHEMA_VERSION)
+    if not isinstance(schema_version, int):
+        errors.append("schemaVersion must be an integer when present.")
+    elif schema_version > SUPPORTED_MANIFEST_SCHEMA_VERSION:
+        errors.append(
+            f"schemaVersion {schema_version} is newer than supported version {SUPPORTED_MANIFEST_SCHEMA_VERSION}."
+        )
+
+    agent_dir = manifest_path.parent
+    entrypoint_path = str(manifest.get("entrypointPath", "")).strip()
+    if entrypoint_path:
+        if Path(entrypoint_path).is_absolute():
+            errors.append("entrypointPath must be relative to the agent directory.")
+        elif not (agent_dir / entrypoint_path).exists():
+            errors.append(f"entrypointPath does not exist: {entrypoint_path}")
+
+    identity = manifest.get("identity", {})
+    if identity and not isinstance(identity, dict):
+        errors.append("identity must be an object when present.")
+
+    entrypoints = manifest.get("entrypoints", {})
+    if entrypoints and not isinstance(entrypoints, dict):
+        errors.append("entrypoints must be an object when present.")
+    elif isinstance(entrypoints, dict):
+        for name, relative_path in entrypoints.items():
+            relative = str(relative_path).strip()
+            if not relative:
+                errors.append(f"entrypoints.{name} must be a non-empty path.")
+            elif Path(relative).is_absolute():
+                errors.append(f"entrypoints.{name} must be relative to the agent directory.")
+            elif not (agent_dir / relative).exists():
+                errors.append(f"entrypoints.{name} does not exist: {relative}")
+
+    capabilities = manifest.get("capabilities", [])
+    if capabilities and not isinstance(capabilities, list):
+        errors.append("capabilities must be a list when present.")
+    elif isinstance(capabilities, list):
+        capability_names: set[str] = set()
+        for index, capability in enumerate(capabilities):
+            prefix = f"capabilities[{index}]"
+            if not isinstance(capability, dict):
+                errors.append(f"{prefix} must be an object.")
+                continue
+
+            name = str(capability.get("name", "")).strip()
+            if not name:
+                errors.append(f"{prefix}.name is required.")
+            elif name in capability_names:
+                errors.append(f"{prefix}.name duplicates capability '{name}'.")
+            else:
+                capability_names.add(name)
+
+            if not str(capability.get("description", "")).strip():
+                errors.append(f"{prefix}.description is required.")
+
+            if capability.get("taskTypes") is not None and not isinstance(capability.get("taskTypes"), list):
+                errors.append(f"{prefix}.taskTypes must be a list.")
+
+            if capability.get("requiredInputs") is not None and not isinstance(capability.get("requiredInputs"), list):
+                errors.append(f"{prefix}.requiredInputs must be a list.")
+
+            config = capability.get("configuration", capability.get("config", {}))
+            if config and not isinstance(config, dict):
+                errors.append(f"{prefix}.configuration must be an object.")
+
+            llm = capability.get("llm", {})
+            if llm and not isinstance(llm, dict):
+                errors.append(f"{prefix}.llm must be an object.")
+            elif isinstance(llm, dict):
+                mode = str(llm.get("mode", "none")).strip()
+                if mode and mode not in {"none", "optional", "required"}:
+                    errors.append(f"{prefix}.llm.mode must be one of: none, optional, required.")
+                if mode == "required" and not llm.get("deterministicFallback"):
+                    errors.append(f"{prefix}.llm.deterministicFallback must explain behavior for required LLM use.")
+
+            entrypoint = str(capability.get("entrypointPath", "")).strip()
+            if entrypoint:
+                if Path(entrypoint).is_absolute():
+                    errors.append(f"{prefix}.entrypointPath must be relative to the agent directory.")
+                elif not (agent_dir / entrypoint).exists():
+                    errors.append(f"{prefix}.entrypointPath does not exist: {entrypoint}")
+
+    compatibility = manifest.get("compatibility", {})
+    if compatibility and not isinstance(compatibility, dict):
+        errors.append("compatibility must be an object when present.")
+
+    errors.extend(find_manifest_secret_values(manifest))
+
+    if errors:
+        raise ManifestValidationError(manifest_path, errors)
+
+
 def load_agent_registry(root: Path) -> dict[str, dict[str, Any]]:
     registry: dict[str, dict[str, Any]] = {}
 
     for manifest_path in agent_manifest_paths(root):
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        command_name = str(manifest.get("commandName", "")).strip()
-        entrypoint_path = str(manifest.get("entrypointPath", "")).strip()
-        if not command_name or not entrypoint_path:
-            continue
+        manifest = read_json(manifest_path)
+        if not isinstance(manifest, dict):
+            raise ManifestValidationError(manifest_path, ["Manifest must be a JSON object."])
+        validate_manifest(manifest, manifest_path)
 
+        command_name = str(manifest.get("commandName", "")).strip()
         registry[command_name] = agent_record(manifest, manifest_path)
 
     return registry
@@ -216,8 +376,14 @@ def discover_capabilities(agent_dir: Path, manifest: dict[str, Any]) -> list[dic
             capabilities.append(
                 {
                     "name": name,
+                    "displayName": str(capability.get("displayName", name)).strip(),
                     "description": str(capability.get("description", "")).strip(),
-                    "taskTypes": capability.get("taskTypes", []),
+                    "taskTypes": string_list(capability.get("taskTypes", [])),
+                    "requiredInputs": capability.get("requiredInputs", []),
+                    "configuration": capability.get("configuration", capability.get("config", {})),
+                    "compatibility": capability.get("compatibility", {}),
+                    "llm": capability.get("llm", {"mode": "none"}),
+                    "deterministicFallback": str(capability.get("deterministicFallback", "")).strip(),
                     "entrypointPath": str(capability.get("entrypointPath", "")).strip(),
                 }
             )
@@ -235,8 +401,14 @@ def discover_capabilities(agent_dir: Path, manifest: dict[str, Any]) -> list[dic
         capabilities.append(
             {
                 "name": child.name,
+                "displayName": child.name,
                 "description": first_markdown_paragraph(readme),
                 "taskTypes": [],
+                "requiredInputs": [],
+                "configuration": {},
+                "compatibility": {},
+                "llm": {"mode": "none"},
+                "deterministicFallback": "",
                 "entrypointPath": "",
             }
         )
@@ -260,18 +432,27 @@ def agent_record(manifest: dict[str, Any], manifest_path: Path) -> dict[str, Any
     agent_dir = manifest_path.parent.resolve()
     entrypoint = (agent_dir / entrypoint_path).resolve()
     return {
-            "commandName": command_name,
-            "displayName": manifest.get("displayName", command_name),
-            "description": manifest.get("description", ""),
-            "example": manifest.get("example", "Hello"),
-            "version": manifest.get("version", ""),
-            "manifest": manifest,
-            "entrypoint": str(entrypoint),
-            "entrypointPath": entrypoint_path,
-            "sourcePath": str(agent_dir),
-            "manifestPath": str(manifest_path.resolve()),
-            "capabilities": discover_capabilities(agent_dir, manifest),
-        }
+        "schemaVersion": manifest.get("schemaVersion", SUPPORTED_MANIFEST_SCHEMA_VERSION),
+        "id": manifest.get("id", command_name),
+        "commandName": command_name,
+        "displayName": manifest.get("displayName", command_name),
+        "description": manifest.get("description", ""),
+        "example": manifest.get("example", "Hello"),
+        "version": manifest.get("version", ""),
+        "identity": manifest.get("identity", {}),
+        "manifest": manifest,
+        "entrypoint": str(entrypoint),
+        "entrypointPath": entrypoint_path,
+        "entrypoints": manifest.get("entrypoints", {}),
+        "sourcePath": str(agent_dir),
+        "manifestPath": str(manifest_path.resolve()),
+        "taskTypes": string_list(manifest.get("taskTypes", [])),
+        "requiredInputs": manifest.get("requiredInputs", []),
+        "configuration": manifest.get("configuration", {}),
+        "compatibility": manifest.get("compatibility", {}),
+        "llm": manifest.get("llm", {"mode": "none"}),
+        "capabilities": discover_capabilities(agent_dir, manifest),
+    }
 
 
 def load_agent_from_source(source: str) -> dict[str, Any] | None:
@@ -286,15 +467,7 @@ def load_agent_from_source(source: str) -> dict[str, Any] | None:
     manifest = read_json(manifest_path)
     if not isinstance(manifest, dict):
         raise ValueError(f"Agent manifest must be a JSON object: {manifest_path}")
-
-    command_name = str(manifest.get("commandName", "")).strip()
-    entrypoint_path = str(manifest.get("entrypointPath", "")).strip()
-    if not command_name or not entrypoint_path:
-        raise ValueError(f"Agent manifest missing commandName or entrypointPath: {manifest_path}")
-
-    entrypoint = (manifest_path.parent / entrypoint_path).resolve()
-    if not entrypoint.exists():
-        raise ValueError(f"Agent entrypoint does not exist: {entrypoint}")
+    validate_manifest(manifest, manifest_path)
 
     return agent_record(manifest, manifest_path)
 
@@ -310,16 +483,25 @@ def save_installed_agent(agent: dict[str, Any], launcher_path: Path) -> None:
     ensure_state_layout()
     installed = {
         "commandName": agent["commandName"],
+        "schemaVersion": agent.get("schemaVersion", SUPPORTED_MANIFEST_SCHEMA_VERSION),
+        "id": agent.get("id", agent["commandName"]),
         "displayName": agent.get("displayName", agent["commandName"]),
         "description": agent.get("description", ""),
         "version": agent.get("version", ""),
+        "identity": agent.get("identity", {}),
         "example": agent.get("example", "Hello"),
         "sourcePath": agent.get("sourcePath", ""),
         "manifestPath": agent.get("manifestPath", ""),
         "entrypoint": agent.get("entrypoint", ""),
         "entrypointPath": agent.get("entrypointPath", ""),
+        "entrypoints": agent.get("entrypoints", {}),
         "launcherPath": str(launcher_path),
         "installedAt": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+        "taskTypes": agent.get("taskTypes", []),
+        "requiredInputs": agent.get("requiredInputs", []),
+        "configuration": agent.get("configuration", {}),
+        "compatibility": agent.get("compatibility", {}),
+        "llm": agent.get("llm", {"mode": "none"}),
         "manifest": agent.get("manifest", {}),
         "capabilities": agent.get("capabilities", []),
     }
@@ -519,7 +701,9 @@ def cmd_uninstall(args: argparse.Namespace) -> int:
 
 def print_agent_details(agent: dict[str, Any], installed: bool) -> None:
     print(f"Agent: {agent.get('commandName', '')}")
+    print(f"ID: {agent.get('id', agent.get('commandName', ''))}")
     print(f"Display name: {agent.get('displayName', '')}")
+    print(f"Manifest schema: {agent.get('schemaVersion', SUPPORTED_MANIFEST_SCHEMA_VERSION)}")
     if agent.get("version"):
         print(f"Version: {agent['version']}")
     print(f"Status: {'installed' if installed else 'available'}")
@@ -530,6 +714,21 @@ def print_agent_details(agent: dict[str, Any], installed: bool) -> None:
     print(f"Entrypoint: {agent.get('entrypoint', '')}")
     if agent.get("launcherPath"):
         print(f"Launcher: {agent['launcherPath']}")
+    if agent.get("taskTypes"):
+        print(f"Task types: {', '.join(str(item) for item in agent['taskTypes'])}")
+    if agent.get("requiredInputs"):
+        print(f"Required inputs: {', '.join(str(item) for item in agent['requiredInputs'])}")
+    configuration = agent.get("configuration", {})
+    if isinstance(configuration, dict) and configuration:
+        required_config = string_list(configuration.get("required", []))
+        optional_config = string_list(configuration.get("optional", []))
+        if required_config:
+            print(f"Required config: {', '.join(required_config)}")
+        if optional_config:
+            print(f"Optional config: {', '.join(optional_config)}")
+    llm = agent.get("llm", {})
+    if isinstance(llm, dict):
+        print(f"LLM mode: {llm.get('mode', 'none')}")
     capabilities = agent.get("capabilities", [])
     print("")
     print("Capabilities:")
@@ -540,12 +739,21 @@ def print_agent_details(agent: dict[str, Any], installed: bool) -> None:
         name = capability.get("name", "")
         description = capability.get("description", "")
         task_types = capability.get("taskTypes", [])
+        required_inputs = capability.get("requiredInputs", [])
+        configuration = capability.get("configuration", {})
+        llm = capability.get("llm", {})
         line = f"  {name}"
         if description:
             line = f"{line} - {description}"
         if task_types:
             line = f"{line} [{', '.join(str(item) for item in task_types)}]"
         print(line)
+        if required_inputs:
+            print(f"    inputs: {', '.join(str(item) for item in required_inputs)}")
+        if isinstance(configuration, dict) and configuration.get("required"):
+            print(f"    required config: {', '.join(string_list(configuration.get('required')))}")
+        if isinstance(llm, dict) and llm.get("mode", "none") != "none":
+            print(f"    llm: {llm.get('mode')}")
 
 
 def cmd_show(args: argparse.Namespace) -> int:
@@ -614,6 +822,37 @@ def cmd_update(_: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_validate(args: argparse.Namespace) -> int:
+    if args.path:
+        root = Path(args.path).expanduser().resolve()
+    else:
+        config = load_config()
+        root = ensure_registry(config)
+
+    manifest_path = root if root.is_file() else root / "agent.json"
+    if manifest_path.exists() and manifest_path.is_file():
+        manifest = read_json(manifest_path)
+        if not isinstance(manifest, dict):
+            raise ManifestValidationError(manifest_path, ["Manifest must be a JSON object."])
+        validate_manifest(manifest, manifest_path)
+        print(f"Manifest valid: {manifest_path}")
+        return 0
+
+    manifests = agent_manifest_paths(root)
+    if not manifests:
+        print(f"No agent manifests found under {root}")
+        return 1
+
+    for path in manifests:
+        manifest = read_json(path)
+        if not isinstance(manifest, dict):
+            raise ManifestValidationError(path, ["Manifest must be a JSON object."])
+        validate_manifest(manifest, path)
+        print(f"Manifest valid: {path}")
+    print(f"Validated {len(manifests)} manifest(s).")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     examples = """examples:
   mongoose list
@@ -622,6 +861,7 @@ def build_parser() -> argparse.ArgumentParser:
   mongoose install C:\\path\\to\\agent
   mongoose show Njord
   mongoose run Njord config status
+  mongoose validate
   mongoose remove Njord
   mongoose update
   mongoose state --init
@@ -721,6 +961,18 @@ workflow:
         help="Arguments to pass to the agent entrypoint.",
     )
     run_parser.set_defaults(handler=cmd_run)
+
+    validate = subparsers.add_parser(
+        "validate",
+        help="Validate agent manifest metadata.",
+        description="Validate one agent manifest, one agent directory, or all manifests in the configured registry.",
+    )
+    validate.add_argument(
+        "path",
+        nargs="?",
+        help="Optional manifest, agent directory, or registry root path to validate.",
+    )
+    validate.set_defaults(handler=cmd_validate)
 
     update = subparsers.add_parser(
         "update",

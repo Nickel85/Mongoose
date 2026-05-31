@@ -85,6 +85,7 @@ This test verifies:
 - `mongoose install <local path>` installs a fixture agent from its manifest.
 - `mongoose list --installed` shows installed agent state.
 - `mongoose show <agent>` displays manifest, version, source, entrypoint, and capability metadata.
+- `mongoose validate` checks manifest shape, compatibility metadata, capability metadata, and secret-free declarations.
 - `mongoose run <agent> ...` dispatches to an installed fixture agent entrypoint.
 - `mongoose remove <agent>` removes the launcher and installed state without deleting source files.
 - the generated launcher calls the agent through `ask`.

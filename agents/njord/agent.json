@@ -1,8 +1,129 @@
 {
+  "schemaVersion": 1,
+  "id": "njord",
   "commandName": "Njord",
   "displayName": "Njord",
+  "version": "0.1.0",
   "entrypointPath": "agent.py",
+  "entrypoints": {
+    "default": "agent.py"
+  },
   "example": "Get me my latest budget",
-  "description": "Personal finance agent for YNAB budget analysis and financial summaries."
+  "description": "Personal finance agent for YNAB budget analysis and financial summaries.",
+  "taskTypes": [
+    "finance",
+    "budget",
+    "ynab"
+  ],
+  "requiredInputs": [
+    "YNAB_ACCESS_TOKEN",
+    "YNAB_BUDGET_ID"
+  ],
+  "configuration": {
+    "required": [
+      "YNAB_ACCESS_TOKEN",
+      "YNAB_BUDGET_ID"
+    ],
+    "optional": [],
+    "statusCommand": [
+      "config",
+      "status"
+    ],
+    "secretRefs": [
+      "YNAB_ACCESS_TOKEN"
+    ]
+  },
+  "compatibility": {
+    "platforms": [
+      "windows"
+    ],
+    "python": ">=3.11",
+    "mongooseManifestSchema": 1
+  },
+  "llm": {
+    "mode": "none",
+    "deterministicFallback": "All current Njord capabilities run without an LLM."
+  },
+  "capabilities": [
+    {
+      "name": "config-status",
+      "displayName": "Configuration Status",
+      "description": "Show YNAB configuration status without printing secrets.",
+      "entrypointPath": "agent.py",
+      "taskTypes": [
+        "configuration",
+        "setup",
+        "credential-status"
+      ],
+      "requiredInputs": [],
+      "configuration": {
+        "required": [],
+        "optional": [
+          "YNAB_ACCESS_TOKEN",
+          "YNAB_BUDGET_ID"
+        ],
+        "secretRefs": [
+          "YNAB_ACCESS_TOKEN"
+        ]
+      },
+      "llm": {
+        "mode": "none",
+        "deterministicFallback": "Configuration status is deterministic."
+      }
+    },
+    {
+      "name": "hello-world",
+      "displayName": "Hello World",
+      "description": "Verify the local agent runtime and optional YNAB connection path.",
+      "entrypointPath": "agent.py",
+      "taskTypes": [
+        "diagnostic",
+        "connection-test"
+      ],
+      "requiredInputs": [],
+      "configuration": {
+        "required": [],
+        "optional": [
+          "YNAB_ACCESS_TOKEN"
+        ],
+        "secretRefs": [
+          "YNAB_ACCESS_TOKEN"
+        ]
+      },
+      "llm": {
+        "mode": "none",
+        "deterministicFallback": "Hello-world diagnostics are deterministic."
+      }
+    },
+    {
+      "name": "ynab-budget-summary",
+      "displayName": "YNAB Budget Summary",
+      "description": "Read YNAB data, build a normalized snapshot, and summarize the current budget state.",
+      "entrypointPath": "agent.py",
+      "taskTypes": [
+        "finance",
+        "budget-summary",
+        "ynab"
+      ],
+      "requiredInputs": [
+        "YNAB_ACCESS_TOKEN",
+        "YNAB_BUDGET_ID"
+      ],
+      "configuration": {
+        "required": [
+          "YNAB_ACCESS_TOKEN",
+          "YNAB_BUDGET_ID"
+        ],
+        "optional": [],
+        "secretRefs": [
+          "YNAB_ACCESS_TOKEN"
+        ]
+      },
+      "llm": {
+        "mode": "none",
+        "deterministicFallback": "Budget summary uses deterministic YNAB reads and snapshot calculations."
+      }
+    }
+  ]
 }
 
