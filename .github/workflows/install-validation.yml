@@ -32,3 +32,7 @@ jobs:
       - name: Validate YNAB config handling
         shell: pwsh
         run: python ./tests/njord-config-validation.py
+
+      - name: Validate Njord snapshot model
+        shell: pwsh
+        run: python ./tests/njord-snapshot-validation.py

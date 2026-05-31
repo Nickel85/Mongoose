@@ -135,7 +135,7 @@ This test verifies the read-only YNAB API foundation without calling the live AP
 - configured plan selection is deterministic.
 - missing tokens, auth failures, 404s, rate limits, malformed JSON, URL errors, and timeouts return structured errors.
 - error messages do not leak token-like details.
-      - malformed response shapes produce actionable messages.
+- malformed response shapes produce actionable messages.
 
 ## YNAB Config Validation
 
@@ -158,6 +158,27 @@ This test verifies Njord YNAB configuration handling without calling the live AP
 - configured budget/plan IDs are validated against returned plans.
 - installed-command style `Njord config status` routing works through `ask`.
 - secret values are not printed in status output.
+
+## Njord Snapshot Validation
+
+Script:
+
+```text
+tests/njord-snapshot-validation.py
+```
+
+Run locally from the repository root:
+
+```powershell
+python .\tests\njord-snapshot-validation.py
+```
+
+This test verifies Njord's normalized financial snapshot model without calling the live API:
+
+- accounts, category groups, categories, months, transactions, and scheduled transactions normalize from representative YNAB payloads.
+- snapshot metadata includes source, selected plan, included resources, and freshness timestamp.
+- summary helpers calculate open on-budget balance and underfunded categories from domain objects.
+- snapshot serialization excludes raw payload fields and secret-like values.
 
 ## Mongoose EXE Smoke
 

@@ -37,7 +37,7 @@ The output should include:
 - Questions or follow-up data needed.
 - Recommendations only when supported by the data.
 
-The current starter implementation returns a latest budget snapshot with the selected YNAB plan, open on-budget accounts, total on-budget account balance, category counts, and any negative category balances that need review.
+The current starter implementation returns a latest budget snapshot with the selected YNAB plan, open on-budget accounts, total on-budget account balance, category counts, loaded months, loaded transactions, scheduled transactions, and any negative category balances that need review.
 
 ## Usage
 
@@ -73,8 +73,8 @@ python agents\njord\agent.py ask "Summarize my current financial picture."
 
 1. Authenticate to the YNAB API through the shared `agents/njord/ynab_api.py` read layer.
 2. Resolve the target budget or plan.
-3. Retrieve relevant accounts, categories, months, and transactions.
-4. Normalize YNAB milliunit amounts and ISO dates consistently.
+3. Retrieve relevant accounts, categories, months, transactions, and scheduled transactions.
+4. Normalize YNAB payloads through `agents/njord/snapshot.py`.
 5. Return structured errors that never print access tokens.
 6. Calculate period totals, category totals, account balances, and notable deltas.
 7. Separate factual findings from interpretation.
