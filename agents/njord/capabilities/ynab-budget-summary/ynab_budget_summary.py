@@ -14,7 +14,8 @@ if str(AGENT_ROOT) not in sys.path:
     sys.path.insert(0, str(AGENT_ROOT))
 
 from config import ConfigFileError, current_config_snapshot
-from ynab_api import choose_plan, format_currency, get_plan, list_plans
+from snapshot import load_snapshot
+from ynab_api import YnabClient, choose_plan, format_currency, list_plans
 
 
 def configure_output() -> None:
@@ -72,29 +73,9 @@ def load_latest_summary() -> tuple[bool, str]:
             "YNAB_BUDGET_ID is set, but it did not match any returned YNAB plan.",
         )
 
-    plan_result = get_plan(selected_id)
-    plan_data = plan_result.data if plan_result.ok else {}
-
-    name = plan_label(plan_data or selected_plan)
-    accounts = plan_data.get("accounts", [])
-    categories = plan_data.get("categories", [])
-
-    on_budget_accounts = [
-        account
-        for account in accounts
-        if not account.get("closed") and account.get("on_budget", True)
-    ]
-    total_balance = sum(account.get("balance", 0) for account in on_budget_accounts)
-    categories_with_balance = [
-        category
-        for category in categories
-        if not category.get("hidden") and category.get("balance", 0) != 0
-    ]
-    underfunded_categories = [
-        category
-        for category in categories
-        if not category.get("hidden") and category.get("balance", 0) < 0
-    ]
+    name = plan_label(selected_plan)
+    snapshot_result = load_snapshot(YnabClient(config["token"]), selected_id, name)
+    snapshot = snapshot_result.snapshot
 
     lines = [
         "Njord budget summary",
@@ -103,25 +84,33 @@ def load_latest_summary() -> tuple[bool, str]:
         f"Plans available: {len(plans)}",
     ]
 
-    if not plan_result.ok:
+    if not snapshot_result.ok or snapshot is None:
         lines.extend(
             [
                 "",
                 "Connection status: connected to YNAB plan list.",
-                f"Detail status: {plan_result.message}",
-                "I can see the selected plan, but could not load plan details yet.",
+                f"Snapshot status: {snapshot_result.message}",
+                "I can see the selected plan, but could not load the normalized snapshot yet.",
             ]
         )
         return False, "\n".join(lines)
+
+    on_budget_accounts = snapshot.open_on_budget_accounts()
+    categories_with_balance = snapshot.categories_with_balance()
+    underfunded_categories = snapshot.underfunded_categories()
 
     lines.extend(
         [
             "",
             "Snapshot",
             f"- Open on-budget accounts: {len(on_budget_accounts)}",
-            f"- On-budget account balance: {format_currency(total_balance)}",
+            f"- On-budget account balance: {format_currency(snapshot.total_on_budget_balance())}",
             f"- Categories with assigned balances: {len(categories_with_balance)}",
             f"- Categories needing review: {len(underfunded_categories)}",
+            f"- Months loaded: {len(snapshot.months)}",
+            f"- Transactions loaded: {len(snapshot.transactions)}",
+            f"- Scheduled transactions loaded: {len(snapshot.scheduled_transactions)}",
+            f"- Snapshot freshness: {snapshot.metadata.fetched_at}",
         ]
     )
 
@@ -130,7 +119,7 @@ def load_latest_summary() -> tuple[bool, str]:
         lines.append("Categories needing review")
         for category in underfunded_categories[:5]:
             lines.append(
-                f"- {category.get('name', 'Unnamed category')}: {format_currency(category.get('balance'))}"
+                f"- {category.name or 'Unnamed category'}: {format_currency(category.balance)}"
             )
 
     lines.extend(

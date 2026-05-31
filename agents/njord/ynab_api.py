@@ -232,7 +232,37 @@ class YnabClient:
         return data_items(self.get_json(f"{PLAN_RESOURCE}/{plan_id}/accounts"), "accounts")
 
     def list_categories(self, plan_id: str) -> YnabResourceResult:
-        return data_items(self.get_json(f"{PLAN_RESOURCE}/{plan_id}/categories"), "categories")
+        result = self.get_json(f"{PLAN_RESOURCE}/{plan_id}/categories")
+        categories = data_items(result, "categories")
+        if categories.ok:
+            return categories
+
+        category_groups = data_items(result, "category_groups")
+        if not category_groups.ok:
+            return categories
+
+        flattened_categories: list[dict[str, Any]] = []
+        for group in category_groups.items:
+            group_categories = group.get("categories", [])
+            if isinstance(group_categories, list):
+                flattened_categories.extend(
+                    category
+                    for category in group_categories
+                    if isinstance(category, dict)
+                )
+
+        return YnabResourceResult(
+            ok=True,
+            items=flattened_categories,
+            message=result.message,
+            status_code=result.status_code,
+        )
+
+    def list_category_groups(self, plan_id: str) -> YnabResourceResult:
+        return data_items(
+            self.get_json(f"{PLAN_RESOURCE}/{plan_id}/categories"),
+            "category_groups",
+        )
 
     def list_months(self, plan_id: str) -> YnabResourceResult:
         return data_items(self.get_json(f"{PLAN_RESOURCE}/{plan_id}/months"), "months")
@@ -301,6 +331,10 @@ def list_accounts(plan_id: str) -> YnabResourceResult:
 
 def list_categories(plan_id: str) -> YnabResourceResult:
     return client().list_categories(plan_id)
+
+
+def list_category_groups(plan_id: str) -> YnabResourceResult:
+    return client().list_category_groups(plan_id)
 
 
 def list_months(plan_id: str) -> YnabResourceResult:

@@ -83,6 +83,19 @@ The read layer provides:
 
 The current YNAB API uses `plans` as the primary resource name. Njord still accepts budget-oriented language in configuration and user-facing text because users commonly think in terms of budgets.
 
+## Normalized Snapshot
+
+Njord converts raw YNAB read responses into the domain model in [snapshot.py](snapshot.py). Capabilities should use that snapshot model instead of traversing raw YNAB payloads directly.
+
+The snapshot includes:
+
+- selected plan metadata, source timestamp, and included resources.
+- accounts and on-budget balance helpers.
+- category groups and flat categories with budgeted, activity, and balance amounts.
+- months for cash-flow and period analysis.
+- transactions and scheduled transactions for spending review and upcoming obligation analysis.
+- serialization through typed fields only, so access tokens and raw payload secrets are not persisted.
+
 ## Install
 
 Install Njord as the user-local `Njord` command without administrator privileges.
@@ -259,6 +272,7 @@ In VS Code, open a terminal from the repository root before running the command.
 - `agent.json`: Install metadata discovered by the root installer. Its `commandName` is globally unique; its `entrypointPath` is relative to this directory.
 - `router.py`: Routes natural-language requests to capabilities.
 - `config.py`: Loads local environment values from `.env`.
+- `snapshot.py`: Normalized financial snapshot model for Njord analysis features.
 - `ynab_api.py`: Shared read-only YNAB API client and normalization helpers.
 - `capabilities/`: Capability implementations and documentation.
 

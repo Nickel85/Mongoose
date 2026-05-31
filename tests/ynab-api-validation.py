@@ -75,6 +75,19 @@ opener = FakeOpener(
         "plans/plan-1": FakeResponse({"data": {"plan": fixture_plan}}),
         "plans/plan-1/accounts": FakeResponse({"data": {"accounts": fixture_plan["accounts"]}}),
         "plans/plan-1/categories": FakeResponse({"data": {"categories": fixture_plan["categories"]}}),
+        "plans/plan-1/category-groups-only/categories": FakeResponse(
+            {
+                "data": {
+                    "category_groups": [
+                        {
+                            "id": "group-1",
+                            "name": "Everyday",
+                            "categories": fixture_plan["categories"],
+                        }
+                    ]
+                }
+            }
+        ),
         "plans/plan-1/months": FakeResponse({"data": {"months": [{"month": "2026-05-01"}]}}),
         "plans/plan-1/transactions?since_date=2026-05-01&type=uncategorized": FakeResponse(
             {"data": {"transactions": [{"id": "transaction-1", "date": "2026-05-05"}]}}
@@ -99,6 +112,18 @@ assert_true(accounts.ok and accounts.items[0]["id"] == "account-1", "Accounts we
 
 categories = client.list_categories("plan-1")
 assert_true(categories.ok and categories.items[0]["id"] == "category-1", "Categories were not parsed.")
+
+category_groups = client.list_category_groups("plan-1/category-groups-only")
+assert_true(
+    category_groups.ok and category_groups.items[0]["id"] == "group-1",
+    "Category groups were not parsed.",
+)
+
+flattened_categories = client.list_categories("plan-1/category-groups-only")
+assert_true(
+    flattened_categories.ok and flattened_categories.items[0]["id"] == "category-1",
+    "Categories were not flattened from category groups.",
+)
 
 months = client.list_months("plan-1")
 assert_true(months.ok and months.items[0]["month"] == "2026-05-01", "Months were not parsed.")
