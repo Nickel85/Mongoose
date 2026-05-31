@@ -65,19 +65,20 @@ python agents\midas\agent.py ask "Summarize my current financial picture."
 
 ## Workflow
 
-1. Authenticate to the YNAB API using a bearer token.
+1. Authenticate to the YNAB API through the shared `agents/midas/ynab_api.py` read layer.
 2. Resolve the target budget or plan.
 3. Retrieve relevant accounts, categories, months, and transactions.
-4. Normalize YNAB milliunit amounts into currency values.
-5. Calculate period totals, category totals, account balances, and notable deltas.
-6. Separate factual findings from interpretation.
-7. Present a concise summary with clear next actions.
+4. Normalize YNAB milliunit amounts and ISO dates consistently.
+5. Return structured errors that never print access tokens.
+6. Calculate period totals, category totals, account balances, and notable deltas.
+7. Separate factual findings from interpretation.
+8. Present a concise summary with clear next actions.
 
 ## API Notes
 
 Use the official YNAB API documentation as the source of truth: [https://api.ynab.com/](https://api.ynab.com/)
 
-The API uses bearer-token authentication. The current documentation also notes that API endpoints use `plans/{plan_id}` as the primary resource path, while budget-oriented examples and older clients may still refer to `budgets/{budget_id}`. Confirm the endpoint shape during implementation instead of hard-coding stale assumptions.
+The API uses bearer-token authentication. The shared read layer uses `plans/{plan_id}` as the primary resource path while keeping budget-oriented naming available in user-facing text and compatibility aliases.
 
 Common data needed by this capability includes:
 

@@ -41,6 +41,21 @@ YNAB_BUDGET_ID=
 
 Never commit the real `.env` file or paste the YNAB access token into documentation, logs, examples, or prompts.
 
+## YNAB Read Layer
+
+Midas reads YNAB data through [ynab_api.py](ynab_api.py). Capabilities should use that shared module instead of making raw HTTP requests directly.
+
+The read layer provides:
+
+- one authenticated read-only client for the YNAB API.
+- helpers for plans/budgets, accounts, categories, months, transactions, and scheduled transactions.
+- deterministic plan selection when `YNAB_BUDGET_ID` is configured.
+- consistent milliunit currency formatting and ISO date parsing.
+- structured, user-facing errors for missing tokens, rejected tokens, HTTP failures, malformed JSON, URL failures, and timeouts.
+- token-safe error handling that avoids printing access tokens or authorization details.
+
+The current YNAB API uses `plans` as the primary resource name. Midas still accepts budget-oriented language in configuration and user-facing text because users commonly think in terms of budgets.
+
 ## Install
 
 Install Midas as the user-local `Midas` command without administrator privileges.
@@ -205,7 +220,7 @@ In VS Code, open a terminal from the repository root before running the command.
 - `agent.json`: Install metadata discovered by the root installer. Its `commandName` is globally unique; its `entrypointPath` is relative to this directory.
 - `router.py`: Routes natural-language requests to capabilities.
 - `config.py`: Loads local environment values from `.env`.
-- `ynab_api.py`: Minimal read-only YNAB API helper.
+- `ynab_api.py`: Shared read-only YNAB API client and normalization helpers.
 - `capabilities/`: Capability implementations and documentation.
 
 ## Roadmap
