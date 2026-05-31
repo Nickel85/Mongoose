@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Provide a minimal Python capability that proves the Midas agent can call a local program and connect to the YNAB API.
+Provide a minimal Python capability that proves the Njord agent can call a local program and connect to the YNAB API.
 
 This capability is intentionally simple. It is the starting pattern for future executable capabilities that read configuration, call APIs, transform data, and return structured summaries.
 
@@ -19,12 +19,12 @@ Use this capability when:
 ## Inputs
 
 - Optional `--name` value for the person or context being greeted.
-- `YNAB_ACCESS_TOKEN` from the repository root `.env` file.
+- `YNAB_ACCESS_TOKEN` from environment variables, the preferred user-local config file, or the repository root `.env` file.
 
 ## Outputs
 
 - A short greeting printed to standard output.
-- A reminder that Midas is ready to review finances.
+- A reminder that Njord is ready to review finances.
 - YNAB API connection status.
 
 ## Usage
@@ -45,36 +45,36 @@ python --version
 Preferred agent-level command from the repository root:
 
 ```powershell
-python agents\midas\agent.py hello-world
+python agents\njord\agent.py hello-world
 ```
 
 With a custom name:
 
 ```powershell
-python agents\midas\agent.py hello-world --name "Midas"
+python agents\njord\agent.py hello-world --name "Njord"
 ```
 
 You can also run the capability directly:
 
 ```powershell
-python agents\midas\capabilities\hello-world\hello_world.py
+python agents\njord\capabilities\hello-world\hello_world.py
 ```
 
 With a custom name:
 
 ```powershell
-python agents\midas\capabilities\hello-world\hello_world.py --name "Midas"
+python agents\njord\capabilities\hello-world\hello_world.py --name "Njord"
 ```
 
 Expected output:
 
 ```text
-Hello, Midas.
-Midas is ready to review your financial life.
+Hello, Njord.
+Njord is ready to review your financial life.
 YNAB connection succeeded. Found <count> plan(s).
 ```
 
-If `.env` does not contain `YNAB_ACCESS_TOKEN`, the command exits with an error and tells you to add the token. The token is never printed.
+If `YNAB_ACCESS_TOKEN` is not configured, the command exits with an error and points you to `Njord config status`. The token is never printed.
 
 ### Run From VS Code
 
@@ -84,7 +84,7 @@ If `.env` does not contain `YNAB_ACCESS_TOKEN`, the command exits with an error 
 4. Run:
 
 ```powershell
-python agents\midas\agent.py hello-world --name "Midas"
+python agents\njord\agent.py hello-world --name "Njord"
 ```
 
 ### Help
@@ -92,22 +92,23 @@ python agents\midas\agent.py hello-world --name "Midas"
 To see agent-level command options:
 
 ```powershell
-python agents\midas\agent.py --help
+python agents\njord\agent.py --help
 ```
 
 To see direct capability options:
 
 ```powershell
-python agents\midas\capabilities\hello-world\hello_world.py --help
+python agents\njord\capabilities\hello-world\hello_world.py --help
 ```
 
 ## Constraints
 
-- This capability reads YNAB through the shared `agents/midas/ynab_api.py` read layer.
-- The shared read layer loads `YNAB_ACCESS_TOKEN` from `.env`, calls the YNAB plans endpoint, and redacts token-like details from errors.
+- This capability reads YNAB through the shared `agents/njord/ynab_api.py` read layer.
+- The shared read layer loads `YNAB_ACCESS_TOKEN` through the shared configuration stack, calls the YNAB plans endpoint, and redacts token-like details from errors.
 - This capability does not modify files or financial data.
 - This capability never prints the token.
 
 ## Next Steps
 
-Use this capability as the smallest working example before building Python capabilities that load `.env`, query YNAB, and produce financial summaries.
+Use this capability as the smallest working example before building Python capabilities that load local configuration, query YNAB, and produce financial summaries.
+

@@ -1,14 +1,14 @@
-# Midas
+# Njord
 
 ## Purpose
 
-Midas is an agent for understanding and improving personal finances. It starts as an accountant for YNAB budget data: summarizing balances, spending, cash flow, category activity, and financial changes over time.
+Njord is an agent for understanding and improving personal finances. It starts as an accountant for YNAB budget data: summarizing balances, spending, cash flow, category activity, and financial changes over time.
 
 Over time, this agent should grow from reporting what happened into explaining why it happened and recommending what to do next.
 
 ## Behavior
 
-Midas should be:
+Njord should be:
 
 - Accurate before clever.
 - Clear about assumptions, missing data, and uncertainty.
@@ -30,7 +30,28 @@ YNAB API documentation: [https://api.ynab.com/](https://api.ynab.com/)
 
 ## Local Configuration
 
-Store local secrets in a `.env` file at the repository root. This file is ignored by Git.
+Preferred setup for normal installed use is a user-local JSON file:
+
+```text
+%LOCALAPPDATA%\Agents\Njord\config.json
+```
+
+Create the folder if needed, then add:
+
+```json
+{
+  "YNAB_ACCESS_TOKEN": "your-token",
+  "YNAB_BUDGET_ID": "your-budget-or-plan-id"
+}
+```
+
+Check the configuration without printing secrets:
+
+```powershell
+Njord config status
+```
+
+For direct repository development, `.env` is still supported. Store local development secrets in a `.env` file at the repository root. This file is ignored by Git.
 
 Start by copying `.env.example` to `.env`, then fill in:
 
@@ -39,11 +60,17 @@ YNAB_ACCESS_TOKEN=
 YNAB_BUDGET_ID=
 ```
 
+Configuration precedence is:
+
+1. Current process environment variables.
+2. `%LOCALAPPDATA%\Agents\Njord\config.json`.
+3. Repository root `.env`.
+
 Never commit the real `.env` file or paste the YNAB access token into documentation, logs, examples, or prompts.
 
 ## YNAB Read Layer
 
-Midas reads YNAB data through [ynab_api.py](ynab_api.py). Capabilities should use that shared module instead of making raw HTTP requests directly.
+Njord reads YNAB data through [ynab_api.py](ynab_api.py). Capabilities should use that shared module instead of making raw HTTP requests directly.
 
 The read layer provides:
 
@@ -54,16 +81,16 @@ The read layer provides:
 - structured, user-facing errors for missing tokens, rejected tokens, HTTP failures, malformed JSON, URL failures, and timeouts.
 - token-safe error handling that avoids printing access tokens or authorization details.
 
-The current YNAB API uses `plans` as the primary resource name. Midas still accepts budget-oriented language in configuration and user-facing text because users commonly think in terms of budgets.
+The current YNAB API uses `plans` as the primary resource name. Njord still accepts budget-oriented language in configuration and user-facing text because users commonly think in terms of budgets.
 
 ## Install
 
-Install Midas as the user-local `Midas` command without administrator privileges.
+Install Njord as the user-local `Njord` command without administrator privileges.
 
 Preferred package-manager flow:
 
 ```powershell
-mongoose install Midas
+mongoose install Njord
 ```
 
 If Mongoose is not installed yet, build and install it from the repository root:
@@ -78,17 +105,17 @@ Legacy direct installer:
 From the repository root:
 
 ```text
-.\install.cmd Midas
+.\install.cmd Njord
 ```
 
-All agents use `.\install.cmd <agent-install-name>`. Midas's install name is `Midas`. If an agent does not exist, the installer prints the available agent names.
+All agents use `.\install.cmd <agent-install-name>`. Njord's install name is `Njord`. If an agent does not exist, the installer prints the available agent names.
 
 The installer discovers this agent from [agent.json](agent.json):
 
 ```json
 {
-  "commandName": "Midas",
-  "displayName": "Midas",
+  "commandName": "Njord",
+  "displayName": "Njord",
   "entrypointPath": "agent.py",
   "example": "Get me my latest budget",
   "description": "Personal finance agent for YNAB budget analysis and financial summaries."
@@ -98,7 +125,7 @@ The installer discovers this agent from [agent.json](agent.json):
 The installer creates:
 
 ```text
-%LOCALAPPDATA%\Agents\bin\Midas.cmd
+%LOCALAPPDATA%\Agents\bin\Njord.cmd
 ```
 
 It also adds that folder to the current user's `PATH`. Open a new terminal after installing.
@@ -106,19 +133,25 @@ It also adds that folder to the current user's `PATH`. Open a new terminal after
 Then run:
 
 ```powershell
-Midas "Get me my latest budget"
+Njord "Get me my latest budget"
+```
+
+Validate YNAB setup first:
+
+```powershell
+Njord config status
 ```
 
 Unquoted requests work too:
 
 ```powershell
-Midas Get me my latest budget
+Njord Get me my latest budget
 ```
 
-If the current terminal cannot find `Midas` yet, open a new terminal or call the launcher directly:
+If the current terminal cannot find `Njord` yet, open a new terminal or call the launcher directly:
 
 ```powershell
-& "$env:LOCALAPPDATA\Agents\bin\Midas.cmd" "Get me my latest budget"
+& "$env:LOCALAPPDATA\Agents\bin\Njord.cmd" "Get me my latest budget"
 ```
 
 For installer internals, update notes, and uninstall instructions, see [../../install/README.md](../../install/README.md).
@@ -149,7 +182,7 @@ Run agent capabilities through `agent.py`.
 From the repository root:
 
 ```powershell
-python agents\midas\agent.py ask "Hey Midas, get me my latest budget."
+python agents\njord\agent.py ask "Hey Njord, get me my latest budget."
 ```
 
 The `ask` command routes natural-language requests to the best available capability.
@@ -157,35 +190,41 @@ The `ask` command routes natural-language requests to the best available capabil
 You can also call capabilities directly:
 
 ```powershell
-python agents\midas\agent.py hello-world
+python agents\njord\agent.py hello-world
 ```
 
 With a custom name:
 
 ```powershell
-python agents\midas\agent.py hello-world --name "Midas"
+python agents\njord\agent.py hello-world --name "Njord"
 ```
 
 Latest budget summary:
 
 ```powershell
-python agents\midas\agent.py ynab-budget-summary
+python agents\njord\agent.py ynab-budget-summary
+```
+
+Configuration status:
+
+```powershell
+python agents\njord\agent.py config status
 ```
 
 After running the user-local installer, you can call this agent from any new terminal:
 
 ```powershell
-Midas "Get me my latest budget"
+Njord "Get me my latest budget"
 ```
 
-The `hello-world` capability also tests the YNAB API connection by loading `YNAB_ACCESS_TOKEN` from the repository root `.env` file and calling the YNAB plans endpoint.
+The `hello-world` capability also tests the YNAB API connection by loading `YNAB_ACCESS_TOKEN` through the shared configuration stack and calling the YNAB plans endpoint.
 
 If the token is configured correctly, the command reports that the connection succeeded and shows how many plans were found. It does not print the token.
 
 To see available options:
 
 ```powershell
-python agents\midas\agent.py --help
+python agents\njord\agent.py --help
 ```
 
 ## Run The Sample Capability Directly
@@ -195,20 +234,20 @@ The `hello-world` capability is the first executable Python capability for this 
 From the repository root, run:
 
 ```powershell
-python agents\midas\capabilities\hello-world\hello_world.py
+python agents\njord\capabilities\hello-world\hello_world.py
 ```
 
 With a custom name:
 
 ```powershell
-python agents\midas\capabilities\hello-world\hello_world.py --name "Midas"
+python agents\njord\capabilities\hello-world\hello_world.py --name "Njord"
 ```
 
 Expected output:
 
 ```text
-Hello, Midas.
-Midas is ready to review your financial life.
+Hello, Njord.
+Njord is ready to review your financial life.
 YNAB connection succeeded. Found <count> plan(s).
 ```
 
@@ -234,3 +273,4 @@ In VS Code, open a terminal from the repository root before running the command.
 ## Notes
 
 This agent should begin as read-only. Any future capability that writes to YNAB should be documented separately, require explicit confirmation, and prefer draft recommendations over automatic changes.
+

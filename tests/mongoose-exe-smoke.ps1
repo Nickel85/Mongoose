@@ -79,17 +79,17 @@ Assert-True (Test-Path $statePaths.jobs) "mongoose state did not create the jobs
 
 $list = Invoke-MongooseExe -Arguments @("list")
 Assert-True ($list.ExitCode -eq 0) "mongoose list failed. Output: $($list.Output)"
-Assert-True ($list.Output -match "Midas") "mongoose list did not include Midas."
+Assert-True ($list.Output -match "Njord") "mongoose list did not include Njord."
 
-$install = Invoke-MongooseExe -Arguments @("install", "Midas")
-Assert-True ($install.ExitCode -eq 0) "mongoose install Midas failed. Output: $($install.Output)"
+$install = Invoke-MongooseExe -Arguments @("install", "Njord")
+Assert-True ($install.ExitCode -eq 0) "mongoose install Njord failed. Output: $($install.Output)"
 
-$nickLauncher = Join-Path $testLocalAppData "Agents\bin\Midas.cmd"
-Assert-True (Test-Path $nickLauncher) "mongoose install did not create Midas launcher."
+$nickLauncher = Join-Path $testLocalAppData "Agents\bin\Njord.cmd"
+Assert-True (Test-Path $nickLauncher) "mongoose install did not create Njord launcher."
 
-$uninstall = Invoke-MongooseExe -Arguments @("uninstall", "Midas")
-Assert-True ($uninstall.ExitCode -eq 0) "mongoose uninstall Midas failed. Output: $($uninstall.Output)"
-Assert-True (-not (Test-Path $nickLauncher)) "mongoose uninstall did not remove Midas launcher."
+$uninstall = Invoke-MongooseExe -Arguments @("uninstall", "Njord")
+Assert-True ($uninstall.ExitCode -eq 0) "mongoose uninstall Njord failed. Output: $($uninstall.Output)"
+Assert-True (-not (Test-Path $nickLauncher)) "mongoose uninstall did not remove Njord launcher."
 
 $setupForUpdate = Invoke-MongooseExe -Arguments @(
     "setup",
@@ -102,6 +102,7 @@ Assert-True ($setupForUpdate.ExitCode -eq 0) "mongoose setup for update failed. 
 
 $update = Invoke-MongooseExe -Arguments @("update")
 Assert-True ($update.ExitCode -eq 0) "mongoose update failed. Output: $($update.Output)"
-Assert-True (Test-Path (Join-Path $testCloneRoot "agents\midas\agent.json")) "mongoose update did not clone the registry."
+Assert-True (Test-Path (Join-Path $testCloneRoot "agents\njord\agent.json")) "mongoose update did not clone the registry."
 
 Write-Host "Mongoose EXE smoke tests passed."
+

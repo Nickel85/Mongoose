@@ -1,7 +1,8 @@
 {
-  "commandName": "Midas",
-  "displayName": "Midas",
+  "commandName": "Njord",
+  "displayName": "Njord",
   "entrypointPath": "agent.py",
   "example": "Get me my latest budget",
   "description": "Personal finance agent for YNAB budget analysis and financial summaries."
 }
+

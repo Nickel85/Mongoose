@@ -6,7 +6,7 @@ Repository of agents for personal use. Each agent is compartmentalized in its ow
 
 | Agent | Description | Documentation |
 | --- | --- | --- |
-| Midas | Personal finance agent for YNAB budget analysis, financial summaries, and future recommendations. | [agents/midas/README.md](agents/midas/README.md) |
+| Njord | Personal finance agent for YNAB budget analysis, financial summaries, and future recommendations. | [agents/njord/README.md](agents/njord/README.md) |
 
 ## Structure
 
@@ -55,8 +55,8 @@ Then use:
 
 ```powershell
 mongoose list
-mongoose install Midas
-mongoose uninstall Midas
+mongoose install Njord
+mongoose uninstall Njord
 mongoose update
 ```
 
@@ -70,7 +70,7 @@ If the requested agent does not exist, the installer prints the available agent 
 
 Each agent README contains the agent-specific install name, configuration, examples, and any extra setup:
 
-- [Midas install instructions](agents/midas/README.md)
+- [Njord install instructions](agents/njord/README.md)
 
 Installers should not require administrator privileges. User-local command shims, configuration files, and secrets should stay scoped to the current user wherever possible.
 
@@ -100,10 +100,10 @@ GitHub Actions also smoke-tests the built executable by running `mongoose list`,
 ## Directory Guide
 
 - `agents/`: All agent definitions.
-- `agents/midas/`: Personal finance agent for analyzing YNAB budget data.
-- `agents/midas/agent.json`: Install metadata for the `Midas` command.
-- `agents/midas/agent.py`: Midas command-line entrypoint.
-- `agents/midas/router.py`: Natural-language request router.
+- `agents/njord/`: Personal finance agent for analyzing YNAB budget data.
+- `agents/njord/agent.json`: Install metadata for the `Njord` command.
+- `agents/njord/agent.py`: Njord command-line entrypoint.
+- `agents/njord/router.py`: Natural-language request router.
 - `install.cmd`: One-file no-admin installer for installable agents.
 - `install/`: User-local installer support scripts.
 - `mongoose/`: Package-manager CLI and launcher source.
@@ -112,3 +112,4 @@ GitHub Actions also smoke-tests the built executable by running `mongoose list`,
 - `tests/`: Local validation scripts also used by GitHub Actions.
 - `agents/_template/`: Starter template for a new agent.
 - `agents/_template/capabilities/_template/`: Starter template for a new capability.
+
