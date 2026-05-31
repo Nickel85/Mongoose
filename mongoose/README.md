@@ -11,8 +11,10 @@ mongoose
 The CLI can:
 
 - list available agents
-- install an agent command
-- uninstall an agent command
+- install an agent command from the configured registry or a local agent path
+- inspect installed agent metadata and capabilities
+- run an installed agent entrypoint
+- remove an installed agent command and state
 - update the local agent registry from GitHub
 
 ## Build The EXE
@@ -71,17 +73,44 @@ List available agents:
 mongoose list
 ```
 
+List installed agents:
+
+```powershell
+mongoose list --installed
+```
+
 Install an agent:
 
 ```powershell
 mongoose install Njord
 ```
 
-Uninstall an agent:
+Install an agent directly from a local package path:
 
 ```powershell
-mongoose uninstall Njord
+mongoose install C:\path\to\agent
 ```
+
+Show installed metadata and discovered capabilities:
+
+```powershell
+mongoose show Njord
+```
+
+Run an installed agent entrypoint through Mongoose:
+
+```powershell
+mongoose run Njord config status
+mongoose run Njord ask "Get me my latest budget"
+```
+
+Remove an installed agent:
+
+```powershell
+mongoose remove Njord
+```
+
+`mongoose uninstall Njord` remains available as an alias.
 
 Pull down registry updates:
 
@@ -114,7 +143,7 @@ The shared layout is:
     registry\Agents\   Default cloned registry location
   state\
     config\            Non-secret shared configuration
-    agents\            Agent-scoped local state
+    agents\            Installed agent metadata and agent-scoped local state
     jobs\              Future job metadata
   logs\                JSONL logs
 ```
@@ -134,4 +163,14 @@ agents\*\agent.json
 ```
 
 Each manifest provides the installed command name and local entrypoint for that agent.
+
+When an agent is installed, Mongoose writes a small installed-agent record under:
+
+```text
+%LOCALAPPDATA%\Agents\state\agents\<commandName>.json
+```
+
+That record stores the manifest, source path, entrypoint, launcher path, install timestamp, version, and discovered capability metadata. It does not copy or delete the source package. `mongoose remove <agent>` removes the launcher and installed-agent record only.
+
+Capabilities are discovered from a manifest `capabilities` array when present. If the manifest does not declare capabilities yet, Mongoose falls back to listing folders under `capabilities\`. The richer manifest contract is tracked separately in issue #26.
 

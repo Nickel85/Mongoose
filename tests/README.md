@@ -82,6 +82,11 @@ This test verifies:
 - `mongoose list` discovers available agents from `agent.json`.
 - installing a missing agent fails and prints available agents.
 - `mongoose install Njord` creates a user-local `Njord.cmd` launcher.
+- `mongoose install <local path>` installs a fixture agent from its manifest.
+- `mongoose list --installed` shows installed agent state.
+- `mongoose show <agent>` displays manifest, version, source, entrypoint, and capability metadata.
+- `mongoose run <agent> ...` dispatches to an installed fixture agent entrypoint.
+- `mongoose remove <agent>` removes the launcher and installed state without deleting source files.
 - the generated launcher calls the agent through `ask`.
 - `mongoose uninstall Njord` removes the launcher.
 

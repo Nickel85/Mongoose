@@ -83,13 +83,25 @@ Assert-True ($list.Output -match "Njord") "mongoose list did not include Njord."
 
 $install = Invoke-MongooseExe -Arguments @("install", "Njord")
 Assert-True ($install.ExitCode -eq 0) "mongoose install Njord failed. Output: $($install.Output)"
+Assert-True ($install.Output -match "State:") "mongoose install did not report installed state."
 
 $nickLauncher = Join-Path $testLocalAppData "Agents\bin\Njord.cmd"
 Assert-True (Test-Path $nickLauncher) "mongoose install did not create Njord launcher."
+$njordStatePath = Join-Path $testLocalAppData "Agents\state\agents\Njord.json"
+Assert-True (Test-Path $njordStatePath) "mongoose install did not create Njord state."
 
-$uninstall = Invoke-MongooseExe -Arguments @("uninstall", "Njord")
-Assert-True ($uninstall.ExitCode -eq 0) "mongoose uninstall Njord failed. Output: $($uninstall.Output)"
+$show = Invoke-MongooseExe -Arguments @("show", "Njord")
+Assert-True ($show.ExitCode -eq 0) "mongoose show Njord failed. Output: $($show.Output)"
+Assert-True ($show.Output -match "Status: installed") "mongoose show did not report installed status."
+
+$installedList = Invoke-MongooseExe -Arguments @("list", "--installed")
+Assert-True ($installedList.ExitCode -eq 0) "mongoose list --installed failed. Output: $($installedList.Output)"
+Assert-True ($installedList.Output -match "Njord") "mongoose list --installed did not include Njord."
+
+$uninstall = Invoke-MongooseExe -Arguments @("remove", "Njord")
+Assert-True ($uninstall.ExitCode -eq 0) "mongoose remove Njord failed. Output: $($uninstall.Output)"
 Assert-True (-not (Test-Path $nickLauncher)) "mongoose uninstall did not remove Njord launcher."
+Assert-True (-not (Test-Path $njordStatePath)) "mongoose uninstall did not remove Njord state."
 
 $setupForUpdate = Invoke-MongooseExe -Arguments @(
     "setup",

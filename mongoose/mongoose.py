@@ -198,18 +198,152 @@ def load_agent_registry(root: Path) -> dict[str, dict[str, Any]]:
         if not command_name or not entrypoint_path:
             continue
 
-        agent_dir = manifest_path.parent.resolve()
-        entrypoint = (agent_dir / entrypoint_path).resolve()
-        registry[command_name] = {
+        registry[command_name] = agent_record(manifest, manifest_path)
+
+    return registry
+
+
+def discover_capabilities(agent_dir: Path, manifest: dict[str, Any]) -> list[dict[str, Any]]:
+    manifest_capabilities = manifest.get("capabilities")
+    if isinstance(manifest_capabilities, list):
+        capabilities = []
+        for capability in manifest_capabilities:
+            if not isinstance(capability, dict):
+                continue
+            name = str(capability.get("name", "")).strip()
+            if not name:
+                continue
+            capabilities.append(
+                {
+                    "name": name,
+                    "description": str(capability.get("description", "")).strip(),
+                    "taskTypes": capability.get("taskTypes", []),
+                    "entrypointPath": str(capability.get("entrypointPath", "")).strip(),
+                }
+            )
+        return capabilities
+
+    capabilities_root = agent_dir / "capabilities"
+    if not capabilities_root.exists():
+        return []
+
+    capabilities = []
+    for child in sorted(capabilities_root.iterdir()):
+        if not child.is_dir() or child.name.startswith("_"):
+            continue
+        readme = child / "README.md"
+        capabilities.append(
+            {
+                "name": child.name,
+                "description": first_markdown_paragraph(readme),
+                "taskTypes": [],
+                "entrypointPath": "",
+            }
+        )
+    return capabilities
+
+
+def first_markdown_paragraph(path: Path) -> str:
+    if not path.exists():
+        return ""
+
+    for line in path.read_text(encoding="utf-8").splitlines():
+        cleaned = line.strip()
+        if cleaned and not cleaned.startswith("#"):
+            return cleaned
+    return ""
+
+
+def agent_record(manifest: dict[str, Any], manifest_path: Path) -> dict[str, Any]:
+    command_name = str(manifest.get("commandName", "")).strip()
+    entrypoint_path = str(manifest.get("entrypointPath", "")).strip()
+    agent_dir = manifest_path.parent.resolve()
+    entrypoint = (agent_dir / entrypoint_path).resolve()
+    return {
             "commandName": command_name,
             "displayName": manifest.get("displayName", command_name),
             "description": manifest.get("description", ""),
             "example": manifest.get("example", "Hello"),
+            "version": manifest.get("version", ""),
+            "manifest": manifest,
             "entrypoint": str(entrypoint),
+            "entrypointPath": entrypoint_path,
+            "sourcePath": str(agent_dir),
             "manifestPath": str(manifest_path.resolve()),
+            "capabilities": discover_capabilities(agent_dir, manifest),
         }
 
-    return registry
+
+def load_agent_from_source(source: str) -> dict[str, Any] | None:
+    source_path = Path(source).expanduser()
+    if not source_path.exists():
+        return None
+
+    manifest_path = source_path if source_path.is_file() else source_path / "agent.json"
+    if not manifest_path.exists():
+        raise ValueError(f"No agent.json manifest found at {source_path}")
+
+    manifest = read_json(manifest_path)
+    if not isinstance(manifest, dict):
+        raise ValueError(f"Agent manifest must be a JSON object: {manifest_path}")
+
+    command_name = str(manifest.get("commandName", "")).strip()
+    entrypoint_path = str(manifest.get("entrypointPath", "")).strip()
+    if not command_name or not entrypoint_path:
+        raise ValueError(f"Agent manifest missing commandName or entrypointPath: {manifest_path}")
+
+    entrypoint = (manifest_path.parent / entrypoint_path).resolve()
+    if not entrypoint.exists():
+        raise ValueError(f"Agent entrypoint does not exist: {entrypoint}")
+
+    return agent_record(manifest, manifest_path)
+
+
+def installed_agent_path(command_name: str) -> Path:
+    safe_name = re.sub(r"[^A-Za-z0-9_.-]+", "-", command_name).strip(".-")
+    if not safe_name:
+        raise ValueError("Agent name cannot be empty.")
+    return AGENT_STATE_ROOT / f"{safe_name}.json"
+
+
+def save_installed_agent(agent: dict[str, Any], launcher_path: Path) -> None:
+    ensure_state_layout()
+    installed = {
+        "commandName": agent["commandName"],
+        "displayName": agent.get("displayName", agent["commandName"]),
+        "description": agent.get("description", ""),
+        "version": agent.get("version", ""),
+        "example": agent.get("example", "Hello"),
+        "sourcePath": agent.get("sourcePath", ""),
+        "manifestPath": agent.get("manifestPath", ""),
+        "entrypoint": agent.get("entrypoint", ""),
+        "entrypointPath": agent.get("entrypointPath", ""),
+        "launcherPath": str(launcher_path),
+        "installedAt": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+        "manifest": agent.get("manifest", {}),
+        "capabilities": agent.get("capabilities", []),
+    }
+    write_json_atomic(installed_agent_path(agent["commandName"]), installed)
+
+
+def load_installed_agents() -> dict[str, dict[str, Any]]:
+    if not AGENT_STATE_ROOT.exists():
+        return {}
+
+    installed: dict[str, dict[str, Any]] = {}
+    for path in sorted(AGENT_STATE_ROOT.glob("*.json")):
+        record = read_json(path, default={})
+        if not isinstance(record, dict):
+            continue
+        command_name = str(record.get("commandName", "")).strip()
+        if command_name:
+            installed[command_name] = record
+    return installed
+
+
+def load_installed_agent(command_name: str) -> dict[str, Any] | None:
+    record = read_json(installed_agent_path(command_name), default=None)
+    return record if isinstance(record, dict) else None
 
 
 def ensure_registry(config: dict[str, Any]) -> Path:
@@ -280,22 +414,46 @@ def cmd_state(args: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_list(_: argparse.Namespace) -> int:
+def cmd_list(args: argparse.Namespace) -> int:
+    installed = load_installed_agents()
+    if args.installed:
+        if not installed:
+            print("No installed agents found.")
+            return 0
+
+        print("Installed agents:")
+        for command_name, agent in sorted(installed.items()):
+            version = f" v{agent.get('version')}" if agent.get("version") else ""
+            description = agent.get("description")
+            line = f"  {command_name}{version}"
+            if description:
+                line = f"{line} - {description}"
+            print(line)
+        return 0
+
     config = load_config()
     root = ensure_registry(config)
     agents = load_agent_registry(root)
 
-    if not agents:
+    if not agents and not installed:
         print("No installable agents found.")
         return 0
 
-    print("Available agents:")
-    for command_name, agent in sorted(agents.items()):
-        description = agent.get("description")
-        if description:
-            print(f"  {command_name} - {description}")
-        else:
-            print(f"  {command_name}")
+    if agents:
+        print("Available agents:")
+        for command_name, agent in sorted(agents.items()):
+            description = agent.get("description")
+            installed_marker = " [installed]" if command_name in installed else ""
+            if description:
+                print(f"  {command_name}{installed_marker} - {description}")
+            else:
+                print(f"  {command_name}{installed_marker}")
+
+    if installed:
+        print("")
+        print("Installed agents:")
+        for command_name, agent in sorted(installed.items()):
+            print(f"  {command_name} - {agent.get('sourcePath', '')}")
 
     return 0
 
@@ -309,10 +467,15 @@ def create_agent_launcher(command_name: str, entrypoint: str) -> Path:
 
 
 def cmd_install(args: argparse.Namespace) -> int:
-    config = load_config()
-    root = ensure_registry(config)
-    agents = load_agent_registry(root)
-    agent = agents.get(args.agent)
+    source_agent = load_agent_from_source(args.agent)
+    if source_agent is not None:
+        agent = source_agent
+        agents: dict[str, dict[str, Any]] = {}
+    else:
+        config = load_config()
+        root = ensure_registry(config)
+        agents = load_agent_registry(root)
+        agent = agents.get(args.agent)
 
     if agent is None:
         print(f"Agent '{args.agent}' does not exist.")
@@ -323,8 +486,10 @@ def cmd_install(args: argparse.Namespace) -> int:
         return 1
 
     launcher_path = create_agent_launcher(agent["commandName"], agent["entrypoint"])
+    save_installed_agent(agent, launcher_path)
     print(f"Installed {agent['displayName']} as {agent['commandName']}.")
     print(f"Launcher: {launcher_path}")
+    print(f"State: {installed_agent_path(agent['commandName'])}")
     print("")
     print("Try:")
     print(f"{agent['commandName']} \"{agent.get('example', 'Hello')}\"")
@@ -333,13 +498,90 @@ def cmd_install(args: argparse.Namespace) -> int:
 
 def cmd_uninstall(args: argparse.Namespace) -> int:
     launcher_path = USER_BIN / f"{args.agent}.cmd"
+    state_path = installed_agent_path(args.agent)
+    removed = False
     if not launcher_path.exists():
         print(f"Agent command '{args.agent}' is not installed.")
+    else:
+        launcher_path.unlink()
+        print(f"Removed {launcher_path}")
+        removed = True
+
+    if state_path.exists():
+        state_path.unlink()
+        print(f"Removed {state_path}")
+        removed = True
+
+    if not removed:
+        print(f"No installed state found for '{args.agent}'.")
+    return 0
+
+
+def print_agent_details(agent: dict[str, Any], installed: bool) -> None:
+    print(f"Agent: {agent.get('commandName', '')}")
+    print(f"Display name: {agent.get('displayName', '')}")
+    if agent.get("version"):
+        print(f"Version: {agent['version']}")
+    print(f"Status: {'installed' if installed else 'available'}")
+    if agent.get("description"):
+        print(f"Description: {agent['description']}")
+    print(f"Source: {agent.get('sourcePath', '')}")
+    print(f"Manifest: {agent.get('manifestPath', '')}")
+    print(f"Entrypoint: {agent.get('entrypoint', '')}")
+    if agent.get("launcherPath"):
+        print(f"Launcher: {agent['launcherPath']}")
+    capabilities = agent.get("capabilities", [])
+    print("")
+    print("Capabilities:")
+    if not capabilities:
+        print("  none declared")
+        return
+    for capability in capabilities:
+        name = capability.get("name", "")
+        description = capability.get("description", "")
+        task_types = capability.get("taskTypes", [])
+        line = f"  {name}"
+        if description:
+            line = f"{line} - {description}"
+        if task_types:
+            line = f"{line} [{', '.join(str(item) for item in task_types)}]"
+        print(line)
+
+
+def cmd_show(args: argparse.Namespace) -> int:
+    installed = load_installed_agent(args.agent)
+    if installed is not None:
+        print_agent_details(installed, installed=True)
         return 0
 
-    launcher_path.unlink()
-    print(f"Removed {launcher_path}")
-    return 0
+    config = load_config()
+    root = ensure_registry(config)
+    available = load_agent_registry(root).get(args.agent)
+    if available is not None:
+        print_agent_details(available, installed=False)
+        return 0
+
+    print(f"Agent '{args.agent}' was not found.")
+    return 1
+
+
+def cmd_run(args: argparse.Namespace) -> int:
+    agent = load_installed_agent(args.agent)
+    if agent is None:
+        print(f"Agent '{args.agent}' is not installed. Run: mongoose install {args.agent}")
+        return 1
+
+    entrypoint = Path(str(agent.get("entrypoint", "")))
+    if not entrypoint.exists():
+        print(f"Installed agent entrypoint no longer exists: {entrypoint}")
+        return 1
+
+    agent_args = args.agent_args or ["ask", str(agent.get("example", "Hello"))]
+    completed = subprocess.run(
+        [sys.executable, str(entrypoint), *agent_args],
+        check=False,
+    )
+    return completed.returncode
 
 
 def cmd_update(_: argparse.Namespace) -> int:
@@ -375,21 +617,26 @@ def cmd_update(_: argparse.Namespace) -> int:
 def build_parser() -> argparse.ArgumentParser:
     examples = """examples:
   mongoose list
+  mongoose list --installed
   mongoose install Njord
-  mongoose uninstall Njord
+  mongoose install C:\\path\\to\\agent
+  mongoose show Njord
+  mongoose run Njord config status
+  mongoose remove Njord
   mongoose update
   mongoose state --init
   mongoose setup --registry-root C:\\path\\to\\Agents
 
 workflow:
   1. Run `mongoose list` to see available agents.
-  2. Run `mongoose install <agent>` to install one as a command.
-  3. Run the installed agent command, such as `Njord "Get me my latest budget"`.
-  4. Run `mongoose update` to pull registry changes from GitHub.
+  2. Run `mongoose install <agent-or-path>` to install one as a command.
+  3. Run `mongoose show <agent>` to inspect installed metadata and capabilities.
+  4. Run `mongoose run <agent> ...` or the installed agent command directly.
+  5. Run `mongoose update` to pull registry changes from GitHub.
 """
     parser = argparse.ArgumentParser(
         prog="mongoose",
-        description="Install, list, uninstall, and update local agents.",
+        description="Install, inspect, run, remove, and update local agents.",
         epilog=examples,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -427,26 +674,53 @@ workflow:
     list_parser = subparsers.add_parser(
         "list",
         aliases=["ls"],
-        help="List available agents from the configured registry.",
-        description="List installable agents discovered from agents/*/agent.json.",
+        help="List available or installed agents.",
+        description="List installable agents discovered from agents/*/agent.json and installed local state.",
+    )
+    list_parser.add_argument(
+        "--installed",
+        action="store_true",
+        help="Only list agents installed into local Mongoose state.",
     )
     list_parser.set_defaults(handler=cmd_list)
 
     install = subparsers.add_parser(
         "install",
         help="Install an agent as a user-local command.",
-        description="Install an agent command into the user-local Agents bin directory.",
+        description="Install an agent command into the user-local Agents bin directory from a registry name or local agent path.",
     )
-    install.add_argument("agent", help="Agent commandName to install, such as Njord.")
+    install.add_argument("agent", help="Agent commandName or local agent path to install, such as Njord.")
     install.set_defaults(handler=cmd_install)
 
     uninstall = subparsers.add_parser(
         "uninstall",
+        aliases=["remove", "rm"],
         help="Uninstall a user-local agent command.",
-        description="Remove an installed agent command from the user-local Agents bin directory.",
+        description="Remove an installed agent command and local Mongoose install state.",
     )
     uninstall.add_argument("agent", help="Agent commandName to remove, such as Njord.")
     uninstall.set_defaults(handler=cmd_uninstall)
+
+    show = subparsers.add_parser(
+        "show",
+        help="Show installed agent metadata and capabilities.",
+        description="Show manifest, entrypoint, source, launcher, and capability metadata for an agent.",
+    )
+    show.add_argument("agent", help="Agent commandName to inspect, such as Njord.")
+    show.set_defaults(handler=cmd_show)
+
+    run_parser = subparsers.add_parser(
+        "run",
+        help="Run an installed agent entrypoint.",
+        description="Dispatch arguments to an installed agent entrypoint through Mongoose.",
+    )
+    run_parser.add_argument("agent", help="Installed agent commandName to run, such as Njord.")
+    run_parser.add_argument(
+        "agent_args",
+        nargs=argparse.REMAINDER,
+        help="Arguments to pass to the agent entrypoint.",
+    )
+    run_parser.set_defaults(handler=cmd_run)
 
     update = subparsers.add_parser(
         "update",

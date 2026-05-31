@@ -56,17 +56,21 @@ Then use:
 ```powershell
 mongoose list
 mongoose install Njord
-mongoose uninstall Njord
+mongoose show Njord
+mongoose run Njord config status
+mongoose remove Njord
 mongoose update
 ```
 
 `mongoose update` pulls down registry changes from the configured GitHub-backed registry.
 
-The installer discovers installable agents by scanning `agents/*/agent.json`. Add that manifest when creating a new agent and it will appear in `mongoose list` automatically.
+Mongoose discovers installable agents by scanning `agents/*/agent.json`. Add that manifest when creating a new agent and it will appear in `mongoose list` automatically.
 
 Each manifest's `entrypointPath` is resolved relative to that agent's directory. Multiple agents can use `agent.py`; they just cannot share the same `commandName`.
 
-If the requested agent does not exist, the installer prints the available agent names.
+Installed agent metadata is stored under `%LOCALAPPDATA%\Agents\state\agents`. Removing an agent deletes the local command shim and installed metadata, not the source package.
+
+If the requested agent does not exist, Mongoose prints the available agent names.
 
 Each agent README contains the agent-specific install name, configuration, examples, and any extra setup:
 
