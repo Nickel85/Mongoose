@@ -189,6 +189,31 @@ This test verifies Njord's normalized financial snapshot model without calling t
 - summary helpers calculate open on-budget balance and underfunded categories from domain objects.
 - snapshot serialization excludes raw payload fields and secret-like values.
 
+## Njord Review Validation
+
+Script:
+
+```text
+tests/njord-review-validation.py
+```
+
+Run locally from the repository root:
+
+```powershell
+python .\tests\njord-review-validation.py
+```
+
+This test verifies review-needed detection without calling the live API:
+
+- negative category balances are flagged.
+- categories with spending but little or no assigned budget coverage are flagged.
+- category activity materially above assigned budget is flagged.
+- uncategorized transactions are flagged.
+- unusually large outflow transactions are flagged.
+- stale scheduled transactions are flagged.
+- hidden categories do not produce review flags.
+- each flag includes neutral language, severity, confidence, and supporting evidence.
+
 ## Mongoose EXE Smoke
 
 Script:

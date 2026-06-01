@@ -32,6 +32,10 @@ def route_request(request: str) -> Route:
         "summary",
         "cash",
         "account",
+        "attention",
+        "review",
+        "flag",
+        "flags",
     )
     greeting_terms = ("hello", "hi", "hey", "test", "connection")
 

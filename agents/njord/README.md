@@ -101,6 +101,25 @@ The snapshot includes:
 - transactions and scheduled transactions for spending review and upcoming obligation analysis.
 - serialization through typed fields only, so access tokens and raw payload secrets are not persisted.
 
+## Review-Needed Detection
+
+Njord derives review-needed flags from the normalized snapshot in
+[review.py](review.py). These flags are attention prompts, not recommendations
+or approvals to change YNAB data.
+
+The current rules flag:
+
+- negative category balances.
+- categories with spending but little or no assigned budget coverage.
+- category activity that is materially above the assigned budget.
+- uncategorized transactions.
+- unusually large outflow transactions.
+- scheduled transactions whose next date appears stale.
+
+Each flag includes the rule that triggered it, the affected category or
+transaction, severity, confidence, a neutral explanation, and supporting
+evidence for later briefs or recommendations to reuse.
+
 ## Install
 
 Install Njord as the user-local `Njord` command without administrator privileges.
@@ -179,7 +198,7 @@ For installer internals, update notes, and uninstall instructions, see [../../in
 | Capability | Description |
 | --- | --- |
 | `hello-world` | Run a simple Python greeting capability to verify the agent runtime pattern works. |
-| `ynab-budget-summary` | Read YNAB budget data and summarize current financial position, spending, category activity, and notable changes. |
+| `ynab-budget-summary` | Read YNAB budget data and summarize current financial position, review-needed flags, spending, category activity, and notable changes. |
 
 ## Usage
 
@@ -277,6 +296,7 @@ In VS Code, open a terminal from the repository root before running the command.
 - `agent.json`: Install metadata discovered by the root installer. Its `commandName` is globally unique; its `entrypointPath` is relative to this directory.
 - `router.py`: Routes natural-language requests to capabilities.
 - `config.py`: Loads local environment values from `.env`.
+- `review.py`: Detects categories and transactions that deserve human review.
 - `snapshot.py`: Normalized financial snapshot model for Njord analysis features.
 - `ynab_api.py`: Shared read-only YNAB API client and normalization helpers.
 - `capabilities/`: Capability implementations and documentation.
