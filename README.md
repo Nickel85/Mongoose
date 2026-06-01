@@ -1,12 +1,49 @@
 # Agents
 
-Repository of agents for personal use. Each agent is compartmentalized in its own directory with its own documentation, capabilities, configuration notes, and installation instructions.
+Repository of installable agents and the local tooling used to manage them.
+Each agent is compartmentalized in its own directory with its own
+documentation, capabilities, configuration notes, and installation
+instructions.
+
+Today, this repository contains one concrete agent, Njord, and Mongoose, the
+local package-manager CLI used to install, inspect, route to, and run agents
+from this repository.
+
+## Mongoose Vision
+
+Mongoose is being developed toward a local-first runtime and package manager
+for AI agents that enables agents to be installed, configured, discovered, and
+executed consistently across different environments.
+
+The current CLI already supports local agent installation, manifest validation,
+capability discovery, deterministic routing, user-local state, and installed
+agent execution. The broader platform vision is that agents declare the
+capabilities they require, such as LLMs, memory, tools, storage, and configured
+APIs, and Mongoose provides those capabilities through common interfaces. That
+would allow the same agent to run on a personal laptop, enterprise workstation,
+or server without modification.
+
+That full runtime surface is roadmap work, not current behavior. The active
+roadmap tracks:
+
+- provider-neutral LLM runtime support in [#23](https://github.com/Nickel85/Agents/issues/23)
+- persistent scheduling and jobs in [#1](https://github.com/Nickel85/Agents/issues/1), [#2](https://github.com/Nickel85/Agents/issues/2), [#4](https://github.com/Nickel85/Agents/issues/4), and [#5](https://github.com/Nickel85/Agents/issues/5)
+- cross-platform runtime support in [#38](https://github.com/Nickel85/Agents/issues/38)
+- dependency and environment isolation in [#39](https://github.com/Nickel85/Agents/issues/39)
+- package registry and versioning in [#40](https://github.com/Nickel85/Agents/issues/40)
+- portable agent execution contracts in [#41](https://github.com/Nickel85/Agents/issues/41)
+- common memory, storage, tool, and API provider interfaces in [#42](https://github.com/Nickel85/Agents/issues/42)
+
+Mongoose platform milestones and Njord agent-value milestones are intentionally
+sequenced separately. Njord is the first concrete use case and should prove
+useful deterministic finance workflows before the platform grows package,
+runtime, and provider abstractions beyond what real agents need.
 
 ## Agents
 
 | Agent | Description | Documentation |
 | --- | --- | --- |
-| Njord | Personal finance agent for YNAB budget analysis, financial summaries, and future recommendations. | [agents/njord/README.md](agents/njord/README.md) |
+| Njord | First concrete Mongoose-managed agent; personal finance analysis for YNAB budget data, financial summaries, and future recommendations. | [agents/njord/README.md](agents/njord/README.md) |
 
 ## Structure
 

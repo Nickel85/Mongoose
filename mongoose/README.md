@@ -1,12 +1,97 @@
 # Mongoose
 
-Mongoose is the package-manager CLI for this agent repository.
+Mongoose is the package-manager CLI for this agent repository. It is also the
+foundation for a broader local-first runtime and package manager for AI agents.
+
+The long-term goal is to make agents portable, reusable, and easy to manage
+throughout their lifecycle. In that vision, agents declare the capabilities
+they require, including LLMs, memory, tools, storage, and configured APIs, and
+Mongoose provides those capabilities through a common interface so the same
+agent can run on a personal laptop, enterprise workstation, or server without
+modification.
+
+That vision is not fully implemented yet. The sections below distinguish what
+Mongoose does today from committed roadmap work and longer-term platform goals.
 
 It installs as:
 
 ```text
 mongoose
 ```
+
+## Current Capabilities
+
+Mongoose currently provides a Windows-focused, user-local CLI for installing
+and running agents from this repository. It can:
+
+- list available agents
+- install an agent command from the configured registry or a local agent path
+- inspect installed agent metadata and capabilities
+- validate agent manifests without importing agent code
+- enumerate and route across installed capabilities by task type
+- run an installed agent entrypoint
+- remove an installed agent command and state
+- update the local agent registry from GitHub
+- initialize and inspect user-local Mongoose state
+
+Implemented agent metadata includes manifest schema validation, local entrypoint
+resolution, command-name uniqueness, declared capability metadata, required
+configuration names, compatibility metadata, and descriptive LLM metadata.
+
+Implemented routing is deterministic. It selects installed capabilities from
+manifest metadata and dispatches through the current subprocess entrypoint
+shape. Mongoose does not yet provide a portable runtime context, common
+provider interfaces, managed dependency isolation, or cross-platform execution
+guarantees.
+
+## Roadmap
+
+Mongoose is being developed in layers so current agents remain useful while the
+runtime grows toward the broader platform vision:
+
+- Provider-neutral LLM runtime configuration and invocation are tracked in
+  [#23](https://github.com/Nickel85/Agents/issues/23).
+- Event-based and timer-based scheduling are tracked in
+  [#1](https://github.com/Nickel85/Agents/issues/1) and
+  [#2](https://github.com/Nickel85/Agents/issues/2).
+- Agent job and status commands are tracked in
+  [#4](https://github.com/Nickel85/Agents/issues/4), with persistent scheduler
+  runtime work in [#5](https://github.com/Nickel85/Agents/issues/5).
+- Cross-platform runtime support is tracked in
+  [#38](https://github.com/Nickel85/Agents/issues/38).
+- Agent dependency and environment isolation are tracked in
+  [#39](https://github.com/Nickel85/Agents/issues/39).
+- Package registry and versioning are tracked in
+  [#40](https://github.com/Nickel85/Agents/issues/40).
+- A portable agent execution contract is tracked in
+  [#41](https://github.com/Nickel85/Agents/issues/41).
+- Common capability provider interfaces for memory, storage, tools, and
+  configured APIs are tracked in
+  [#42](https://github.com/Nickel85/Agents/issues/42).
+
+## Platform Direction
+
+Mongoose's platform direction is local-first agent lifecycle management:
+install, configure, discover, execute, update, route, observe, and remove
+agents through a consistent runtime surface.
+
+The intended future agent contract is provider-neutral. Agents should be able
+to ask Mongoose for declared capabilities such as LLM profiles, durable memory,
+local storage, tool invocation, external API profiles, logs, and job context
+without binding themselves to a single host environment or secret layout.
+
+Njord is the first concrete agent use case, not the whole platform. The Njord
+roadmap is expected to prove useful deterministic financial workflows, including
+the manual weekly brief tracked in
+[#28](https://github.com/Nickel85/Agents/issues/28), while Mongoose separately
+adds the package, scheduling, provider, and portability features needed for
+agents to run consistently across environments.
+
+This sequencing is intentional. Agent-value milestones validate what the
+platform actually needs; Mongoose platform milestones then generalize those
+needs into reusable runtime features.
+
+## Command Summary
 
 The CLI can:
 

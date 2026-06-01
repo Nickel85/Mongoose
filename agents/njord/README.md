@@ -6,6 +6,11 @@ Njord is an agent for understanding and improving personal finances. It starts a
 
 Over time, this agent should grow from reporting what happened into explaining why it happened and recommending what to do next.
 
+Njord is also the first concrete agent use case for Mongoose. Its job is to
+prove that a locally installed agent can deliver useful, deterministic
+workflows before Mongoose generalizes the package, runtime, scheduling, and
+provider interfaces for other agents.
+
 ## Behavior
 
 Njord should be:
