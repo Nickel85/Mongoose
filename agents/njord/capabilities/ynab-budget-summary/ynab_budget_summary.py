@@ -14,6 +14,7 @@ if str(AGENT_ROOT) not in sys.path:
     sys.path.insert(0, str(AGENT_ROOT))
 
 from config import ConfigFileError, current_config_snapshot
+from review import review_snapshot
 from snapshot import load_snapshot
 from ynab_api import YnabClient, choose_plan, format_currency, list_plans
 
@@ -97,7 +98,7 @@ def load_latest_summary() -> tuple[bool, str]:
 
     on_budget_accounts = snapshot.open_on_budget_accounts()
     categories_with_balance = snapshot.categories_with_balance()
-    underfunded_categories = snapshot.underfunded_categories()
+    review = review_snapshot(snapshot)
 
     lines.extend(
         [
@@ -106,7 +107,7 @@ def load_latest_summary() -> tuple[bool, str]:
             f"- Open on-budget accounts: {len(on_budget_accounts)}",
             f"- On-budget account balance: {format_currency(snapshot.total_on_budget_balance())}",
             f"- Categories with assigned balances: {len(categories_with_balance)}",
-            f"- Categories needing review: {len(underfunded_categories)}",
+            f"- Review-needed flags: {len(review.flags)}",
             f"- Months loaded: {len(snapshot.months)}",
             f"- Transactions loaded: {len(snapshot.transactions)}",
             f"- Scheduled transactions loaded: {len(snapshot.scheduled_transactions)}",
@@ -114,19 +115,21 @@ def load_latest_summary() -> tuple[bool, str]:
         ]
     )
 
-    if underfunded_categories:
+    if review.flags:
         lines.append("")
-        lines.append("Categories needing review")
-        for category in underfunded_categories[:5]:
+        lines.append("Review needed")
+        for flag in review.flags[:7]:
+            amount = f" ({format_currency(flag.amount)})" if flag.amount is not None else ""
             lines.append(
-                f"- {category.name or 'Unnamed category'}: {format_currency(category.balance)}"
+                f"- [{flag.severity}/{flag.confidence}] {flag.subject_name}{amount}: "
+                f"{flag.detail}"
             )
 
     lines.extend(
         [
             "",
             "Next step",
-            "- Ask for a monthly spending review once the transactions summary capability is built.",
+            "- Review flagged items first; they are attention prompts, not automatic recommendations.",
         ]
     )
 

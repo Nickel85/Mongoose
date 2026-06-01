@@ -103,6 +103,7 @@
       "taskTypes": [
         "finance",
         "budget-summary",
+        "review-needed",
         "ynab"
       ],
       "requiredInputs": [
