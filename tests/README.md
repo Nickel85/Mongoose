@@ -214,6 +214,30 @@ This test verifies review-needed detection without calling the live API:
 - hidden categories do not produce review flags.
 - each flag includes neutral language, severity, confidence, and supporting evidence.
 
+## Njord Spending Validation
+
+Script:
+
+```text
+tests/njord-spending-validation.py
+```
+
+Run locally from the repository root:
+
+```powershell
+python .\tests\njord-spending-validation.py
+```
+
+This test verifies spending review analysis without calling the live API:
+
+- current month date ranges are resolved from snapshot freshness.
+- previous month and explicit date ranges are supported.
+- YNAB milliunit income, outflows, and net cash flow calculate correctly.
+- top spending categories group transaction outflows.
+- notable transactions are selected by absolute amount.
+- previous-period comparison is included when matching prior transactions exist.
+- natural-language spending requests route to the spending review capability.
+
 ## Mongoose EXE Smoke
 
 Script:

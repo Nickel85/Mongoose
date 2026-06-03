@@ -10,6 +10,7 @@ Each capability should live in its own folder and include a `README.md` that exp
 | --- | --- |
 | `hello-world` | Simple Python capability for verifying the agent can run a local tool. |
 | `ynab-budget-summary` | Read YNAB budget data, summarize financial activity, and include review-needed flags. |
+| `ynab-spending-review` | Review income, outflows, net cash flow, top categories, and notable transactions for a month or date range. |
 
 ## Natural-Language Routing
 
@@ -21,7 +22,8 @@ python agents\njord\agent.py ask "Hey Njord, get me my latest budget."
 
 Current routing behavior:
 
-- Budget, money, spending, financial, account, cash, YNAB, latest, review, attention, and summary requests route to `ynab-budget-summary`.
+- Spending, transaction, cash flow, income, outflow, current month, and previous month requests route to `ynab-spending-review`.
+- Budget, money, financial, account, cash, YNAB, latest, review-needed, attention, and summary requests route to `ynab-budget-summary`.
 - Greeting, hello, test, and connection requests route to `hello-world`.
 - Unknown requests default to `ynab-budget-summary` because this agent is finance-focused.
 

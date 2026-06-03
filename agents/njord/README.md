@@ -101,6 +101,26 @@ The snapshot includes:
 - transactions and scheduled transactions for spending review and upcoming obligation analysis.
 - serialization through typed fields only, so access tokens and raw payload secrets are not persisted.
 
+## Spending Review
+
+Njord derives period spending reviews from the normalized snapshot in
+[spending.py](spending.py). Reviews can cover the current month, previous month,
+or an explicit date range.
+
+The current review output includes:
+
+- income.
+- outflows.
+- net cash flow.
+- transaction count.
+- previous-period comparison when enough data exists.
+- top spending categories.
+- notable transactions.
+
+The review is factual read intelligence. It stays separate from recommendations
+so the manual brief MVP can reuse the data without implying automatic budget
+changes.
+
 ## Review-Needed Detection
 
 Njord derives review-needed flags from the normalized snapshot in
@@ -199,6 +219,7 @@ For installer internals, update notes, and uninstall instructions, see [../../in
 | --- | --- |
 | `hello-world` | Run a simple Python greeting capability to verify the agent runtime pattern works. |
 | `ynab-budget-summary` | Read YNAB budget data and summarize current financial position, review-needed flags, spending, category activity, and notable changes. |
+| `ynab-spending-review` | Review current month, previous month, or date-range spending with income, outflows, cash flow, top categories, and notable transactions. |
 
 ## Usage
 
@@ -240,6 +261,24 @@ Latest budget summary:
 
 ```powershell
 python agents\njord\agent.py ynab-budget-summary
+```
+
+Current month spending review:
+
+```powershell
+python agents\njord\agent.py ynab-spending-review
+```
+
+Previous month spending review:
+
+```powershell
+python agents\njord\agent.py ynab-spending-review --period previous-month
+```
+
+Explicit date range spending review:
+
+```powershell
+python agents\njord\agent.py ynab-spending-review --from 2026-05-01 --to 2026-05-31
 ```
 
 Configuration status:
@@ -297,6 +336,7 @@ In VS Code, open a terminal from the repository root before running the command.
 - `router.py`: Routes natural-language requests to capabilities.
 - `config.py`: Loads local environment values from `.env`.
 - `review.py`: Detects categories and transactions that deserve human review.
+- `spending.py`: Calculates period spending reviews from normalized transactions.
 - `snapshot.py`: Normalized financial snapshot model for Njord analysis features.
 - `ynab_api.py`: Shared read-only YNAB API client and normalization helpers.
 - `capabilities/`: Capability implementations and documentation.
