@@ -121,6 +121,25 @@ The review is factual read intelligence. It stays separate from recommendations
 so the manual brief MVP can reuse the data without implying automatic budget
 changes.
 
+## Recommendations
+
+Njord derives conservative recommendations from review-needed flags and
+spending reviews in [recommendations.py](recommendations.py). Recommendations
+are advice only; they do not modify YNAB data.
+
+Each recommendation separates:
+
+- facts.
+- interpretation.
+- recommended review or action.
+- expected impact.
+- confidence.
+- risks and tradeoffs.
+- supporting evidence.
+
+Recommendations are included only when deterministic evidence is available, so
+the manual brief MVP can reuse them without requiring an LLM.
+
 ## Review-Needed Detection
 
 Njord derives review-needed flags from the normalized snapshot in
@@ -336,6 +355,7 @@ In VS Code, open a terminal from the repository root before running the command.
 - `router.py`: Routes natural-language requests to capabilities.
 - `config.py`: Loads local environment values from `.env`.
 - `review.py`: Detects categories and transactions that deserve human review.
+- `recommendations.py`: Produces evidence-backed recommended reviews and actions.
 - `spending.py`: Calculates period spending reviews from normalized transactions.
 - `snapshot.py`: Normalized financial snapshot model for Njord analysis features.
 - `ynab_api.py`: Shared read-only YNAB API client and normalization helpers.
