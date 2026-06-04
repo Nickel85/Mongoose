@@ -109,6 +109,23 @@ assert_true(
     state_output["root"] == str(TEST_LOCAL_APP_DATA / "Agents"),
     "mongoose state reported the wrong root.",
 )
+assert_true(state_output["version"] == mongoose.MONGOOSE_VERSION, "mongoose state did not report version.")
+assert_true(state_output["cliSource"].endswith("mongoose.py"), "mongoose state did not report CLI source.")
+assert_true(state_output["registryRevision"] == "missing", "Missing registry revision was not reported cleanly.")
+assert_true(state_output["registryStatus"] == "missing", "Missing registry status was not reported cleanly.")
+
+version_result = subprocess.run(
+    [sys.executable, str(MONGOOSE_CLI), "--version"],
+    check=False,
+    capture_output=True,
+    text=True,
+    env={**os.environ, "LOCALAPPDATA": str(TEST_LOCAL_APP_DATA)},
+)
+assert_true(version_result.returncode == 0, f"mongoose --version failed: {version_result.stdout}{version_result.stderr}")
+assert_true(
+    f"mongoose {mongoose.MONGOOSE_VERSION}" in version_result.stdout,
+    "mongoose --version did not report the expected version.",
+)
 
 mongoose.CONFIG_PATH.write_text("{", encoding="utf-8")
 result = subprocess.run(

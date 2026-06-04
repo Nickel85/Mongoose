@@ -27,6 +27,7 @@ AGENT_STATE_ROOT = STATE_ROOT / "agents"
 NON_SECRET_CONFIG_ROOT = STATE_ROOT / "config"
 DEFAULT_REGISTRY_URL = "https://github.com/Nickel85/Agents.git"
 DEFAULT_LOG_RETENTION_DAYS = 30
+MONGOOSE_VERSION = "0.1.0"
 # Increment only for breaking manifest contract changes. Additive optional metadata stays on the same version.
 SUPPORTED_MANIFEST_SCHEMA_VERSION = 1
 COMMAND_NAME_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9_-]*$")
@@ -86,29 +87,47 @@ def save_config(config: dict[str, Any]) -> None:
 
 
 def state_contract() -> dict[str, str]:
-    return {
+    config = load_config()
+    registry = registry_path(config)
+    paths = {
+        "version": MONGOOSE_VERSION,
+        "cliSource": str(Path(__file__).resolve()),
         "root": str(AGENTS_ROOT),
         "bin": str(USER_BIN),
         "mongoose": str(APP_ROOT),
         "mongooseConfig": str(CONFIG_PATH),
-        "registry": str(APP_ROOT / "registry" / "Agents"),
+        "registry": str(registry),
+        "registryUrl": str(config.get("registryUrl", DEFAULT_REGISTRY_URL)),
+        "registryRevision": registry_revision(registry),
+        "registryStatus": registry_status(registry),
         "state": str(STATE_ROOT),
         "nonSecretConfig": str(NON_SECRET_CONFIG_ROOT),
         "agentState": str(AGENT_STATE_ROOT),
         "jobs": str(JOBS_ROOT),
         "logs": str(LOG_ROOT),
     }
+    return paths
 
 
 def ensure_state_layout() -> dict[str, str]:
     paths = state_contract()
+    directory_keys = {
+        "root",
+        "bin",
+        "mongoose",
+        "state",
+        "nonSecretConfig",
+        "agentState",
+        "jobs",
+        "logs",
+    }
     for key, value in paths.items():
         path = Path(value)
         if key == "mongooseConfig":
             path.parent.mkdir(parents=True, exist_ok=True)
         elif key == "registry":
             path.parent.mkdir(parents=True, exist_ok=True)
-        else:
+        elif key in directory_keys:
             path.mkdir(parents=True, exist_ok=True)
     return paths
 
@@ -677,6 +696,42 @@ def run(command: list[str], cwd: Path | None = None) -> None:
         raise SystemExit(completed.returncode)
 
 
+def capture(command: list[str], cwd: Path) -> str | None:
+    try:
+        completed = subprocess.run(
+            command,
+            cwd=str(cwd),
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except OSError:
+        return None
+    if completed.returncode != 0:
+        return None
+    return completed.stdout.strip()
+
+
+def registry_revision(root: Path) -> str:
+    if not root.exists():
+        return "missing"
+    if not (root / ".git").exists():
+        return "not a git checkout"
+    revision = capture(["git", "rev-parse", "--short", "HEAD"], root)
+    return revision or "unknown"
+
+
+def registry_status(root: Path) -> str:
+    if not root.exists():
+        return "missing"
+    if not (root / ".git").exists():
+        return "not a git checkout"
+    status = capture(["git", "status", "--short"], root)
+    if status is None:
+        return "unknown"
+    return "dirty" if status else "clean"
+
+
 def local_registry_source(registry_url: str) -> Path | None:
     path = Path(registry_url).expanduser()
     if path.exists():
@@ -1079,6 +1134,7 @@ def cmd_validate(args: argparse.Namespace) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     examples = """examples:
+  mongoose --version
   mongoose list
   mongoose list --installed
   mongoose capabilities
@@ -1106,6 +1162,12 @@ workflow:
         description="Install, inspect, run, remove, and update local agents.",
         epilog=examples,
         formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"mongoose {MONGOOSE_VERSION}",
+        help="Print the Mongoose CLI version.",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
