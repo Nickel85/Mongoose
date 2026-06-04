@@ -158,6 +158,21 @@ Tests live in `tests/` and are run by GitHub Actions on `push` and `pull_request
 
 GitHub Actions also smoke-tests the built executable by running `mongoose list`, `mongoose install`, `mongoose uninstall`, and `mongoose update`.
 
+## License
+
+This repository is source-available under the
+[Mongoose Source-Available and Commercial Permission License](LICENSE).
+
+You may use this project to build new non-commercial applications, agents,
+integrations, and experiments. Commercial or monetized use is not permitted
+under the public license. That includes paid applications, hosted services,
+client work, commercial integrations, or other revenue-generating use where this
+project is a material component.
+
+Commercial use requires prior written permission from the copyright holder and
+may require a paid license. The copyright holder reserves the right to
+commercialize, license, sell, transfer, or otherwise monetize this project.
+
 ## Directory Guide
 
 - `agents/`: All agent definitions.
