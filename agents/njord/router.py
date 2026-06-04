@@ -26,7 +26,6 @@ def route_request(request: str) -> Route:
         "financial",
         "finances",
         "money",
-        "spending",
         "ynab",
         "latest",
         "summary",
@@ -37,12 +36,35 @@ def route_request(request: str) -> Route:
         "flag",
         "flags",
     )
+    spending_terms = (
+        "spending",
+        "spend",
+        "spent",
+        "transaction",
+        "transactions",
+        "cash flow",
+        "cashflow",
+        "outflow",
+        "outflows",
+        "income",
+        "current month",
+        "this month",
+        "previous month",
+        "last month",
+        "month-to-date",
+    )
     greeting_terms = ("hello", "hi", "hey", "test", "connection")
 
     if any(term in normalized for term in config_terms) and "status" in normalized:
         return Route(
             capability="config-status",
             reason="The request asks for local YNAB configuration status.",
+        )
+
+    if any(term in normalized for term in spending_terms):
+        return Route(
+            capability="ynab-spending-review",
+            reason="The request asks about spending, transactions, or cash flow.",
         )
 
     if any(term in normalized for term in budget_terms):

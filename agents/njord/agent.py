@@ -57,6 +57,26 @@ def run_ynab_budget_summary() -> tuple[bool, str]:
     return module.load_latest_summary()
 
 
+def run_ynab_spending_review(
+    period: str = "current-month",
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> tuple[bool, str]:
+    module_path = (
+        AGENT_ROOT
+        / "capabilities"
+        / "ynab-spending-review"
+        / "ynab_spending_review.py"
+    )
+    module = load_module("njord_ynab_spending_review", module_path)
+    try:
+        start = module.parse_cli_date(start_date, "--from")
+        end = module.parse_cli_date(end_date, "--to")
+    except ValueError as exc:
+        return False, str(exc)
+    return module.load_spending_review(period, start=start, end=end)
+
+
 def run_config_status() -> tuple[bool, str]:
     try:
         snapshot = current_config_snapshot()
@@ -188,6 +208,8 @@ def answer_request(request: str) -> tuple[bool, str]:
 
     if route.capability == "hello-world":
         ok, output = run_hello_world_with_status("Njord")
+    elif route.capability == "ynab-spending-review":
+        ok, output = run_ynab_spending_review()
     elif route.capability == "ynab-budget-summary":
         ok, output = run_ynab_budget_summary()
     elif route.capability == "config-status":
@@ -221,6 +243,32 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers.add_parser(
         "ynab-budget-summary",
         help="Summarize the latest available YNAB budget state.",
+    )
+
+    spending_review = subparsers.add_parser(
+        "ynab-spending-review",
+        help="Review YNAB spending for a month or explicit date range.",
+    )
+    spending_review.add_argument(
+        "--period",
+        choices=("current-month", "previous-month"),
+        default="current-month",
+        help="Named period to review when --from and --to are not provided.",
+    )
+    spending_review.add_argument(
+        "--from",
+        dest="start_date",
+        help="Start date for a custom review range, in YYYY-MM-DD format.",
+    )
+    spending_review.add_argument(
+        "--to",
+        dest="end_date",
+        help="End date for a custom review range, in YYYY-MM-DD format.",
+    )
+    spending_review.add_argument(
+        "request",
+        nargs=argparse.REMAINDER,
+        help=argparse.SUPPRESS,
     )
 
     config = subparsers.add_parser(
@@ -264,6 +312,17 @@ def main() -> None:
 
     if args.capability == "ynab-budget-summary":
         ok, output = run_ynab_budget_summary()
+        print(output)
+        if not ok:
+            sys.exit(1)
+        return
+
+    if args.capability == "ynab-spending-review":
+        ok, output = run_ynab_spending_review(
+            args.period,
+            start_date=args.start_date,
+            end_date=args.end_date,
+        )
         print(output)
         if not ok:
             sys.exit(1)

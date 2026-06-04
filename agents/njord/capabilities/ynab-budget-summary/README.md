@@ -41,6 +41,8 @@ The current implementation returns a latest budget snapshot with the selected
 YNAB plan, open on-budget accounts, total on-budget account balance, category
 counts, loaded months, loaded transactions, scheduled transactions, and
 review-needed flags for categories, transactions, and scheduled transactions.
+Use `ynab-spending-review` for period income, outflow, cash-flow, top-category,
+and notable-transaction analysis.
 
 ## Usage
 
