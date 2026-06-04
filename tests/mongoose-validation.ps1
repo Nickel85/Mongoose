@@ -163,6 +163,7 @@ Assert-True ($setup.ExitCode -eq 0) "mongoose setup failed. Output: $($setup.Out
 
 $help = Invoke-Mongoose -Arguments @("--help")
 Assert-True ($help.ExitCode -eq 0) "mongoose --help failed. Output: $($help.Output)"
+Assert-True ($help.Output -match "mongoose --version") "mongoose --help did not include version example."
 Assert-True ($help.Output -match "mongoose capabilities") "mongoose --help did not include capabilities example."
 Assert-True ($help.Output -match "mongoose install Njord") "mongoose --help did not include install example."
 Assert-True ($help.Output -match "mongoose show Njord") "mongoose --help did not include show example."
@@ -173,12 +174,21 @@ Assert-True ($help.Output -match "mongoose remove Njord") "mongoose --help did n
 Assert-True ($help.Output -match "mongoose update") "mongoose --help did not include update guidance."
 Assert-True ($help.Output -match "mongoose state --init") "mongoose --help did not include state guidance."
 
+$version = Invoke-Mongoose -Arguments @("--version")
+Assert-True ($version.ExitCode -eq 0) "mongoose --version failed. Output: $($version.Output)"
+Assert-True ($version.Output -match "mongoose 0.1.0") "mongoose --version did not report expected version."
+
 $state = Invoke-Mongoose -Arguments @("state", "--init", "--json")
 Assert-True ($state.ExitCode -eq 0) "mongoose state failed. Output: $($state.Output)"
 $statePaths = $state.Output | ConvertFrom-Json
 Assert-True (Test-Path $statePaths.state) "mongoose state did not create the shared state directory."
 Assert-True (Test-Path $statePaths.logs) "mongoose state did not create the log directory."
 Assert-True (Test-Path $statePaths.jobs) "mongoose state did not create the jobs directory."
+Assert-True ($statePaths.version -eq "0.1.0") "mongoose state did not report CLI version."
+Assert-True ($statePaths.cliSource -match "mongoose.py") "mongoose state did not report CLI source."
+Assert-True ($statePaths.registry -eq $repoRoot) "mongoose state did not report configured registry path."
+Assert-True ($statePaths.registryRevision -notin @("", "missing", "not a git checkout")) "mongoose state did not report registry Git revision."
+Assert-True ($statePaths.registryStatus -in @("clean", "dirty")) "mongoose state did not report registry Git status."
 
 $list = Invoke-Mongoose -Arguments @("list")
 Assert-True ($list.ExitCode -eq 0) "mongoose list failed. Output: $($list.Output)"

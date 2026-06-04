@@ -34,6 +34,19 @@ and running agents from this repository. It can:
 - update the local agent registry from GitHub
 - initialize and inspect user-local Mongoose state
 
+Check the CLI version:
+
+```powershell
+mongoose --version
+```
+
+Show local state, registry path, and registry revision diagnostics:
+
+```powershell
+mongoose state
+mongoose state --json
+```
+
 Implemented agent metadata includes manifest schema validation, local entrypoint
 resolution, command-name uniqueness, declared capability metadata, required
 configuration names, compatibility metadata, and descriptive LLM metadata.
@@ -227,6 +240,14 @@ mongoose update
 
 `mongoose update` uses the configured registry path. If the registry is a Git checkout, it runs `git pull --ff-only`. If the configured registry path does not exist, it clones the configured GitHub registry URL.
 
+`mongoose update` refreshes the configured agent registry. It does not rebuild
+or reinstall the `mongoose.exe` binary itself, and it does not automatically
+refresh an already installed agent command. After pulling registry changes,
+rerun `mongoose install <agent>` to refresh installed agent metadata and
+launchers from the current registry. Rebuild and reinstall Mongoose itself with
+`build-mongoose.cmd` and `install-mongoose.cmd` when the Mongoose CLI code has
+changed.
+
 Show the user-local state contract:
 
 ```powershell
@@ -235,6 +256,9 @@ mongoose state --init --json
 ```
 
 `mongoose state --init` creates the shared no-admin directory layout under `%LOCALAPPDATA%\Agents`.
+`mongoose state` also reports the Mongoose CLI version, CLI source path,
+configured registry URL/path, registry Git revision when available, and whether
+the registry checkout is clean, dirty, missing, or not a Git checkout.
 
 ## Local State
 
