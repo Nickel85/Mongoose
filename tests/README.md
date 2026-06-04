@@ -260,6 +260,27 @@ live API:
 - category, transaction, scheduled transaction, spending concentration, and cash-flow recommendations are covered.
 - recommendation language remains read-only and nonjudgmental.
 
+## Njord Brief Validation
+
+Script:
+
+```text
+tests/njord-brief-validation.py
+```
+
+Run locally from the repository root:
+
+```powershell
+python .\tests\njord-brief-validation.py
+```
+
+This test verifies manual brief composition without calling the live API:
+
+- observations, spending highlights, notable transactions, review items, suggested next actions, and boundaries are rendered.
+- the brief uses deterministic snapshot, spending, review, and recommendation outputs.
+- read-only/write-safety boundaries are included.
+- weekly financial brief requests route to the `brief` capability.
+
 ## Mongoose EXE Smoke
 
 Script:

@@ -97,6 +97,7 @@ mongoose show Njord
 mongoose capabilities
 mongoose route --task-type budget-summary "current budget"
 mongoose run Njord config status
+mongoose run Njord brief
 mongoose remove Njord
 mongoose update
 ```
@@ -123,6 +124,7 @@ Once agents are installed, Mongoose can route requests across declared capabilit
 
 ```powershell
 mongoose route --task-type budget-summary "current budget"
+mongoose route --task-type weekly-brief "weekly financial brief"
 ```
 
 Secrets do not belong in manifests. Manifests should reference configuration names such as `YNAB_ACCESS_TOKEN`; actual tokens stay in environment variables, user-local config, or future Mongoose secret/profile storage.

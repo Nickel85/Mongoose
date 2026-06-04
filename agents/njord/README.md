@@ -140,6 +140,24 @@ Each recommendation separates:
 Recommendations are included only when deterministic evidence is available, so
 the manual brief MVP can reuse them without requiring an LLM.
 
+## Manual Financial Brief
+
+The main manual workflow is:
+
+```powershell
+Njord brief
+```
+
+For direct repository development:
+
+```powershell
+python agents\njord\agent.py brief
+```
+
+The brief combines balances, current-month spending highlights, review-needed
+items, and conservative suggested next actions. It is read-only, deterministic,
+and does not require Mongoose scheduling, event subscriptions, or LLM narration.
+
 ## Review-Needed Detection
 
 Njord derives review-needed flags from the normalized snapshot in
@@ -237,6 +255,7 @@ For installer internals, update notes, and uninstall instructions, see [../../in
 | Capability | Description |
 | --- | --- |
 | `hello-world` | Run a simple Python greeting capability to verify the agent runtime pattern works. |
+| `brief` | Produce a weekly-style financial brief with observations, spending highlights, review items, and suggested next actions. |
 | `ynab-budget-summary` | Read YNAB budget data and summarize current financial position, review-needed flags, spending, category activity, and notable changes. |
 | `ynab-spending-review` | Review current month, previous month, or date-range spending with income, outflows, cash flow, top categories, and notable transactions. |
 
@@ -280,6 +299,12 @@ Latest budget summary:
 
 ```powershell
 python agents\njord\agent.py ynab-budget-summary
+```
+
+Manual financial brief:
+
+```powershell
+python agents\njord\agent.py brief
 ```
 
 Current month spending review:
@@ -352,6 +377,7 @@ In VS Code, open a terminal from the repository root before running the command.
 
 - `agent.py`: Command-line entrypoint.
 - `agent.json`: Install metadata discovered by the root installer. Its `commandName` is globally unique; its `entrypointPath` is relative to this directory.
+- `brief.py`: Composes the manual financial brief from snapshot, spending, review, and recommendation outputs.
 - `router.py`: Routes natural-language requests to capabilities.
 - `config.py`: Loads local environment values from `.env`.
 - `review.py`: Detects categories and transactions that deserve human review.
