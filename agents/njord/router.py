@@ -21,6 +21,14 @@ def route_request(request: str) -> Route:
         "credentials",
         "setup",
     )
+    brief_terms = (
+        "brief",
+        "briefing",
+        "weekly",
+        "cfo-style",
+        "cfo style",
+        "financial brief",
+    )
     budget_terms = (
         "budget",
         "financial",
@@ -59,6 +67,12 @@ def route_request(request: str) -> Route:
         return Route(
             capability="config-status",
             reason="The request asks for local YNAB configuration status.",
+        )
+
+    if any(term in normalized for term in brief_terms):
+        return Route(
+            capability="brief",
+            reason="The request asks for a financial brief.",
         )
 
     if any(term in normalized for term in spending_terms):

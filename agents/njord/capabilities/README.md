@@ -8,6 +8,7 @@ Each capability should live in its own folder and include a `README.md` that exp
 
 | Capability | Description |
 | --- | --- |
+| `brief` | Produce a weekly-style financial brief with observations, spending highlights, review items, and suggested next actions. |
 | `hello-world` | Simple Python capability for verifying the agent can run a local tool. |
 | `ynab-budget-summary` | Read YNAB budget data, summarize financial activity, and include review-needed flags. |
 | `ynab-spending-review` | Review income, outflows, net cash flow, top categories, and notable transactions for a month or date range. |
@@ -22,6 +23,7 @@ python agents\njord\agent.py ask "Hey Njord, get me my latest budget."
 
 Current routing behavior:
 
+- Weekly brief, CFO-style brief, and financial brief requests route to `brief`.
 - Spending, transaction, cash flow, income, outflow, current month, and previous month requests route to `ynab-spending-review`.
 - Budget, money, financial, account, cash, YNAB, latest, review-needed, attention, and summary requests route to `ynab-budget-summary`.
 - Greeting, hello, test, and connection requests route to `hello-world`.

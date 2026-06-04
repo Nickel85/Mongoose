@@ -77,6 +77,12 @@ def run_ynab_spending_review(
     return module.load_spending_review(period, start=start, end=end)
 
 
+def run_brief() -> tuple[bool, str]:
+    module_path = AGENT_ROOT / "capabilities" / "brief" / "brief.py"
+    module = load_module("njord_manual_brief", module_path)
+    return module.load_manual_brief()
+
+
 def run_config_status() -> tuple[bool, str]:
     try:
         snapshot = current_config_snapshot()
@@ -208,6 +214,8 @@ def answer_request(request: str) -> tuple[bool, str]:
 
     if route.capability == "hello-world":
         ok, output = run_hello_world_with_status("Njord")
+    elif route.capability == "brief":
+        ok, output = run_brief()
     elif route.capability == "ynab-spending-review":
         ok, output = run_ynab_spending_review()
     elif route.capability == "ynab-budget-summary":
@@ -243,6 +251,16 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers.add_parser(
         "ynab-budget-summary",
         help="Summarize the latest available YNAB budget state.",
+    )
+
+    brief = subparsers.add_parser(
+        "brief",
+        help="Produce a manual weekly-style financial brief.",
+    )
+    brief.add_argument(
+        "request",
+        nargs=argparse.REMAINDER,
+        help=argparse.SUPPRESS,
     )
 
     spending_review = subparsers.add_parser(
@@ -312,6 +330,13 @@ def main() -> None:
 
     if args.capability == "ynab-budget-summary":
         ok, output = run_ynab_budget_summary()
+        print(output)
+        if not ok:
+            sys.exit(1)
+        return
+
+    if args.capability == "brief":
+        ok, output = run_brief()
         print(output)
         if not ok:
             sys.exit(1)

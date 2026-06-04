@@ -126,6 +126,37 @@
       }
     },
     {
+      "name": "brief",
+      "displayName": "Manual Financial Brief",
+      "description": "Produce a weekly-style financial brief with observations, spending highlights, review items, and suggested next actions.",
+      "entrypointPath": "agent.py",
+      "taskTypes": [
+        "finance",
+        "brief",
+        "financial-brief",
+        "weekly-brief",
+        "ynab"
+      ],
+      "requiredInputs": [
+        "YNAB_ACCESS_TOKEN",
+        "YNAB_BUDGET_ID"
+      ],
+      "configuration": {
+        "required": [
+          "YNAB_ACCESS_TOKEN",
+          "YNAB_BUDGET_ID"
+        ],
+        "optional": [],
+        "secretRefs": [
+          "YNAB_ACCESS_TOKEN"
+        ]
+      },
+      "llm": {
+        "mode": "none",
+        "deterministicFallback": "Manual brief uses deterministic YNAB reads, review flags, spending review, and recommendations."
+      }
+    },
+    {
       "name": "ynab-spending-review",
       "displayName": "YNAB Spending Review",
       "description": "Review income, outflows, net cash flow, top categories, and notable transactions for a month or date range.",
