@@ -238,6 +238,28 @@ This test verifies spending review analysis without calling the live API:
 - previous-period comparison is included when matching prior transactions exist.
 - natural-language spending requests route to the spending review capability.
 
+## Njord Recommendation Validation
+
+Script:
+
+```text
+tests/njord-recommendation-validation.py
+```
+
+Run locally from the repository root:
+
+```powershell
+python .\tests\njord-recommendation-validation.py
+```
+
+This test verifies deterministic recommendation generation without calling the
+live API:
+
+- recommendations are generated from review-needed flags and spending reviews.
+- each recommendation includes facts, interpretation, recommendation, expected impact, confidence, risks, and evidence.
+- category, transaction, scheduled transaction, spending concentration, and cash-flow recommendations are covered.
+- recommendation language remains read-only and nonjudgmental.
+
 ## Mongoose EXE Smoke
 
 Script:

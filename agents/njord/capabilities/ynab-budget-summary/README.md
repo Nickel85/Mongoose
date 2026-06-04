@@ -35,14 +35,15 @@ The output should include:
 - Overspending or underfunded category notes.
 - Notable transactions or unusual changes.
 - Questions or follow-up data needed.
-- Recommendations only when supported by the data.
+- Evidence-backed recommendations only when supported by deterministic data.
 
 The current implementation returns a latest budget snapshot with the selected
 YNAB plan, open on-budget accounts, total on-budget account balance, category
 counts, loaded months, loaded transactions, scheduled transactions, and
 review-needed flags for categories, transactions, and scheduled transactions.
 Use `ynab-spending-review` for period income, outflow, cash-flow, top-category,
-and notable-transaction analysis.
+and notable-transaction analysis. The summary also includes conservative
+recommended reviews or actions when review and spending evidence is sufficient.
 
 ## Usage
 

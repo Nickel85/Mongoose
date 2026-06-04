@@ -14,8 +14,10 @@ if str(AGENT_ROOT) not in sys.path:
     sys.path.insert(0, str(AGENT_ROOT))
 
 from config import ConfigFileError, current_config_snapshot
+from recommendations import generate_recommendations
 from review import review_snapshot
 from snapshot import load_snapshot
+from spending import review_spending
 from ynab_api import YnabClient, choose_plan, format_currency, list_plans
 
 
@@ -99,6 +101,8 @@ def load_latest_summary() -> tuple[bool, str]:
     on_budget_accounts = snapshot.open_on_budget_accounts()
     categories_with_balance = snapshot.categories_with_balance()
     review = review_snapshot(snapshot)
+    spending = review_spending(snapshot)
+    recommendations = generate_recommendations(review, spending)
 
     lines.extend(
         [
@@ -108,6 +112,7 @@ def load_latest_summary() -> tuple[bool, str]:
             f"- On-budget account balance: {format_currency(snapshot.total_on_budget_balance())}",
             f"- Categories with assigned balances: {len(categories_with_balance)}",
             f"- Review-needed flags: {len(review.flags)}",
+            f"- Recommendations: {len(recommendations.recommendations)}",
             f"- Months loaded: {len(snapshot.months)}",
             f"- Transactions loaded: {len(snapshot.transactions)}",
             f"- Scheduled transactions loaded: {len(snapshot.scheduled_transactions)}",
@@ -124,6 +129,18 @@ def load_latest_summary() -> tuple[bool, str]:
                 f"- [{flag.severity}/{flag.confidence}] {flag.subject_name}{amount}: "
                 f"{flag.detail}"
             )
+
+    if recommendations.recommendations:
+        lines.append("")
+        lines.append("Recommended reviews/actions")
+        for recommendation in recommendations.recommendations[:5]:
+            lines.append(
+                f"- [{recommendation.confidence}] {recommendation.title}: "
+                f"{recommendation.recommendation} "
+                f"Expected impact: {recommendation.expected_impact}"
+            )
+            if recommendation.risks:
+                lines.append(f"  Risk/tradeoff: {recommendation.risks[0]}")
 
     lines.extend(
         [
