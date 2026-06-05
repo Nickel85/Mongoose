@@ -40,6 +40,10 @@ Check the CLI version:
 mongoose --version
 ```
 
+Development/source builds report as `development`. Executables built by the
+GitHub release workflow from a matching `v*` tag report as `official release`
+and include the tag.
+
 Human-readable Mongoose and Njord output uses terminal color when stdout is an
 interactive terminal. Redirected output stays plain by default, and JSON output
 is never colorized. Disable color explicitly with:

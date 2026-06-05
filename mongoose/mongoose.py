@@ -28,6 +28,8 @@ NON_SECRET_CONFIG_ROOT = STATE_ROOT / "config"
 DEFAULT_REGISTRY_URL = "https://github.com/Nickel85/Agents.git"
 DEFAULT_LOG_RETENTION_DAYS = 30
 MONGOOSE_VERSION = "0.1.2"
+MONGOOSE_RELEASE_KIND = "development"
+MONGOOSE_RELEASE_TAG = ""
 # Increment only for breaking manifest contract changes. Additive optional metadata stays on the same version.
 SUPPORTED_MANIFEST_SCHEMA_VERSION = 1
 COMMAND_NAME_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9_-]*$")
@@ -161,6 +163,8 @@ def state_contract() -> dict[str, str]:
     registry = registry_path(config)
     paths = {
         "version": MONGOOSE_VERSION,
+        "releaseKind": MONGOOSE_RELEASE_KIND,
+        "releaseTag": MONGOOSE_RELEASE_TAG,
         "cliSource": str(Path(__file__).resolve()),
         "root": str(AGENTS_ROOT),
         "bin": str(USER_BIN),
@@ -1239,7 +1243,7 @@ workflow:
     parser.add_argument(
         "--version",
         action="version",
-        version=f"mongoose {MONGOOSE_VERSION}",
+        version=version_string(),
         help="Print the Mongoose CLI version.",
     )
     parser.add_argument(
@@ -1380,6 +1384,13 @@ workflow:
     update.set_defaults(handler=cmd_update)
 
     return parser
+
+
+def version_string() -> str:
+    if MONGOOSE_RELEASE_KIND == "official":
+        tag_suffix = f", {MONGOOSE_RELEASE_TAG}" if MONGOOSE_RELEASE_TAG else ""
+        return f"mongoose {MONGOOSE_VERSION} (official release{tag_suffix})"
+    return f"mongoose {MONGOOSE_VERSION} (development)"
 
 
 def main() -> int:

@@ -15,12 +15,20 @@ def assert_true(condition: object, message: str) -> None:
 REPO_ROOT = Path(__file__).resolve().parents[1]
 MONGOOSE_CLI = REPO_ROOT / "mongoose" / "mongoose.py"
 CHANGELOG = REPO_ROOT / "CHANGELOG.md"
+EMBEDDER = REPO_ROOT / "mongoose" / "launcher" / "embed_mongoose.py"
 
 
 def read_mongoose_version() -> str:
     source = MONGOOSE_CLI.read_text(encoding="utf-8")
     match = re.search(r'^MONGOOSE_VERSION\s*=\s*"([^"]+)"', source, re.MULTILINE)
     assert_true(match is not None, "MONGOOSE_VERSION was not found in mongoose.py.")
+    return match.group(1)
+
+
+def read_constant(name: str) -> str:
+    source = MONGOOSE_CLI.read_text(encoding="utf-8")
+    match = re.search(rf'^{name}\s*=\s*"([^"]*)"', source, re.MULTILINE)
+    assert_true(match is not None, f"{name} was not found in mongoose.py.")
     return match.group(1)
 
 
@@ -32,6 +40,9 @@ assert_true(
 
 changelog = CHANGELOG.read_text(encoding="utf-8")
 assert_true(f"## v{version}" in changelog, f"CHANGELOG.md is missing a v{version} section.")
+assert_true(read_constant("MONGOOSE_RELEASE_KIND") == "development", "Source Mongoose release kind must default to development.")
+assert_true(read_constant("MONGOOSE_RELEASE_TAG") == "", "Source Mongoose release tag must default to empty.")
+assert_true("GITHUB_REF_TYPE" in EMBEDDER.read_text(encoding="utf-8"), "Embedder must derive official release metadata from tag builds.")
 
 github_ref_type = os.environ.get("GITHUB_REF_TYPE", "")
 github_ref_name = os.environ.get("GITHUB_REF_NAME", "")

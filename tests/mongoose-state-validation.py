@@ -110,6 +110,8 @@ assert_true(
     "mongoose state reported the wrong root.",
 )
 assert_true(state_output["version"] == mongoose.MONGOOSE_VERSION, "mongoose state did not report version.")
+assert_true(state_output["releaseKind"] == "development", "mongoose state did not report development release kind.")
+assert_true(state_output["releaseTag"] == "", "mongoose state should not report a release tag for development builds.")
 assert_true(state_output["cliSource"].endswith("mongoose.py"), "mongoose state did not report CLI source.")
 assert_true(state_output["registryRevision"] == "missing", "Missing registry revision was not reported cleanly.")
 assert_true(state_output["registryStatus"] == "missing", "Missing registry status was not reported cleanly.")
@@ -123,8 +125,8 @@ version_result = subprocess.run(
 )
 assert_true(version_result.returncode == 0, f"mongoose --version failed: {version_result.stdout}{version_result.stderr}")
 assert_true(
-    f"mongoose {mongoose.MONGOOSE_VERSION}" in version_result.stdout,
-    "mongoose --version did not report the expected version.",
+    f"mongoose {mongoose.MONGOOSE_VERSION} (development)" in version_result.stdout,
+    "mongoose --version did not report the expected version and release kind.",
 )
 
 mongoose.CONFIG_PATH.write_text("{", encoding="utf-8")

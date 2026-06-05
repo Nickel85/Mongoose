@@ -70,6 +70,11 @@ $env:LOCALAPPDATA = $testLocalAppData
 $version = Invoke-MongooseExe -Arguments @("--version")
 Assert-True ($version.ExitCode -eq 0) "mongoose.exe --version failed. Output: $($version.Output)"
 Assert-True ($version.Output -match "mongoose 0.1.2") "mongoose.exe --version did not report expected version."
+$expectedReleaseKind = "development"
+if ($env:GITHUB_REF_TYPE -eq "tag" -and $env:GITHUB_REF_NAME -match "^v") {
+    $expectedReleaseKind = "official release"
+}
+Assert-True ($version.Output -match $expectedReleaseKind) "mongoose.exe --version did not report expected release kind '$expectedReleaseKind'. Output: $($version.Output)"
 
 $setup = Invoke-MongooseExe -Arguments @("setup", "--registry-root", $repoRoot)
 Assert-True ($setup.ExitCode -eq 0) "mongoose setup failed. Output: $($setup.Output)"
@@ -81,6 +86,13 @@ Assert-True (Test-Path $statePaths.state) "mongoose state did not create the sha
 Assert-True (Test-Path $statePaths.logs) "mongoose state did not create the log directory."
 Assert-True (Test-Path $statePaths.jobs) "mongoose state did not create the jobs directory."
 Assert-True ($statePaths.version -eq "0.1.2") "mongoose state did not report CLI version."
+if ($env:GITHUB_REF_TYPE -eq "tag" -and $env:GITHUB_REF_NAME -match "^v") {
+    Assert-True ($statePaths.releaseKind -eq "official") "mongoose state did not report official release kind."
+    Assert-True ($statePaths.releaseTag -eq $env:GITHUB_REF_NAME) "mongoose state did not report the release tag."
+} else {
+    Assert-True ($statePaths.releaseKind -eq "development") "mongoose state did not report development release kind."
+    Assert-True ($statePaths.releaseTag -eq "") "mongoose state should not report a release tag for development builds."
+}
 Assert-True ($statePaths.registryRevision -notin @("", "missing", "not a git checkout")) "mongoose state did not report registry revision."
 
 $list = Invoke-MongooseExe -Arguments @("list")

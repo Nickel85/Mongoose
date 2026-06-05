@@ -10,6 +10,9 @@ Planned release type: hotfix.
   `mongoose state` to `0.1.2`.
 - Correct the release-version drift where the `v0.1.1` release asset still
   reported `mongoose 0.1.0`.
+- Report whether a build is a development build or an official release build.
+- Add CI validation so version-tagged release builds fail when the tag does not
+  match the Mongoose CLI version.
 
 ### Changed
 
