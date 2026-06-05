@@ -51,6 +51,16 @@ MANIFEST_SECRET_KEYS = {
     "secret",
     "token",
 }
+ANSI_RESET = "\033[0m"
+ANSI_STYLES = {
+    "heading": "\033[36;1m",
+    "success": "\033[32;1m",
+    "warning": "\033[33;1m",
+    "error": "\033[31;1m",
+    "muted": "\033[2m",
+    "selected": "\033[34;1m",
+}
+OUTPUT_COLOR_ENABLED = False
 
 
 class ManifestValidationError(ValueError):
@@ -70,6 +80,66 @@ def configure_output() -> None:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     if hasattr(sys.stderr, "reconfigure"):
         sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
+
+def color_requested_by_env() -> bool:
+    value = os.environ.get("MONGOOSE_FORCE_COLOR", "")
+    return value.strip().lower() in {"1", "true", "yes", "always"}
+
+
+def color_disabled_by_env() -> bool:
+    disabled_values = {
+        os.environ.get("NO_COLOR", ""),
+        os.environ.get("MONGOOSE_NO_COLOR", ""),
+    }
+    if any(value is not None and str(value).strip() for value in disabled_values):
+        return True
+    color_mode = os.environ.get("MONGOOSE_COLOR", "").strip().lower()
+    return color_mode in {"0", "false", "never", "no"}
+
+
+def should_use_color(no_color: bool = False) -> bool:
+    if no_color or color_disabled_by_env():
+        return False
+    return color_requested_by_env() or sys.stdout.isatty()
+
+
+def set_output_color(enabled: bool) -> None:
+    global OUTPUT_COLOR_ENABLED
+    OUTPUT_COLOR_ENABLED = enabled
+
+
+def styled(text: str, style: str) -> str:
+    if not OUTPUT_COLOR_ENABLED:
+        return text
+    prefix = ANSI_STYLES.get(style)
+    if not prefix:
+        return text
+    return f"{prefix}{text}{ANSI_RESET}"
+
+
+def print_heading(text: str) -> None:
+    print(styled(text, "heading"))
+
+
+def print_success(text: str) -> None:
+    print(styled(text, "success"))
+
+
+def print_warning(text: str) -> None:
+    print(styled(text, "warning"))
+
+
+def print_error(text: str, *, file: Any = sys.stdout) -> None:
+    print(styled(text, "error"), file=file)
+
+
+def print_muted(text: str) -> None:
+    print(styled(text, "muted"))
+
+
+def label_line(label: str, value: Any, style: str = "selected") -> str:
+    return f"{styled(label + ':', style)} {value}"
 
 
 def load_config() -> dict[str, Any]:
@@ -757,11 +827,11 @@ def cmd_setup(args: argparse.Namespace) -> int:
     save_config(config)
     USER_BIN.mkdir(parents=True, exist_ok=True)
 
-    print("Mongoose configured.")
-    print(f"Registry: {registry_root}")
-    print(f"Config: {CONFIG_PATH}")
+    print_success("Mongoose configured.")
+    print(label_line("Registry", registry_root))
+    print(label_line("Config", CONFIG_PATH))
     print("")
-    print("Try:")
+    print_heading("Try")
     print("mongoose list")
     return 0
 
@@ -770,16 +840,19 @@ def cmd_state(args: argparse.Namespace) -> int:
     paths = ensure_state_layout() if args.init else state_contract()
     if args.cleanup_logs:
         removed = cleanup_logs(args.log_retention_days)
-        print(f"Removed {len(removed)} expired log file(s).")
+        print_success(f"Removed {len(removed)} expired log file(s).")
         print("")
 
     if args.json:
         print(json.dumps(paths, indent=2, sort_keys=True))
         return 0
 
-    print("Mongoose local state:")
+    print_heading("Mongoose local state")
     for name, path in paths.items():
-        print(f"  {name}: {path}")
+        if name in {"version", "registryStatus"}:
+            print(f"  {label_line(name, path, 'success' if path == 'clean' else 'selected')}")
+        else:
+            print(f"  {label_line(name, path, 'muted')}")
     return 0
 
 
@@ -787,10 +860,10 @@ def cmd_list(args: argparse.Namespace) -> int:
     installed = load_installed_agents()
     if args.installed:
         if not installed:
-            print("No installed agents found.")
+            print_warning("No installed agents found.")
             return 0
 
-        print("Installed agents:")
+        print_heading("Installed agents")
         for command_name, agent in sorted(installed.items()):
             version = f" v{agent.get('version')}" if agent.get("version") else ""
             description = agent.get("description")
@@ -805,11 +878,11 @@ def cmd_list(args: argparse.Namespace) -> int:
     agents = load_agent_registry(root)
 
     if not agents and not installed:
-        print("No installable agents found.")
+        print_warning("No installable agents found.")
         return 0
 
     if agents:
-        print("Available agents:")
+        print_heading("Available agents")
         for command_name, agent in sorted(agents.items()):
             description = agent.get("description")
             installed_marker = " [installed]" if command_name in installed else ""
@@ -820,7 +893,7 @@ def cmd_list(args: argparse.Namespace) -> int:
 
     if installed:
         print("")
-        print("Installed agents:")
+        print_heading("Installed agents")
         for command_name, agent in sorted(installed.items()):
             print(f"  {command_name} - {agent.get('sourcePath', '')}")
 
@@ -830,11 +903,11 @@ def cmd_list(args: argparse.Namespace) -> int:
 def cmd_capabilities(_: argparse.Namespace) -> int:
     capabilities = installed_capability_records()
     if not capabilities:
-        print("No installed capabilities found.")
-        print("Install an agent first: mongoose install <agent>")
+        print_warning("No installed capabilities found.")
+        print_muted("Install an agent first: mongoose install <agent>")
         return 0
 
-    print("Installed capabilities:")
+    print_heading("Installed capabilities")
     for record in capabilities:
         line = f"  {format_route_candidate(record)}"
         description = record.get("description")
@@ -870,20 +943,20 @@ def cmd_install(args: argparse.Namespace) -> int:
         agent = agents.get(args.agent)
 
     if agent is None:
-        print(f"Agent '{args.agent}' does not exist.")
+        print_error(f"Agent '{args.agent}' does not exist.")
         print("")
-        print("Available agents:")
+        print_heading("Available agents")
         for command_name in sorted(agents):
             print(f"  {command_name}")
         return 1
 
     launcher_path = create_agent_launcher(agent["commandName"], agent["entrypoint"])
     save_installed_agent(agent, launcher_path)
-    print(f"Installed {agent['displayName']} as {agent['commandName']}.")
-    print(f"Launcher: {launcher_path}")
-    print(f"State: {installed_agent_path(agent['commandName'])}")
+    print_success(f"Installed {agent['displayName']} as {agent['commandName']}.")
+    print(label_line("Launcher", launcher_path, "muted"))
+    print(label_line("State", installed_agent_path(agent["commandName"]), "muted"))
     print("")
-    print("Try:")
+    print_heading("Try")
     print(f"{agent['commandName']} \"{agent.get('example', 'Hello')}\"")
     return 0
 
@@ -893,37 +966,37 @@ def cmd_uninstall(args: argparse.Namespace) -> int:
     state_path = installed_agent_path(args.agent)
     removed = False
     if not launcher_path.exists():
-        print(f"Agent command '{args.agent}' is not installed.")
+        print_warning(f"Agent command '{args.agent}' is not installed.")
     else:
         launcher_path.unlink()
-        print(f"Removed {launcher_path}")
+        print_success(f"Removed {launcher_path}")
         removed = True
 
     if state_path.exists():
         state_path.unlink()
-        print(f"Removed {state_path}")
+        print_success(f"Removed {state_path}")
         removed = True
 
     if not removed:
-        print(f"No installed state found for '{args.agent}'.")
+        print_warning(f"No installed state found for '{args.agent}'.")
     return 0
 
 
 def print_agent_details(agent: dict[str, Any], installed: bool) -> None:
-    print(f"Agent: {agent.get('commandName', '')}")
-    print(f"ID: {agent.get('id', agent.get('commandName', ''))}")
-    print(f"Display name: {agent.get('displayName', '')}")
-    print(f"Manifest schema: {agent.get('schemaVersion', SUPPORTED_MANIFEST_SCHEMA_VERSION)}")
+    print_heading(f"Agent: {agent.get('commandName', '')}")
+    print(label_line("ID", agent.get("id", agent.get("commandName", ""))))
+    print(label_line("Display name", agent.get("displayName", "")))
+    print(label_line("Manifest schema", agent.get("schemaVersion", SUPPORTED_MANIFEST_SCHEMA_VERSION)))
     if agent.get("version"):
-        print(f"Version: {agent['version']}")
-    print(f"Status: {'installed' if installed else 'available'}")
+        print(label_line("Version", agent["version"]))
+    print(label_line("Status", "installed" if installed else "available", "success" if installed else "warning"))
     if agent.get("description"):
-        print(f"Description: {agent['description']}")
-    print(f"Source: {agent.get('sourcePath', '')}")
-    print(f"Manifest: {agent.get('manifestPath', '')}")
-    print(f"Entrypoint: {agent.get('entrypoint', '')}")
+        print(label_line("Description", agent["description"]))
+    print(label_line("Source", agent.get("sourcePath", ""), "muted"))
+    print(label_line("Manifest", agent.get("manifestPath", ""), "muted"))
+    print(label_line("Entrypoint", agent.get("entrypoint", ""), "muted"))
     if agent.get("launcherPath"):
-        print(f"Launcher: {agent['launcherPath']}")
+        print(label_line("Launcher", agent["launcherPath"], "muted"))
     if agent.get("taskTypes"):
         print(f"Task types: {', '.join(str(item) for item in agent['taskTypes'])}")
     if agent.get("requiredInputs"):
@@ -941,7 +1014,7 @@ def print_agent_details(agent: dict[str, Any], installed: bool) -> None:
         print(f"LLM mode: {llm.get('mode', 'none')}")
     capabilities = agent.get("capabilities", [])
     print("")
-    print("Capabilities:")
+    print_heading("Capabilities")
     if not capabilities:
         print("  none declared")
         return
@@ -979,19 +1052,19 @@ def cmd_show(args: argparse.Namespace) -> int:
         print_agent_details(available, installed=False)
         return 0
 
-    print(f"Agent '{args.agent}' was not found.")
+    print_error(f"Agent '{args.agent}' was not found.")
     return 1
 
 
 def cmd_run(args: argparse.Namespace) -> int:
     agent = load_installed_agent(args.agent)
     if agent is None:
-        print(f"Agent '{args.agent}' is not installed. Run: mongoose install {args.agent}")
+        print_error(f"Agent '{args.agent}' is not installed. Run: mongoose install {args.agent}")
         return 1
 
     entrypoint = Path(str(agent.get("entrypoint", "")))
     if not entrypoint.exists():
-        print(f"Installed agent entrypoint no longer exists: {entrypoint}")
+        print_error(f"Installed agent entrypoint no longer exists: {entrypoint}")
         return 1
 
     agent_args = args.agent_args or ["ask", str(agent.get("example", "Hello"))]
@@ -1005,63 +1078,63 @@ def cmd_run(args: argparse.Namespace) -> int:
 def cmd_route(args: argparse.Namespace) -> int:
     installed = load_installed_agents()
     if not installed:
-        print("No installed agents found.")
-        print("Install an agent first: mongoose install <agent>")
+        print_error("No installed agents found.")
+        print_muted("Install an agent first: mongoose install <agent>")
         return 1
 
     all_capabilities = installed_capability_records(installed)
     if not all_capabilities:
-        print("No installed capabilities found.")
-        print("Install agents with manifest capability metadata before routing.")
+        print_error("No installed capabilities found.")
+        print_muted("Install agents with manifest capability metadata before routing.")
         return 1
 
     matches, query = matching_route_candidates(args)
     if not matches:
-        print("No installed capability can handle that request.")
+        print_error("No installed capability can handle that request.")
         if args.task_type:
             print(f"Requested task type: {args.task_type}")
         elif query:
             print(f"Request: {query}")
         print("")
-        print("Installed capabilities:")
+        print_heading("Installed capabilities")
         for record in all_capabilities:
             print(f"  {format_route_candidate(record)}")
         return 1
 
     if len(matches) > 1:
-        print("Ambiguous request. More than one installed capability matched:")
+        print_warning("Ambiguous request. More than one installed capability matched:")
         for record in matches:
             print(f"  {format_route_candidate(record)}")
         print("")
-        print("Refine with --agent, --capability, or a more specific --task-type.")
+        print_muted("Refine with --agent, --capability, or a more specific --task-type.")
         return 1
 
     selected = matches[0]
     missing = missing_required_configuration(selected["agent"], selected["capability"])
     if missing:
-        print(f"Selected {format_route_candidate(selected)}, but required configuration is missing:")
+        print_warning(f"Selected {format_route_candidate(selected)}, but required configuration is missing:")
         for name in missing:
             print(f"  {name}")
         print("")
-        print("Set the missing environment variables or choose another capability.")
+        print_muted("Set the missing environment variables or choose another capability.")
         return 1
 
     llm = selected["capability"].get("llm", {})
     if isinstance(llm, dict) and llm.get("mode") == "required":
-        print(f"Selected {format_route_candidate(selected)}, but it requires an LLM runtime.")
-        print("Mongoose LLM runtime configuration is not available yet.")
+        print_warning(f"Selected {format_route_candidate(selected)}, but it requires an LLM runtime.")
+        print_muted("Mongoose LLM runtime configuration is not available yet.")
         return 1
 
     entrypoint = Path(str(selected["entrypoint"]))
     if not entrypoint.exists():
-        print(f"Selected {format_route_candidate(selected)}, but its entrypoint does not exist: {entrypoint}")
+        print_error(f"Selected {format_route_candidate(selected)}, but its entrypoint does not exist: {entrypoint}")
         return 1
 
     agent_args = [selected["capabilityName"], *(args.request or [])]
-    print(f"Selected: {format_route_candidate(selected)}")
+    print(label_line("Selected", format_route_candidate(selected), "success"))
     if args.dry_run:
-        print(f"Entrypoint: {entrypoint}")
-        print(f"Arguments: {' '.join(agent_args)}")
+        print(label_line("Entrypoint", entrypoint, "muted"))
+        print(label_line("Arguments", " ".join(agent_args), "muted"))
         return 0
 
     completed = subprocess.run(
@@ -1078,11 +1151,11 @@ def cmd_update(_: argparse.Namespace) -> int:
 
     if root.exists() and (root / ".git").exists():
         run(["git", "pull", "--ff-only"], cwd=root)
-        print(f"Updated registry at {root}")
+        print_success(f"Updated registry at {root}")
         return 0
 
     if root.exists():
-        print(f"Registry path exists but is not a Git repository: {root}")
+        print_error(f"Registry path exists but is not a Git repository: {root}")
         return 1
 
     root.parent.mkdir(parents=True, exist_ok=True)
@@ -1093,11 +1166,11 @@ def cmd_update(_: argparse.Namespace) -> int:
             root,
             ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc"),
         )
-        print(f"Copied local registry to {root}")
+        print_success(f"Copied local registry to {root}")
         return 0
 
     run(["git", "clone", registry_url, str(root)])
-    print(f"Cloned registry to {root}")
+    print_success(f"Cloned registry to {root}")
     return 0
 
 
@@ -1114,12 +1187,12 @@ def cmd_validate(args: argparse.Namespace) -> int:
         if not isinstance(manifest, dict):
             raise ManifestValidationError(manifest_path, ["Manifest must be a JSON object."])
         validate_manifest(manifest, manifest_path)
-        print(f"Manifest valid: {manifest_path}")
+        print_success(f"Manifest valid: {manifest_path}")
         return 0
 
     manifests = agent_manifest_paths(root)
     if not manifests:
-        print(f"No agent manifests found under {root}")
+        print_error(f"No agent manifests found under {root}")
         return 1
 
     for path in manifests:
@@ -1127,8 +1200,8 @@ def cmd_validate(args: argparse.Namespace) -> int:
         if not isinstance(manifest, dict):
             raise ManifestValidationError(path, ["Manifest must be a JSON object."])
         validate_manifest(manifest, path)
-        print(f"Manifest valid: {path}")
-    print(f"Validated {len(manifests)} manifest(s).")
+        print_success(f"Manifest valid: {path}")
+    print_success(f"Validated {len(manifests)} manifest(s).")
     return 0
 
 
@@ -1168,6 +1241,11 @@ workflow:
         action="version",
         version=f"mongoose {MONGOOSE_VERSION}",
         help="Print the Mongoose CLI version.",
+    )
+    parser.add_argument(
+        "--no-color",
+        action="store_true",
+        help="Disable ANSI color in human-readable output.",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -1308,10 +1386,11 @@ def main() -> int:
     configure_output()
     parser = build_parser()
     args = parser.parse_args()
+    set_output_color(should_use_color(getattr(args, "no_color", False)))
     try:
         return args.handler(args)
     except ValueError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
+        print_error(f"Error: {exc}", file=sys.stderr)
         return 1
 
 

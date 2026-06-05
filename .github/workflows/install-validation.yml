@@ -25,6 +25,10 @@ jobs:
         shell: pwsh
         run: python ./tests/mongoose-state-validation.py
 
+      - name: Validate terminal output formatting
+        shell: pwsh
+        run: python ./tests/terminal-output-validation.py
+
       - name: Validate YNAB read API foundation
         shell: pwsh
         run: python ./tests/ynab-api-validation.py

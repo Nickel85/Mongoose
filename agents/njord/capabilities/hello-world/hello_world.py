@@ -13,6 +13,7 @@ if str(AGENT_ROOT) not in sys.path:
     sys.path.insert(0, str(AGENT_ROOT))
 
 from ynab_api import list_plans
+from terminal import should_use_color, style_output
 
 
 @dataclass(frozen=True)
@@ -60,6 +61,11 @@ def parse_args() -> argparse.Namespace:
         default="there",
         help="Optional name or context to include in the greeting.",
     )
+    parser.add_argument(
+        "--no-color",
+        action="store_true",
+        help="Disable ANSI color in human-readable output.",
+    )
     return parser.parse_args()
 
 
@@ -79,7 +85,7 @@ def main() -> None:
     configure_output()
     args = parse_args()
     ok, output = run_with_status(args.name)
-    print(output)
+    print(style_output(output, should_use_color(args.no_color)))
 
     if not ok:
         sys.exit(1)

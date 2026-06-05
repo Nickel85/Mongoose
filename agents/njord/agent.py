@@ -15,6 +15,7 @@ if str(AGENT_ROOT) not in sys.path:
 
 from config import ConfigFileError, config_status_lines, current_config_snapshot
 from router import route_request
+from terminal import should_use_color, style_output
 from ynab_api import YnabClient, choose_plan
 
 
@@ -232,6 +233,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Run Njord agent capabilities."
     )
+    parser.add_argument(
+        "--no-color",
+        action="store_true",
+        help="Disable ANSI color in human-readable output.",
+    )
     subparsers = parser.add_subparsers(
         dest="capability",
         required=True,
@@ -320,24 +326,25 @@ def main() -> None:
     configure_output()
     parser = build_parser()
     args = parser.parse_args()
+    color_enabled = should_use_color(args.no_color)
 
     if args.capability == "hello-world":
         ok, output = run_hello_world_with_status(args.name)
-        print(output)
+        print(style_output(output, color_enabled))
         if not ok:
             sys.exit(1)
         return
 
     if args.capability == "ynab-budget-summary":
         ok, output = run_ynab_budget_summary()
-        print(output)
+        print(style_output(output, color_enabled))
         if not ok:
             sys.exit(1)
         return
 
     if args.capability == "brief":
         ok, output = run_brief()
-        print(output)
+        print(style_output(output, color_enabled))
         if not ok:
             sys.exit(1)
         return
@@ -348,7 +355,7 @@ def main() -> None:
             start_date=args.start_date,
             end_date=args.end_date,
         )
-        print(output)
+        print(style_output(output, color_enabled))
         if not ok:
             sys.exit(1)
         return
@@ -356,7 +363,7 @@ def main() -> None:
     if args.capability == "config":
         if args.config_command == "status":
             ok, output = run_config_status()
-            print(output)
+            print(style_output(output, color_enabled))
             if not ok:
                 sys.exit(1)
             return
@@ -367,7 +374,7 @@ def main() -> None:
             parser.error("ask requires a natural-language request.")
 
         ok, output = answer_request(request)
-        print(output)
+        print(style_output(output, color_enabled))
         if not ok:
             sys.exit(1)
         return

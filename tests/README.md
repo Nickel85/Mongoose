@@ -122,6 +122,26 @@ This test verifies:
 
 The test uses `.test-localappdata-mongoose-state/` as a temporary local AppData substitute. That folder is ignored by Git.
 
+## Terminal Output Validation
+
+Script:
+
+```text
+tests/terminal-output-validation.py
+```
+
+Run locally from the repository root:
+
+```powershell
+python .\tests\terminal-output-validation.py
+```
+
+This test verifies:
+
+- redirected Mongoose and Njord output remains plain by default.
+- forced color output includes ANSI styling.
+- `--no-color` suppresses color even when color is forced by the environment.
+
 ## YNAB API Validation
 
 Script:

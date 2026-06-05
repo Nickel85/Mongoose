@@ -16,6 +16,7 @@ if str(AGENT_ROOT) not in sys.path:
 from config import ConfigFileError, current_config_snapshot
 from snapshot import load_snapshot
 from spending import review_spending
+from terminal import should_use_color, style_output
 from ynab_api import YnabClient, choose_plan, format_currency, list_plans, parse_iso_date
 
 
@@ -175,6 +176,11 @@ def build_parser() -> argparse.ArgumentParser:
         description="Review YNAB spending for a month or explicit date range."
     )
     parser.add_argument(
+        "--no-color",
+        action="store_true",
+        help="Disable ANSI color in human-readable output.",
+    )
+    parser.add_argument(
         "--period",
         choices=("current-month", "previous-month"),
         default="current-month",
@@ -209,7 +215,7 @@ def main() -> None:
         parser.error(str(exc))
 
     ok, output = load_spending_review(args.period, start=start, end=end)
-    print(output)
+    print(style_output(output, should_use_color(args.no_color)))
     if not ok:
         sys.exit(1)
 

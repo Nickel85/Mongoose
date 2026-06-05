@@ -15,6 +15,7 @@ if str(AGENT_ROOT) not in sys.path:
 from brief import build_brief, render_brief
 from config import ConfigFileError, current_config_snapshot
 from snapshot import load_snapshot
+from terminal import should_use_color, style_output
 from ynab_api import YnabClient, choose_plan, list_plans
 
 
@@ -101,6 +102,11 @@ def build_parser() -> argparse.ArgumentParser:
         description="Produce a manual weekly-style Njord financial brief."
     )
     parser.add_argument(
+        "--no-color",
+        action="store_true",
+        help="Disable ANSI color in human-readable output.",
+    )
+    parser.add_argument(
         "request",
         nargs=argparse.REMAINDER,
         help=argparse.SUPPRESS,
@@ -110,9 +116,9 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main() -> None:
     configure_output()
-    build_parser().parse_args()
+    args = build_parser().parse_args()
     ok, output = load_manual_brief()
-    print(output)
+    print(style_output(output, should_use_color(args.no_color)))
     if not ok:
         sys.exit(1)
 
