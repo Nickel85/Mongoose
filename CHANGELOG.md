@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.1.2 - CLI Version Hotfix
+
+Planned release type: hotfix.
+
+### Fixed
+
+- Update the Mongoose CLI version reported by `mongoose --version` and
+  `mongoose state` to `0.1.2`.
+- Correct the release-version drift where the `v0.1.1` release asset still
+  reported `mongoose 0.1.0`.
+
+### Changed
+
+- Includes the colored terminal output work merged after `v0.1.1`.
+
 ## v0.1.1 - Maintenance Release
 
 Planned release type: maintenance.

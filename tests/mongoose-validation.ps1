@@ -176,7 +176,7 @@ Assert-True ($help.Output -match "mongoose state --init") "mongoose --help did n
 
 $version = Invoke-Mongoose -Arguments @("--version")
 Assert-True ($version.ExitCode -eq 0) "mongoose --version failed. Output: $($version.Output)"
-Assert-True ($version.Output -match "mongoose 0.1.0") "mongoose --version did not report expected version."
+Assert-True ($version.Output -match "mongoose 0.1.2") "mongoose --version did not report expected version."
 
 $state = Invoke-Mongoose -Arguments @("state", "--init", "--json")
 Assert-True ($state.ExitCode -eq 0) "mongoose state failed. Output: $($state.Output)"
@@ -184,7 +184,7 @@ $statePaths = $state.Output | ConvertFrom-Json
 Assert-True (Test-Path $statePaths.state) "mongoose state did not create the shared state directory."
 Assert-True (Test-Path $statePaths.logs) "mongoose state did not create the log directory."
 Assert-True (Test-Path $statePaths.jobs) "mongoose state did not create the jobs directory."
-Assert-True ($statePaths.version -eq "0.1.0") "mongoose state did not report CLI version."
+Assert-True ($statePaths.version -eq "0.1.2") "mongoose state did not report CLI version."
 Assert-True ($statePaths.cliSource -match "mongoose.py") "mongoose state did not report CLI source."
 Assert-True ($statePaths.registry -eq $repoRoot) "mongoose state did not report configured registry path."
 Assert-True ($statePaths.registryRevision -notin @("", "missing", "not a git checkout")) "mongoose state did not report registry Git revision."
