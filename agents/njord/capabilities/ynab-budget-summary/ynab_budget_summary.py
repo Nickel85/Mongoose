@@ -18,6 +18,7 @@ from recommendations import generate_recommendations
 from review import review_snapshot
 from snapshot import load_snapshot
 from spending import review_spending
+from terminal import should_use_color, style_output
 from ynab_api import YnabClient, choose_plan, format_currency, list_plans
 
 
@@ -157,14 +158,19 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Summarize the latest available YNAB budget state."
     )
+    parser.add_argument(
+        "--no-color",
+        action="store_true",
+        help="Disable ANSI color in human-readable output.",
+    )
     return parser
 
 
 def main() -> None:
     configure_output()
-    build_parser().parse_args()
+    args = build_parser().parse_args()
     ok, output = load_latest_summary()
-    print(output)
+    print(style_output(output, should_use_color(args.no_color)))
     if not ok:
         sys.exit(1)
 

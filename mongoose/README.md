@@ -40,6 +40,19 @@ Check the CLI version:
 mongoose --version
 ```
 
+Human-readable Mongoose and Njord output uses terminal color when stdout is an
+interactive terminal. Redirected output stays plain by default, and JSON output
+is never colorized. Disable color explicitly with:
+
+```powershell
+mongoose --no-color state
+Njord --no-color brief
+```
+
+Color can also be disabled with `NO_COLOR=1`, `MONGOOSE_NO_COLOR=1`, or
+`NJORD_NO_COLOR=1`. For troubleshooting captured output, force color with
+`MONGOOSE_FORCE_COLOR=1` or `NJORD_FORCE_COLOR=1`.
+
 Show local state, registry path, and registry revision diagnostics:
 
 ```powershell
