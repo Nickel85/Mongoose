@@ -122,6 +122,26 @@ This test verifies:
 
 The test uses `.test-localappdata-mongoose-state/` as a temporary local AppData substitute. That folder is ignored by Git.
 
+## Release Version Validation
+
+Script:
+
+```text
+tests/release-version-validation.py
+```
+
+Run locally from the repository root:
+
+```powershell
+python .\tests\release-version-validation.py
+```
+
+This test verifies:
+
+- `MONGOOSE_VERSION` is present and semver-like.
+- `CHANGELOG.md` has a matching section for the current CLI version.
+- version-tagged GitHub Actions runs use a tag that matches the CLI version.
+
 ## Terminal Output Validation
 
 Script:
