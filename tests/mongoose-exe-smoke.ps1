@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-Smoke-tests the built mongoose.exe package manager.
+Smoke-tests the built mongoose.exe capability runtime.
 #>
 
 [CmdletBinding()]

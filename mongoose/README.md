@@ -1,7 +1,9 @@
 # Mongoose
 
-Mongoose is the package-manager CLI for this agent repository. It is also the
-foundation for a broader local-first runtime and package manager for AI agents.
+Mongoose is the local-first capability runtime CLI for this agent repository.
+It decouples AI functionality from underlying models, tools, storage, APIs, and
+execution environments while still providing lifecycle commands for installing,
+updating, and running agents.
 
 The long-term goal is to make agents portable, reusable, and easy to manage
 throughout their lifecycle. In that vision, agents declare the capabilities
@@ -80,24 +82,24 @@ Mongoose is being developed in layers so current agents remain useful while the
 runtime grows toward the broader platform vision:
 
 - Provider-neutral LLM runtime configuration and invocation are tracked in
-  [#23](https://github.com/Nickel85/Agents/issues/23).
+  [#23](https://github.com/Nickel85/Mongoose/issues/23).
 - Event-based and timer-based scheduling are tracked in
-  [#1](https://github.com/Nickel85/Agents/issues/1) and
-  [#2](https://github.com/Nickel85/Agents/issues/2).
+  [#1](https://github.com/Nickel85/Mongoose/issues/1) and
+  [#2](https://github.com/Nickel85/Mongoose/issues/2).
 - Agent job and status commands are tracked in
-  [#4](https://github.com/Nickel85/Agents/issues/4), with persistent scheduler
-  runtime work in [#5](https://github.com/Nickel85/Agents/issues/5).
+  [#4](https://github.com/Nickel85/Mongoose/issues/4), with persistent scheduler
+  runtime work in [#5](https://github.com/Nickel85/Mongoose/issues/5).
 - Cross-platform runtime support is tracked in
-  [#38](https://github.com/Nickel85/Agents/issues/38).
+  [#38](https://github.com/Nickel85/Mongoose/issues/38).
 - Agent dependency and environment isolation are tracked in
-  [#39](https://github.com/Nickel85/Agents/issues/39).
+  [#39](https://github.com/Nickel85/Mongoose/issues/39).
 - Package registry and versioning are tracked in
-  [#40](https://github.com/Nickel85/Agents/issues/40).
+  [#40](https://github.com/Nickel85/Mongoose/issues/40).
 - A portable agent execution contract is tracked in
-  [#41](https://github.com/Nickel85/Agents/issues/41).
+  [#41](https://github.com/Nickel85/Mongoose/issues/41).
 - Common capability provider interfaces for memory, storage, tools, and
   configured APIs are tracked in
-  [#42](https://github.com/Nickel85/Agents/issues/42).
+  [#42](https://github.com/Nickel85/Mongoose/issues/42).
 
 ## Platform Direction
 
@@ -113,9 +115,9 @@ without binding themselves to a single host environment or secret layout.
 Njord is the first concrete agent use case, not the whole platform. The Njord
 roadmap is expected to prove useful deterministic financial workflows, including
 the manual weekly brief tracked in
-[#28](https://github.com/Nickel85/Agents/issues/28), while Mongoose separately
-adds the package, scheduling, provider, and portability features needed for
-agents to run consistently across environments.
+[#28](https://github.com/Nickel85/Mongoose/issues/28), while Mongoose separately
+adds the package, scheduling, provider, capability, and portability features
+needed for agents to run consistently across environments.
 
 This sequencing is intentional. Agent-value milestones validate what the
 platform actually needs; Mongoose platform milestones then generalize those
@@ -297,7 +299,7 @@ The shared layout is:
   bin\                 Installed command shims and mongoose.exe
   mongoose\            Mongoose CLI config and registry metadata
     config.json        Registry configuration
-    registry\Agents\   Default cloned registry location
+    registry\Mongoose\ Default cloned registry location
   state\
     config\            Non-secret shared configuration
     agents\            Installed agent metadata and agent-scoped local state

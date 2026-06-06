@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-Validates the mongoose package manager CLI behavior without requiring a compiler.
+Validates the mongoose capability runtime CLI behavior without requiring a compiler.
 #>
 
 [CmdletBinding()]
