@@ -25,6 +25,10 @@ jobs:
         shell: pwsh
         run: python ./tests/mongoose-state-validation.py
 
+      - name: Validate release version metadata
+        shell: pwsh
+        run: python ./tests/release-version-validation.py
+
       - name: Validate terminal output formatting
         shell: pwsh
         run: python ./tests/terminal-output-validation.py
