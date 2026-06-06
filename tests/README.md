@@ -140,6 +140,8 @@ This test verifies:
 
 - `MONGOOSE_VERSION` is present and semver-like.
 - `CHANGELOG.md` has a matching section for the current CLI version.
+- `docs/release-scope-gates.md` documents release gates and release-prep
+  checklist sections.
 - version-tagged GitHub Actions runs use a tag that matches the CLI version.
 - source builds default to `development` release metadata.
 - the default registry URL points at the public Mongoose repository.

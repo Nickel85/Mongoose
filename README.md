@@ -38,6 +38,9 @@ Mongoose platform milestones and Njord agent-value milestones are intentionally
 sequenced separately. Njord is the first concrete use case and should prove
 useful deterministic finance workflows before the platform grows package,
 runtime, capability, and provider abstractions beyond what real agents need.
+Release scope gates are documented in
+[docs/release-scope-gates.md](docs/release-scope-gates.md) so later milestones
+start only after their dependency gates are satisfied.
 
 ## Agents
 
@@ -188,7 +191,8 @@ commercialize, license, sell, transfer, or otherwise monetize this project.
 - `agents/njord/router.py`: Natural-language request router.
 - `install.cmd`: One-file no-admin installer for installable agents.
 - `install/`: User-local installer support scripts.
-- `mongoose/`: Package-manager CLI and launcher source.
+- `mongoose/`: Mongoose runtime CLI and launcher source.
+- `docs/`: Release scope gates and project planning guidance.
 - `build-mongoose.cmd`: Builds `dist/mongoose.exe`.
 - `install-mongoose.cmd`: Installs `mongoose.exe` as a user-local CLI.
 - `tests/`: Local validation scripts also used by GitHub Actions.

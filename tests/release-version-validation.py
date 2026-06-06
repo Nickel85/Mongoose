@@ -19,6 +19,7 @@ EMBEDDER = REPO_ROOT / "mongoose" / "launcher" / "embed_mongoose.py"
 MONGOOSE_BUILD_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "mongoose-build.yml"
 INSTALL_VALIDATION_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "install-validation.yml"
 MONGOOSE_SMOKE_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "mongoose-smoke.yml"
+RELEASE_SCOPE_GATES = REPO_ROOT / "docs" / "release-scope-gates.md"
 TEXT_EXTENSIONS = {
     ".cmd",
     ".json",
@@ -103,6 +104,21 @@ assert_true(
     read_constant("DEFAULT_REGISTRY_URL") == "https://github.com/Nickel85/Mongoose.git",
     "DEFAULT_REGISTRY_URL must point at the public Mongoose repository.",
 )
+assert_true(RELEASE_SCOPE_GATES.exists(), "docs/release-scope-gates.md is missing.")
+
+release_scope_gates = RELEASE_SCOPE_GATES.read_text(encoding="utf-8")
+for required_text in (
+    "## v0.2.0 Exit Checklist",
+    "## Milestone Start Gates",
+    "## Release-Prep Issue Checklist",
+    "install, update, version,",
+    "release asset, and documentation loop",
+    "Rollback and recovery",
+):
+    assert_true(
+        required_text in release_scope_gates,
+        f"release-scope-gates.md is missing required release gate text: {required_text}",
+    )
 
 for path in active_text_files():
     text = path.read_text(encoding="utf-8")
