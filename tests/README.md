@@ -23,7 +23,7 @@ The mongoose build workflow runs on:
 
 It uploads `dist/mongoose.exe` as an Actions artifact. On version tags, it also attaches `mongoose.exe` to the GitHub Release.
 
-The mongoose smoke workflow runs on the same pull request, push, and tag triggers. It builds `mongoose.exe`, then smoke-tests `list`, `install`, `uninstall`, and `update`.
+The mongoose smoke workflow runs on the same pull request, push, and tag triggers. It builds `mongoose.exe`, validates installed-binary self-update behavior, then smoke-tests `list`, `install`, `uninstall`, and `update`.
 
 All workflows use `windows-latest` because the installer and executable are currently Windows-focused.
 
@@ -167,6 +167,28 @@ This test verifies Mongoose CLI self-update behavior without live network access
 - already-current releases do not download or replace the executable.
 - update-available releases download and target `%LOCALAPPDATA%\Agents\bin\mongoose.exe`.
 - missing assets, failed downloads, and failed replacements fail with actionable output.
+
+## Installed Mongoose Self-Update Validation
+
+Script:
+
+```text
+tests/mongoose-installed-self-update-validation.ps1
+```
+
+Run locally from the repository root after building `dist\mongoose.exe`:
+
+```powershell
+.\build-mongoose.cmd
+powershell -ExecutionPolicy Bypass -File .\tests\mongoose-installed-self-update-validation.ps1
+```
+
+This test verifies installed-binary self-update behavior without live network access:
+
+- `mongoose update --self` runs from `%LOCALAPPDATA%\Agents\bin\mongoose.exe`.
+- local release metadata and a local fake `mongoose.exe` release asset drive the update.
+- Windows locked-executable replacement is deferred and completes after the command exits.
+- failed replacement output includes a staged download recovery path and manual recovery guidance.
 
 ## Terminal Output Validation
 

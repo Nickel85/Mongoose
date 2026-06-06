@@ -857,7 +857,17 @@ def compare_release_versions(left: str, right: str) -> int:
     return 1 if left_prerelease > right_prerelease else -1
 
 
-def fetch_release_metadata(url: str = MONGOOSE_RELEASES_API_URL) -> list[dict[str, Any]]:
+def release_metadata_url() -> str:
+    return os.environ.get("MONGOOSE_RELEASES_API_URL", MONGOOSE_RELEASES_API_URL).strip() or MONGOOSE_RELEASES_API_URL
+
+
+def deferred_self_update_disabled() -> bool:
+    value = os.environ.get("MONGOOSE_DISABLE_DEFERRED_SELF_UPDATE", "")
+    return value.strip().lower() in {"1", "true", "yes", "always"}
+
+
+def fetch_release_metadata(url: str | None = None) -> list[dict[str, Any]]:
+    url = url or release_metadata_url()
     request = urllib.request.Request(
         url,
         headers={
@@ -945,6 +955,10 @@ def replace_installed_executable(staged_exe: Path, target_exe: Path) -> str:
     except OSError as exc:
         if not target_exe.exists():
             raise SelfUpdateError(f"Could not install {target_exe}: {exc}") from exc
+        if deferred_self_update_disabled():
+            raise SelfUpdateError(
+                f"Downloaded update to {staged_exe}, but could not replace {target_exe}: {exc}"
+            ) from exc
         try:
             schedule_executable_replacement(staged_exe, target_exe)
         except OSError as schedule_exc:

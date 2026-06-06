@@ -13,6 +13,9 @@ __pycache__/
 .test-localappdata-mongoose-state/
 .test-localappdata-exe/
 .test-localappdata-mongoose-exe/
+.test-localappdata-mongoose-installed-self-update/
+.test-localappdata-mongoose-self-update/
+.test-mongoose-self-update-fixtures/
 .test-mongoose-update-registry/
 .test-mongoose-fixtures/
 
