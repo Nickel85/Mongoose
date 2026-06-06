@@ -142,6 +142,27 @@ This test verifies:
 - `CHANGELOG.md` has a matching section for the current CLI version.
 - version-tagged GitHub Actions runs use a tag that matches the CLI version.
 
+## Self-Update Validation
+
+Script:
+
+```text
+tests/mongoose-self-update-validation.py
+```
+
+Run locally from the repository root:
+
+```powershell
+python .\tests\mongoose-self-update-validation.py
+```
+
+This test verifies Mongoose CLI self-update behavior without live network access:
+
+- release version comparison and prerelease filtering.
+- already-current releases do not download or replace the executable.
+- update-available releases download and target `%LOCALAPPDATA%\Agents\bin\mongoose.exe`.
+- missing assets, failed downloads, and failed replacements fail with actionable output.
+
 ## Terminal Output Validation
 
 Script:

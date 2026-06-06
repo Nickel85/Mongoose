@@ -40,6 +40,10 @@ jobs:
         shell: pwsh
         run: python ./tests/release-version-validation.py
 
+      - name: Validate self-update behavior
+        shell: pwsh
+        run: python ./tests/mongoose-self-update-validation.py
+
       - name: Build mongoose.exe
         shell: cmd
         run: build-mongoose.cmd

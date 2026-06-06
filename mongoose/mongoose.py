@@ -27,6 +27,8 @@ AGENT_STATE_ROOT = STATE_ROOT / "agents"
 NON_SECRET_CONFIG_ROOT = STATE_ROOT / "config"
 DEFAULT_REGISTRY_URL = "https://github.com/Nickel85/Agents.git"
 DEFAULT_LOG_RETENTION_DAYS = 30
+MONGOOSE_RELEASES_API_URL = "https://api.github.com/repos/Nickel85/Mongoose/releases"
+MONGOOSE_RELEASE_ASSET_NAME = "mongoose.exe"
 MONGOOSE_VERSION = "0.1.2"
 MONGOOSE_RELEASE_KIND = "development"
 MONGOOSE_RELEASE_TAG = ""
@@ -75,6 +77,10 @@ class ManifestValidationError(ValueError):
         lines = [f"Invalid agent manifest: {self.manifest_path}"]
         lines.extend(f"- {error}" for error in self.errors)
         return "\n".join(lines)
+
+
+class SelfUpdateError(RuntimeError):
+    pass
 
 
 def configure_output() -> None:
@@ -132,8 +138,8 @@ def print_warning(text: str) -> None:
     print(styled(text, "warning"))
 
 
-def print_error(text: str, *, file: Any = sys.stdout) -> None:
-    print(styled(text, "error"), file=file)
+def print_error(text: str, *, file: Any | None = None) -> None:
+    print(styled(text, "error"), file=file or sys.stdout)
 
 
 def print_muted(text: str) -> None:
@@ -821,6 +827,206 @@ def local_registry_source(registry_url: str) -> Path | None:
     return None
 
 
+def parse_release_version(tag_name: str) -> tuple[int, int, int, tuple[str, ...]] | None:
+    match = re.fullmatch(r"v?(\d+)\.(\d+)\.(\d+)(?:-([A-Za-z0-9_.-]+))?", str(tag_name).strip())
+    if not match:
+        return None
+    prerelease = tuple(match.group(4).split(".")) if match.group(4) else ()
+    return int(match.group(1)), int(match.group(2)), int(match.group(3)), prerelease
+
+
+def compare_release_versions(left: str, right: str) -> int:
+    left_version = parse_release_version(left)
+    right_version = parse_release_version(right)
+    if left_version is None or right_version is None:
+        raise ValueError("Release versions must be semver-like.")
+
+    left_core = left_version[:3]
+    right_core = right_version[:3]
+    if left_core != right_core:
+        return 1 if left_core > right_core else -1
+
+    left_prerelease = left_version[3]
+    right_prerelease = right_version[3]
+    if left_prerelease == right_prerelease:
+        return 0
+    if not left_prerelease:
+        return 1
+    if not right_prerelease:
+        return -1
+    return 1 if left_prerelease > right_prerelease else -1
+
+
+def fetch_release_metadata(url: str = MONGOOSE_RELEASES_API_URL) -> list[dict[str, Any]]:
+    request = urllib.request.Request(
+        url,
+        headers={
+            "Accept": "application/vnd.github+json",
+            "User-Agent": f"Mongoose/{MONGOOSE_VERSION}",
+        },
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=20) as response:
+            payload = response.read().decode("utf-8")
+    except OSError as exc:
+        raise SelfUpdateError(f"Could not reach GitHub Releases: {exc}") from exc
+
+    try:
+        releases = json.loads(payload)
+    except json.JSONDecodeError as exc:
+        raise SelfUpdateError("GitHub Releases returned invalid JSON.") from exc
+    if not isinstance(releases, list):
+        raise SelfUpdateError("GitHub Releases returned an unexpected response.")
+    return [release for release in releases if isinstance(release, dict)]
+
+
+def latest_eligible_release(releases: list[dict[str, Any]], include_prerelease: bool = False) -> dict[str, Any] | None:
+    eligible: list[dict[str, Any]] = []
+    for release in releases:
+        tag_name = str(release.get("tag_name", "")).strip()
+        if not tag_name or parse_release_version(tag_name) is None:
+            continue
+        if release.get("draft"):
+            continue
+        if release.get("prerelease") and not include_prerelease:
+            continue
+        eligible.append(release)
+
+    if not eligible:
+        return None
+    return max(eligible, key=lambda release: parse_release_version(str(release["tag_name"])))
+
+
+def release_asset(release: dict[str, Any], asset_name: str = MONGOOSE_RELEASE_ASSET_NAME) -> dict[str, Any] | None:
+    assets = release.get("assets", [])
+    if not isinstance(assets, list):
+        return None
+    for asset in assets:
+        if isinstance(asset, dict) and asset.get("name") == asset_name:
+            return asset
+    return None
+
+
+def download_release_asset(asset: dict[str, Any], destination: Path) -> None:
+    url = str(asset.get("browser_download_url", "")).strip() or str(asset.get("url", "")).strip()
+    if not url:
+        raise SelfUpdateError("Release asset did not include a download URL.")
+
+    request = urllib.request.Request(
+        url,
+        headers={
+            "Accept": "application/octet-stream",
+            "User-Agent": f"Mongoose/{MONGOOSE_VERSION}",
+        },
+    )
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with urllib.request.urlopen(request, timeout=60) as response:
+            with destination.open("wb") as file:
+                shutil.copyfileobj(response, file)
+    except OSError as exc:
+        if destination.exists():
+            destination.unlink()
+        raise SelfUpdateError(f"Could not download {MONGOOSE_RELEASE_ASSET_NAME}: {exc}") from exc
+
+    if not destination.exists() or destination.stat().st_size == 0:
+        raise SelfUpdateError(f"Downloaded {MONGOOSE_RELEASE_ASSET_NAME} was empty.")
+
+
+def installed_mongoose_exe_path() -> Path:
+    return USER_BIN / MONGOOSE_RELEASE_ASSET_NAME
+
+
+def replace_installed_executable(staged_exe: Path, target_exe: Path) -> str:
+    target_exe.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        os.replace(staged_exe, target_exe)
+        return "replaced"
+    except OSError as exc:
+        if not target_exe.exists():
+            raise SelfUpdateError(f"Could not install {target_exe}: {exc}") from exc
+        try:
+            schedule_executable_replacement(staged_exe, target_exe)
+        except OSError as schedule_exc:
+            raise SelfUpdateError(
+                f"Downloaded update to {staged_exe}, but could not replace {target_exe}: {exc}"
+            ) from schedule_exc
+        return "scheduled"
+
+
+def schedule_executable_replacement(staged_exe: Path, target_exe: Path) -> Path:
+    script_path = APP_ROOT / "apply-mongoose-update.ps1"
+    script = """param(
+    [Parameter(Mandatory=$true)][int]$ProcessId,
+    [Parameter(Mandatory=$true)][string]$StagedExe,
+    [Parameter(Mandatory=$true)][string]$TargetExe
+)
+Wait-Process -Id $ProcessId -ErrorAction SilentlyContinue
+Move-Item -LiteralPath $StagedExe -Destination $TargetExe -Force
+"""
+    atomic_write_text(script_path, script)
+    subprocess.Popen(
+        [
+            "powershell",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-WindowStyle",
+            "Hidden",
+            "-File",
+            str(script_path),
+            "-ProcessId",
+            str(os.getpid()),
+            "-StagedExe",
+            str(staged_exe),
+            "-TargetExe",
+            str(target_exe),
+        ],
+        close_fds=True,
+    )
+    return script_path
+
+
+def update_mongoose_cli(include_prerelease: bool = False) -> int:
+    print_heading("Mongoose CLI update")
+    print(label_line("Installed", version_string()))
+    try:
+        releases = fetch_release_metadata()
+        latest_release = latest_eligible_release(releases, include_prerelease=include_prerelease)
+        if latest_release is None:
+            print_error("No eligible Mongoose releases were found.")
+            return 1
+
+        latest_tag = str(latest_release["tag_name"])
+        latest_version = latest_tag[1:] if latest_tag.startswith("v") else latest_tag
+        print(label_line("Latest", latest_tag))
+        if compare_release_versions(MONGOOSE_VERSION, latest_version) >= 0:
+            print_success(f"Mongoose is already current: {MONGOOSE_VERSION}")
+            return 0
+
+        asset = release_asset(latest_release)
+        if asset is None:
+            print_error(f"Release {latest_tag} does not include {MONGOOSE_RELEASE_ASSET_NAME}.")
+            return 1
+
+        target_exe = installed_mongoose_exe_path()
+        staged_exe = APP_ROOT / f".{MONGOOSE_RELEASE_ASSET_NAME}.{latest_tag}.{os.getpid()}.download"
+        print(label_line("Download", str(asset.get("browser_download_url", asset.get("url", ""))), "muted"))
+        download_release_asset(asset, staged_exe)
+        result = replace_installed_executable(staged_exe, target_exe)
+    except (SelfUpdateError, ValueError) as exc:
+        print_error(str(exc))
+        print_muted("Retry later, or download mongoose.exe manually from the GitHub Release.")
+        return 1
+
+    if result == "scheduled":
+        print_success(f"Downloaded Mongoose {latest_version}; replacement will finish after this command exits.")
+    else:
+        print_success(f"Updated Mongoose to {latest_version}: {target_exe}")
+    print_muted("Run `mongoose --version` in a new terminal to confirm the installed release.")
+    return 0
+
+
 def cmd_setup(args: argparse.Namespace) -> int:
     ensure_state_layout()
     registry_root = Path(args.registry_root).expanduser().resolve()
@@ -1148,7 +1354,11 @@ def cmd_route(args: argparse.Namespace) -> int:
     return completed.returncode
 
 
-def cmd_update(_: argparse.Namespace) -> int:
+def cmd_update(args: argparse.Namespace) -> int:
+    if args.self_update:
+        return update_mongoose_cli(include_prerelease=args.include_prerelease)
+
+    print_heading("Mongoose registry update")
     config = load_config()
     root = registry_path(config)
     registry_url = config.get("registryUrl", DEFAULT_REGISTRY_URL)
@@ -1223,6 +1433,7 @@ def build_parser() -> argparse.ArgumentParser:
   mongoose validate
   mongoose remove Njord
   mongoose update
+  mongoose update --self
   mongoose state --init
   mongoose setup --registry-root C:\\path\\to\\Agents
 
@@ -1233,6 +1444,7 @@ workflow:
   4. Run `mongoose capabilities` to inspect routeable installed capabilities.
   5. Run `mongoose route --task-type <type> ...` or `mongoose run <agent> ...`.
   6. Run `mongoose update` to pull registry changes from GitHub.
+  7. Run `mongoose update --self` to update the installed Mongoose CLI.
 """
     parser = argparse.ArgumentParser(
         prog="mongoose",
@@ -1378,8 +1590,22 @@ workflow:
 
     update = subparsers.add_parser(
         "update",
-        help="Pull down registry updates from GitHub.",
-        description="Update the configured Git-backed registry with git pull --ff-only, or clone it if missing.",
+        help="Pull registry updates, or update the installed Mongoose CLI with --self.",
+        description=(
+            "Update the configured Git-backed registry with git pull --ff-only, or clone it if missing. "
+            "Use --self to update the installed Mongoose CLI from GitHub Releases."
+        ),
+    )
+    update.add_argument(
+        "--self",
+        action="store_true",
+        dest="self_update",
+        help="Update the installed Mongoose CLI from the latest stable GitHub Release.",
+    )
+    update.add_argument(
+        "--include-prerelease",
+        action="store_true",
+        help="Allow prerelease GitHub Releases when used with --self.",
     )
     update.set_defaults(handler=cmd_update)
 

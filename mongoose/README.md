@@ -257,13 +257,22 @@ mongoose update
 
 `mongoose update` uses the configured registry path. If the registry is a Git checkout, it runs `git pull --ff-only`. If the configured registry path does not exist, it clones the configured GitHub registry URL.
 
-`mongoose update` refreshes the configured agent registry. It does not rebuild
-or reinstall the `mongoose.exe` binary itself, and it does not automatically
-refresh an already installed agent command. After pulling registry changes,
-rerun `mongoose install <agent>` to refresh installed agent metadata and
-launchers from the current registry. Rebuild and reinstall Mongoose itself with
-`build-mongoose.cmd` and `install-mongoose.cmd` when the Mongoose CLI code has
-changed.
+Update the installed Mongoose CLI:
+
+```powershell
+mongoose update --self
+```
+
+`mongoose update --self` checks GitHub Releases for the latest stable
+`Nickel85/Mongoose` release, compares it with the installed CLI version,
+downloads the released `mongoose.exe` asset when a newer version is available,
+and replaces the user-local executable under `%LOCALAPPDATA%\Agents\bin`.
+Prereleases are ignored unless `--include-prerelease` is passed.
+
+Registry refresh and CLI self-update are deliberately separate. After pulling
+registry changes, rerun `mongoose install <agent>` to refresh installed agent
+metadata and launchers from the current registry. Local contributors can still
+use `build-mongoose.cmd` and `install-mongoose.cmd` for development builds.
 
 Show the user-local state contract:
 

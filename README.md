@@ -100,9 +100,12 @@ mongoose run Njord config status
 mongoose run Njord brief
 mongoose remove Njord
 mongoose update
+mongoose update --self
 ```
 
 `mongoose update` pulls down registry changes from the configured GitHub-backed registry.
+`mongoose update --self` updates the installed Mongoose CLI from the latest stable
+GitHub Release asset.
 
 Mongoose discovers installable agents by scanning `agents/*/agent.json`. Add that manifest when creating a new agent and it will appear in `mongoose list` automatically.
 
