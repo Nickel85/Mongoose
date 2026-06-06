@@ -2,7 +2,9 @@
 
 Install a known agent as a user-local command without administrator privileges.
 
-This folder contains the original direct agent installer. The preferred package-manager flow is now documented in [../mongoose/README.md](../mongoose/README.md).
+This folder contains the original direct agent installer. The preferred
+Mongoose capability runtime flow is now documented in
+[../mongoose/README.md](../mongoose/README.md).
 
 ## Requirements
 
@@ -64,8 +66,8 @@ It also adds that folder to the current user's `PATH`. No administrator privileg
 Clone or download this repository, then run the installer:
 
 ```powershell
-git clone https://github.com/Nickel85/Agents.git
-cd Agents
+git clone https://github.com/Nickel85/Mongoose.git
+cd Mongoose
 .\install.cmd Njord
 ```
 

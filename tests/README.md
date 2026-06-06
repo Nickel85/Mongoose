@@ -141,6 +141,11 @@ This test verifies:
 - `MONGOOSE_VERSION` is present and semver-like.
 - `CHANGELOG.md` has a matching section for the current CLI version.
 - version-tagged GitHub Actions runs use a tag that matches the CLI version.
+- source builds default to `development` release metadata.
+- the default registry URL points at the public Mongoose repository.
+- active project docs/code do not contain stale legacy repository references.
+- GitHub Actions runs release-version validation before building, uploading, or
+  attaching release assets.
 
 ## Self-Update Validation
 
