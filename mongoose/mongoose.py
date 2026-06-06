@@ -1,4 +1,4 @@
-"""Mongoose CLI for installing and managing local agents."""
+"""Mongoose CLI for managing local agent capabilities."""
 
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ LOG_ROOT = AGENTS_ROOT / "logs"
 JOBS_ROOT = STATE_ROOT / "jobs"
 AGENT_STATE_ROOT = STATE_ROOT / "agents"
 NON_SECRET_CONFIG_ROOT = STATE_ROOT / "config"
-DEFAULT_REGISTRY_URL = "https://github.com/Nickel85/Agents.git"
+DEFAULT_REGISTRY_URL = "https://github.com/Nickel85/Mongoose.git"
 DEFAULT_LOG_RETENTION_DAYS = 30
 MONGOOSE_RELEASES_API_URL = "https://api.github.com/repos/Nickel85/Mongoose/releases"
 MONGOOSE_RELEASE_ASSET_NAME = "mongoose.exe"
@@ -154,7 +154,7 @@ def load_config() -> dict[str, Any]:
     if not CONFIG_PATH.exists():
         return {
             "registryUrl": DEFAULT_REGISTRY_URL,
-            "registryPath": str(APP_ROOT / "registry" / "Agents"),
+            "registryPath": str(APP_ROOT / "registry" / "Mongoose"),
         }
 
     return read_json(CONFIG_PATH)

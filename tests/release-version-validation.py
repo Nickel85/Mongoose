@@ -16,6 +16,15 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 MONGOOSE_CLI = REPO_ROOT / "mongoose" / "mongoose.py"
 CHANGELOG = REPO_ROOT / "CHANGELOG.md"
 EMBEDDER = REPO_ROOT / "mongoose" / "launcher" / "embed_mongoose.py"
+REPO_REFERENCE_FILES = (
+    REPO_ROOT / "README.md",
+    REPO_ROOT / "mongoose" / "README.md",
+    REPO_ROOT / "mongoose" / "mongoose.py",
+    REPO_ROOT / "tests" / "mongoose-validation.ps1",
+    REPO_ROOT / "tests" / "mongoose-exe-smoke.ps1",
+)
+LEGACY_REPO_REFERENCE = "Nickel85/" + "Agents"
+LEGACY_REGISTRY_URL = "https://github.com/Nickel85/" + "Agents.git"
 
 
 def read_mongoose_version() -> str:
@@ -43,6 +52,21 @@ assert_true(f"## v{version}" in changelog, f"CHANGELOG.md is missing a v{version
 assert_true(read_constant("MONGOOSE_RELEASE_KIND") == "development", "Source Mongoose release kind must default to development.")
 assert_true(read_constant("MONGOOSE_RELEASE_TAG") == "", "Source Mongoose release tag must default to empty.")
 assert_true("GITHUB_REF_TYPE" in EMBEDDER.read_text(encoding="utf-8"), "Embedder must derive official release metadata from tag builds.")
+assert_true(
+    read_constant("DEFAULT_REGISTRY_URL") == "https://github.com/Nickel85/Mongoose.git",
+    "DEFAULT_REGISTRY_URL must point at the public Mongoose repository.",
+)
+
+for path in REPO_REFERENCE_FILES:
+    text = path.read_text(encoding="utf-8")
+    assert_true(
+        LEGACY_REPO_REFERENCE not in text,
+        f"{path.relative_to(REPO_ROOT)} contains a stale legacy repository reference.",
+    )
+    assert_true(
+        LEGACY_REGISTRY_URL not in text,
+        f"{path.relative_to(REPO_ROOT)} contains the stale legacy registry URL.",
+    )
 
 github_ref_type = os.environ.get("GITHUB_REF_TYPE", "")
 github_ref_name = os.environ.get("GITHUB_REF_NAME", "")

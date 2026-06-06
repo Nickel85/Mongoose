@@ -1,18 +1,18 @@
-# Agents
+# Mongoose
 
-Repository of installable agents and the local tooling used to manage them.
-Each agent is compartmentalized in its own directory with its own
-documentation, capabilities, configuration notes, and installation
-instructions.
+Mongoose is a local-first capability runtime for AI agents. It decouples AI
+functionality from underlying models, tools, storage, APIs, and execution
+environments so agents can declare what they need while Mongoose provides those
+capabilities through common interfaces.
 
 Today, this repository contains one concrete agent, Njord, and Mongoose, the
-local package-manager CLI used to install, inspect, route to, and run agents
-from this repository.
+local runtime CLI used to install, inspect, route to, update, and run declared
+agent capabilities from this repository.
 
 ## Mongoose Vision
 
-Mongoose is being developed toward a local-first runtime and package manager
-for AI agents that enables agents to be installed, configured, discovered, and
+Mongoose is being developed toward a local-first capability runtime for AI
+agents that enables agents to be installed, configured, discovered, and
 executed consistently across different environments.
 
 The current CLI already supports local agent installation, manifest validation,
@@ -26,18 +26,18 @@ or server without modification.
 That full runtime surface is roadmap work, not current behavior. The active
 roadmap tracks:
 
-- provider-neutral LLM runtime support in [#23](https://github.com/Nickel85/Agents/issues/23)
-- persistent scheduling and jobs in [#1](https://github.com/Nickel85/Agents/issues/1), [#2](https://github.com/Nickel85/Agents/issues/2), [#4](https://github.com/Nickel85/Agents/issues/4), and [#5](https://github.com/Nickel85/Agents/issues/5)
-- cross-platform runtime support in [#38](https://github.com/Nickel85/Agents/issues/38)
-- dependency and environment isolation in [#39](https://github.com/Nickel85/Agents/issues/39)
-- package registry and versioning in [#40](https://github.com/Nickel85/Agents/issues/40)
-- portable agent execution contracts in [#41](https://github.com/Nickel85/Agents/issues/41)
-- common memory, storage, tool, and API provider interfaces in [#42](https://github.com/Nickel85/Agents/issues/42)
+- provider-neutral LLM runtime support in [#23](https://github.com/Nickel85/Mongoose/issues/23)
+- persistent scheduling and jobs in [#1](https://github.com/Nickel85/Mongoose/issues/1), [#2](https://github.com/Nickel85/Mongoose/issues/2), [#4](https://github.com/Nickel85/Mongoose/issues/4), and [#5](https://github.com/Nickel85/Mongoose/issues/5)
+- cross-platform runtime support in [#38](https://github.com/Nickel85/Mongoose/issues/38)
+- dependency and environment isolation in [#39](https://github.com/Nickel85/Mongoose/issues/39)
+- package registry and versioning in [#40](https://github.com/Nickel85/Mongoose/issues/40)
+- portable agent execution contracts in [#41](https://github.com/Nickel85/Mongoose/issues/41)
+- common memory, storage, tool, and API provider interfaces in [#42](https://github.com/Nickel85/Mongoose/issues/42)
 
 Mongoose platform milestones and Njord agent-value milestones are intentionally
 sequenced separately. Njord is the first concrete use case and should prove
 useful deterministic finance workflows before the platform grows package,
-runtime, and provider abstractions beyond what real agents need.
+runtime, capability, and provider abstractions beyond what real agents need.
 
 ## Agents
 
@@ -79,7 +79,7 @@ agents/
 
 ## Installing An Agent
 
-The preferred installer is `mongoose`, the package-manager CLI for this repository.
+The preferred installer and runtime entrypoint is `mongoose`.
 
 Build and install it from the repository root:
 
@@ -138,7 +138,7 @@ Each agent README contains the agent-specific install name, configuration, examp
 
 Installers should not require administrator privileges. User-local command shims, configuration files, and secrets should stay scoped to the current user wherever possible.
 
-See [mongoose/README.md](mongoose/README.md) for package-manager details.
+See [mongoose/README.md](mongoose/README.md) for Mongoose runtime details.
 
 ## VS Code Setup
 
