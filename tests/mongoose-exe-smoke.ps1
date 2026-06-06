@@ -18,6 +18,7 @@ if (-not $MongooseExe) {
 $MongooseExe = (Resolve-Path $MongooseExe).Path
 $testLocalAppData = Join-Path $repoRoot ".test-localappdata-mongoose-exe"
 $testCloneRoot = Join-Path $repoRoot ".test-mongoose-update-registry"
+$testRegistryOnlyRoot = Join-Path $repoRoot ".test-mongoose-registry-only-update"
 
 function Assert-True {
     param(
@@ -58,7 +59,7 @@ function Invoke-MongooseExe {
 
 Assert-True (Test-Path $MongooseExe) "mongoose.exe is missing: $MongooseExe"
 
-foreach ($path in @($testLocalAppData, $testCloneRoot)) {
+foreach ($path in @($testLocalAppData, $testCloneRoot, $testRegistryOnlyRoot)) {
     if (Test-Path $path) {
         Remove-Item -Path $path -Recurse -Force
     }
@@ -130,9 +131,42 @@ $setupForUpdate = Invoke-MongooseExe -Arguments @(
 )
 Assert-True ($setupForUpdate.ExitCode -eq 0) "mongoose setup for update failed. Output: $($setupForUpdate.Output)"
 
+$releaseMetadataPath = Join-Path $testLocalAppData "mongoose-releases.json"
+$releaseMetadata = @"
+[
+  {
+    "tag_name": "v0.1.2",
+    "draft": false,
+    "prerelease": false,
+    "assets": []
+  }
+]
+"@
+Set-Content -Path $releaseMetadataPath -Value $releaseMetadata -Encoding ASCII
+$env:MONGOOSE_RELEASES_API_URL = ([System.Uri](Resolve-Path $releaseMetadataPath).Path).AbsoluteUri
 $update = Invoke-MongooseExe -Arguments @("update")
 Assert-True ($update.ExitCode -eq 0) "mongoose update failed. Output: $($update.Output)"
 Assert-True (Test-Path (Join-Path $testCloneRoot "agents\njord\agent.json")) "mongoose update did not clone the registry."
+Assert-True ($update.Output -match "Mongoose registry update") "mongoose update did not report the registry phase."
+Assert-True ($update.Output -match "Mongoose CLI update") "mongoose update did not report the CLI phase."
+Assert-True ($update.Output -match "Update summary") "mongoose update did not report a phase summary."
+Assert-True ($update.Output -match "Mongoose is already current") "mongoose update did not report the already-current CLI state."
+$env:MONGOOSE_RELEASES_API_URL = $null
+
+$setupForRegistryOnly = Invoke-MongooseExe -Arguments @(
+    "setup",
+    "--registry-root",
+    $testRegistryOnlyRoot,
+    "--registry-url",
+    $repoRoot
+)
+Assert-True ($setupForRegistryOnly.ExitCode -eq 0) "mongoose setup for registry-only update failed. Output: $($setupForRegistryOnly.Output)"
+
+$registryOnly = Invoke-MongooseExe -Arguments @("update", "--registry-only")
+Assert-True ($registryOnly.ExitCode -eq 0) "mongoose update --registry-only failed. Output: $($registryOnly.Output)"
+Assert-True ($registryOnly.Output -match "Mongoose registry update") "registry-only update did not report the registry phase."
+Assert-True ($registryOnly.Output -notmatch "Mongoose CLI update") "registry-only update should not run the CLI phase."
+Assert-True (Test-Path (Join-Path $testRegistryOnlyRoot "agents\njord\agent.json")) "mongoose update --registry-only did not clone the registry."
 
 Write-Host "Mongoose EXE smoke tests passed."
 

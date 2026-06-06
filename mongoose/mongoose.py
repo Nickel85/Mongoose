@@ -1041,6 +1041,43 @@ def update_mongoose_cli(include_prerelease: bool = False) -> int:
     return 0
 
 
+def update_registry() -> int:
+    print_heading("Mongoose registry update")
+    config = load_config()
+    root = registry_path(config)
+    registry_url = config.get("registryUrl", DEFAULT_REGISTRY_URL)
+
+    if root.exists() and (root / ".git").exists():
+        completed = subprocess.run(["git", "pull", "--ff-only"], cwd=str(root), check=False)
+        if completed.returncode != 0:
+            print_error(f"Registry update failed at {root}.")
+            return completed.returncode
+        print_success(f"Updated registry at {root}")
+        return 0
+
+    if root.exists():
+        print_error(f"Registry path exists but is not a Git repository: {root}")
+        return 1
+
+    root.parent.mkdir(parents=True, exist_ok=True)
+    local_source = local_registry_source(registry_url)
+    if local_source is not None:
+        shutil.copytree(
+            local_source,
+            root,
+            ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc"),
+        )
+        print_success(f"Copied local registry to {root}")
+        return 0
+
+    completed = subprocess.run(["git", "clone", registry_url, str(root)], check=False)
+    if completed.returncode != 0:
+        print_error(f"Registry clone failed from {registry_url}.")
+        return completed.returncode
+    print_success(f"Cloned registry to {root}")
+    return 0
+
+
 def cmd_setup(args: argparse.Namespace) -> int:
     ensure_state_layout()
     registry_root = Path(args.registry_root).expanduser().resolve()
@@ -1369,37 +1406,25 @@ def cmd_route(args: argparse.Namespace) -> int:
 
 
 def cmd_update(args: argparse.Namespace) -> int:
-    if args.self_update:
-        return update_mongoose_cli(include_prerelease=args.include_prerelease)
-
-    print_heading("Mongoose registry update")
-    config = load_config()
-    root = registry_path(config)
-    registry_url = config.get("registryUrl", DEFAULT_REGISTRY_URL)
-
-    if root.exists() and (root / ".git").exists():
-        run(["git", "pull", "--ff-only"], cwd=root)
-        print_success(f"Updated registry at {root}")
-        return 0
-
-    if root.exists():
-        print_error(f"Registry path exists but is not a Git repository: {root}")
+    if args.registry_only and args.include_prerelease:
+        print_error("--include-prerelease can only be used when checking the Mongoose CLI update phase.")
         return 1
 
-    root.parent.mkdir(parents=True, exist_ok=True)
-    local_source = local_registry_source(registry_url)
-    if local_source is not None:
-        shutil.copytree(
-            local_source,
-            root,
-            ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc"),
-        )
-        print_success(f"Copied local registry to {root}")
-        return 0
+    if args.self_only:
+        return update_mongoose_cli(include_prerelease=args.include_prerelease)
 
-    run(["git", "clone", registry_url, str(root)])
-    print_success(f"Cloned registry to {root}")
-    return 0
+    if args.registry_only:
+        return update_registry()
+
+    print_heading("Mongoose update")
+    registry_code = update_registry()
+    print("")
+    cli_code = update_mongoose_cli(include_prerelease=args.include_prerelease)
+    print("")
+    print_heading("Update summary")
+    print(label_line("Registry", "ok" if registry_code == 0 else f"failed ({registry_code})", "success" if registry_code == 0 else "error"))
+    print(label_line("Mongoose CLI", "ok" if cli_code == 0 else f"failed ({cli_code})", "success" if cli_code == 0 else "error"))
+    return 0 if registry_code == 0 and cli_code == 0 else 1
 
 
 def cmd_validate(args: argparse.Namespace) -> int:
@@ -1447,7 +1472,8 @@ def build_parser() -> argparse.ArgumentParser:
   mongoose validate
   mongoose remove Njord
   mongoose update
-  mongoose update --self
+  mongoose update --registry-only
+  mongoose update --self-only
   mongoose state --init
   mongoose setup --registry-root C:\\path\\to\\Agents
 
@@ -1457,8 +1483,8 @@ workflow:
   3. Run `mongoose show <agent>` to inspect installed metadata and capabilities.
   4. Run `mongoose capabilities` to inspect routeable installed capabilities.
   5. Run `mongoose route --task-type <type> ...` or `mongoose run <agent> ...`.
-  6. Run `mongoose update` to pull registry changes from GitHub.
-  7. Run `mongoose update --self` to update the installed Mongoose CLI.
+  6. Run `mongoose update` to refresh the registry and check for a Mongoose CLI update.
+  7. Use `mongoose update --registry-only` or `mongoose update --self-only` for scoped updates.
 """
     parser = argparse.ArgumentParser(
         prog="mongoose",
@@ -1604,22 +1630,29 @@ workflow:
 
     update = subparsers.add_parser(
         "update",
-        help="Pull registry updates, or update the installed Mongoose CLI with --self.",
+        help="Update the agent registry and installed Mongoose CLI.",
         description=(
-            "Update the configured Git-backed registry with git pull --ff-only, or clone it if missing. "
-            "Use --self to update the installed Mongoose CLI from GitHub Releases."
+            "Refresh the configured Git-backed registry and check the installed Mongoose CLI "
+            "against GitHub Releases. Use scope flags for automation and recovery workflows."
         ),
     )
-    update.add_argument(
-        "--self",
+    update_scope = update.add_mutually_exclusive_group()
+    update_scope.add_argument(
+        "--registry-only",
         action="store_true",
-        dest="self_update",
-        help="Update the installed Mongoose CLI from the latest stable GitHub Release.",
+        help="Only update the configured agent registry; do not check or replace the Mongoose CLI.",
+    )
+    update_scope.add_argument(
+        "--self",
+        "--self-only",
+        action="store_true",
+        dest="self_only",
+        help="Only update the installed Mongoose CLI from the latest stable GitHub Release.",
     )
     update.add_argument(
         "--include-prerelease",
         action="store_true",
-        help="Allow prerelease GitHub Releases when used with --self.",
+        help="Allow prerelease GitHub Releases when checking the Mongoose CLI update phase.",
     )
     update.set_defaults(handler=cmd_update)
 

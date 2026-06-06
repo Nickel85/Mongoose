@@ -100,12 +100,15 @@ mongoose run Njord config status
 mongoose run Njord brief
 mongoose remove Njord
 mongoose update
-mongoose update --self
+mongoose update --registry-only
+mongoose update --self-only
 ```
 
-`mongoose update` pulls down registry changes from the configured GitHub-backed registry.
-`mongoose update --self` updates the installed Mongoose CLI from the latest stable
-GitHub Release asset.
+`mongoose update` refreshes the configured GitHub-backed registry and checks the
+installed Mongoose CLI against the latest stable GitHub Release asset. Use
+`mongoose update --registry-only` for automation that should only refresh the
+agent registry. Use `mongoose update --self-only` or the legacy alias
+`mongoose update --self` to only update the installed Mongoose CLI.
 
 Mongoose discovers installable agents by scanning `agents/*/agent.json`. Add that manifest when creating a new agent and it will appear in `mongoose list` automatically.
 
@@ -159,7 +162,7 @@ Tests live in `tests/` and are run by GitHub Actions on `push` and `pull_request
 
 `mongoose.exe` is built by GitHub Actions for pull requests targeting `main`, pushes to `main`, and version tags. Pull request builds upload `mongoose.exe` as an Actions artifact, and version tag builds attach it to the GitHub Release.
 
-GitHub Actions also smoke-tests the built executable by running `mongoose list`, `mongoose install`, `mongoose uninstall`, and `mongoose update`.
+GitHub Actions also smoke-tests the built executable by running `mongoose list`, `mongoose install`, `mongoose uninstall`, and scoped/default `mongoose update` flows.
 
 ## License
 
