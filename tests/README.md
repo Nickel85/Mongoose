@@ -23,7 +23,7 @@ The mongoose build workflow runs on:
 
 It uploads `dist/mongoose.exe` as an Actions artifact. On version tags, it also attaches `mongoose.exe` to the GitHub Release.
 
-The mongoose smoke workflow runs on the same pull request, push, and tag triggers. It builds `mongoose.exe`, validates installed-binary self-update behavior, then smoke-tests `list`, `install`, `uninstall`, and `update`.
+The mongoose smoke workflow runs on the same pull request, push, and tag triggers. It builds `mongoose.exe`, validates installed-binary self-update behavior, then smoke-tests `list`, `install`, `uninstall`, and default/scoped `update` flows.
 
 All workflows use `windows-latest` because the installer and executable are currently Windows-focused.
 
@@ -167,6 +167,9 @@ This test verifies Mongoose CLI self-update behavior without live network access
 - already-current releases do not download or replace the executable.
 - update-available releases download and target `%LOCALAPPDATA%\Agents\bin\mongoose.exe`.
 - missing assets, failed downloads, and failed replacements fail with actionable output.
+- default `mongoose update` runs registry then CLI phases and prints a summary.
+- `--registry-only`, `--self-only`, and legacy `--self` scope update phases.
+- invalid scoped flag combinations fail before update phases run.
 
 ## Installed Mongoose Self-Update Validation
 
@@ -390,8 +393,9 @@ This test verifies the built executable can:
 - run `mongoose list` and discover `Njord`.
 - run `mongoose install Njord` and create `Njord.cmd`.
 - run `mongoose uninstall Njord` and remove `Njord.cmd`.
-- run `mongoose update` against a local Git-backed registry URL and clone the registry.
+- run default `mongoose update` against local registry and release metadata fixtures.
+- run `mongoose update --registry-only` without checking the CLI phase.
 
-The test uses `.test-localappdata-mongoose-exe/` and `.test-mongoose-update-registry/` as temporary folders. Both are ignored by Git.
+The test uses `.test-localappdata-mongoose-exe/`, `.test-mongoose-update-registry/`, and `.test-mongoose-registry-only-update/` as temporary folders. All are ignored by Git.
 
 

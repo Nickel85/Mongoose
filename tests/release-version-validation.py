@@ -38,6 +38,7 @@ IGNORED_PARTS = (
     ".test-localappdata-mongoose-self-update",
     ".test-localappdata-mongoose-state",
     ".test-mongoose-fixtures",
+    ".test-mongoose-registry-only-update",
     ".test-mongoose-self-update-fixtures",
     ".test-mongoose-update-registry",
     "__pycache__",
@@ -64,14 +65,17 @@ def read_constant(name: str) -> str:
 
 def active_text_files() -> list[Path]:
     files: list[Path] = []
-    for path in REPO_ROOT.rglob("*"):
-        if not path.is_file():
-            continue
-        relative = path.relative_to(REPO_ROOT)
-        if any(part in IGNORED_PARTS for part in relative.parts):
-            continue
-        if path.suffix.lower() in TEXT_EXTENSIONS:
-            files.append(path)
+    for root, dirs, names in os.walk(REPO_ROOT):
+        dirs[:] = [directory for directory in dirs if directory not in IGNORED_PARTS]
+        for name in names:
+            if name in IGNORED_PARTS:
+                continue
+            path = Path(root) / name
+            relative = path.relative_to(REPO_ROOT)
+            if any(part in IGNORED_PARTS for part in relative.parts):
+                continue
+            if path.suffix.lower() in TEXT_EXTENSIONS:
+                files.append(path)
     return sorted(files)
 
 

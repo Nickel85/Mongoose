@@ -61,6 +61,37 @@ def run_update(mongoose, releases, download=None, replace=None, include_prerelea
     return code, output.getvalue(), downloads, replacements
 
 
+def run_scoped_update(mongoose, *, registry_only=False, self_only=False, include_prerelease=False):
+    output = io.StringIO()
+    calls: list[tuple[str, bool | None]] = []
+
+    def fake_registry():
+        calls.append(("registry", None))
+        print("registry phase ran")
+        return 0
+
+    def fake_self_update(include_prerelease=False):
+        calls.append(("self", include_prerelease))
+        print("self phase ran")
+        return 0
+
+    mongoose.update_registry = fake_registry
+    mongoose.update_mongoose_cli = fake_self_update
+
+    args = type(
+        "Args",
+        (),
+        {
+            "registry_only": registry_only,
+            "self_only": self_only,
+            "include_prerelease": include_prerelease,
+        },
+    )()
+    with contextlib.redirect_stdout(output):
+        code = mongoose.cmd_update(args)
+    return code, output.getvalue(), calls
+
+
 remove_tree(TEST_LOCAL_APP_DATA)
 TEST_LOCAL_APP_DATA.mkdir(parents=True)
 os.environ["LOCALAPPDATA"] = str(TEST_LOCAL_APP_DATA)
@@ -151,5 +182,30 @@ code, output, _downloads, replacements = run_update(mongoose, [release_next], re
 assert_true(code == 1, "Failed replacement did not fail self-update.")
 assert_true(replacements, "Failed replacement path did not attempt replacement.")
 assert_true("simulated replacement failure" in output, "Failed replacement output did not include the error.")
+
+code, output, calls = run_scoped_update(mongoose)
+assert_true(code == 0, f"Default update orchestration failed: {output}")
+assert_true(calls == [("registry", None), ("self", False)], "Default update did not run registry then CLI phases.")
+assert_true("Update summary" in output, "Default update did not print a summary.")
+assert_true("Registry:" in output and "Mongoose CLI:" in output, "Default update summary missed phase labels.")
+
+code, _output, calls = run_scoped_update(mongoose, registry_only=True)
+assert_true(code == 0, "Registry-only update failed.")
+assert_true(calls == [("registry", None)], "Registry-only update should not run the CLI phase.")
+
+code, _output, calls = run_scoped_update(mongoose, self_only=True, include_prerelease=True)
+assert_true(code == 0, "Self-only update failed.")
+assert_true(calls == [("self", True)], "Self-only update did not pass prerelease allowance.")
+
+code, output, calls = run_scoped_update(mongoose, registry_only=True, include_prerelease=True)
+assert_true(code == 1, "Registry-only update with prerelease flag should fail.")
+assert_true(not calls, "Invalid registry-only prerelease flag should not run update phases.")
+assert_true("--include-prerelease" in output, "Invalid flag output did not name the flag.")
+
+parser = mongoose.build_parser()
+self_only_args = parser.parse_args(["update", "--self-only"])
+assert_true(self_only_args.self_only and not self_only_args.registry_only, "--self-only did not parse as self-only.")
+self_alias_args = parser.parse_args(["update", "--self"])
+assert_true(self_alias_args.self_only and not self_alias_args.registry_only, "--self did not remain a self-only alias.")
 
 print("Mongoose self-update validation passed.")

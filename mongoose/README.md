@@ -257,24 +257,39 @@ Pull down registry updates:
 mongoose update
 ```
 
-`mongoose update` uses the configured registry path. If the registry is a Git checkout, it runs `git pull --ff-only`. If the configured registry path does not exist, it clones the configured GitHub registry URL.
+`mongoose update` runs a two-phase update flow:
+
+- refresh the configured registry path.
+- check the installed Mongoose CLI against GitHub Releases.
+
+If the registry is a Git checkout, Mongoose runs `git pull --ff-only`. If the
+configured registry path does not exist, it clones the configured GitHub
+registry URL. The command prints each phase and an update summary so registry
+and CLI status are distinct.
+
+Run only the registry phase:
+
+```powershell
+mongoose update --registry-only
+```
 
 Update the installed Mongoose CLI:
 
 ```powershell
-mongoose update --self
+mongoose update --self-only
 ```
 
-`mongoose update --self` checks GitHub Releases for the latest stable
+`mongoose update --self-only` checks GitHub Releases for the latest stable
 `Nickel85/Mongoose` release, compares it with the installed CLI version,
 downloads the released `mongoose.exe` asset when a newer version is available,
 and replaces the user-local executable under `%LOCALAPPDATA%\Agents\bin`.
-Prereleases are ignored unless `--include-prerelease` is passed.
+Prereleases are ignored unless `--include-prerelease` is passed. The older
+`mongoose update --self` spelling remains available as an alias.
 
-Registry refresh and CLI self-update are deliberately separate. After pulling
-registry changes, rerun `mongoose install <agent>` to refresh installed agent
-metadata and launchers from the current registry. Local contributors can still
-use `build-mongoose.cmd` and `install-mongoose.cmd` for development builds.
+After pulling registry changes, rerun `mongoose install <agent>` to refresh
+installed agent metadata and launchers from the current registry. Local
+contributors can still use `build-mongoose.cmd` and `install-mongoose.cmd` for
+development builds.
 
 Show the user-local state contract:
 
