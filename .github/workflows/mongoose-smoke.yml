@@ -48,6 +48,10 @@ jobs:
         shell: cmd
         run: build-mongoose.cmd
 
+      - name: Validate installed self-update behavior
+        shell: pwsh
+        run: ./tests/mongoose-installed-self-update-validation.ps1
+
       - name: Smoke test list, install, uninstall, and update
         shell: pwsh
         run: ./tests/mongoose-exe-smoke.ps1
