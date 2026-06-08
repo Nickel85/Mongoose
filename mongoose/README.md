@@ -429,6 +429,11 @@ Recommended metadata:
     "mongooseManifestSchema": 1,
     "mongooseRuntimeContract": 1
   },
+  "requires": {
+    "state": { "mode": "required" },
+    "logs": { "mode": "optional" },
+    "storage": { "mode": "optional" }
+  },
   "llm": {
     "mode": "none",
     "deterministicFallback": "All current capabilities run without an LLM."
@@ -445,6 +450,12 @@ Recommended metadata:
         "required": ["YNAB_ACCESS_TOKEN", "YNAB_BUDGET_ID"],
         "optional": [],
         "secretRefs": ["YNAB_ACCESS_TOKEN"]
+      },
+      "requires": {
+        "configuration": { "mode": "required" },
+        "logs": { "mode": "optional" },
+        "storage": { "mode": "optional" },
+        "llm": { "mode": "optional" }
       },
       "llm": {
         "mode": "none",

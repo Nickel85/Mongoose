@@ -69,6 +69,79 @@ Reserved v1 descriptors:
 Deterministic agents can use the `storage`, `state`, and `logs` descriptors
 without requiring an LLM.
 
+## Manifest Requirement Fields
+
+Agents and capabilities may declare runtime provider needs with `requires`.
+Each provider requirement is an object with `mode: "required"` or
+`mode: "optional"`.
+
+Supported requirement names:
+
+- `configuration`
+- `logs`
+- `state`
+- `storage`
+- `memory`
+- `tools`
+- `apiProfiles`
+- `apis`
+- `models`
+- `llm`
+- `execution`
+
+Runtime Contract v1 currently supports required `configuration`, `logs`,
+`state`, and `storage` providers. Required `memory`, `tools`, `apiProfiles`,
+`apis`, `models`, and `llm` requirements fail validation until those providers
+exist. Optional declarations are allowed so agents can describe future or
+fallback behavior.
+
+Example Njord capability:
+
+```json
+{
+  "name": "ynab-budget-summary",
+  "description": "Read YNAB data and summarize the current budget state.",
+  "configuration": {
+    "required": ["YNAB_ACCESS_TOKEN", "YNAB_BUDGET_ID"],
+    "secretRefs": ["YNAB_ACCESS_TOKEN"]
+  },
+  "requires": {
+    "configuration": { "mode": "required" },
+    "logs": { "mode": "optional" },
+    "storage": { "mode": "optional" },
+    "llm": { "mode": "optional" }
+  }
+}
+```
+
+Example non-finance capability:
+
+```json
+{
+  "name": "document-outline",
+  "description": "Build a deterministic outline from local notes.",
+  "requires": {
+    "storage": { "mode": "required" },
+    "tools": {
+      "mode": "optional",
+      "names": ["filesystem-read"]
+    }
+  }
+}
+```
+
+Secrets do not belong in `requires`. Requirement metadata may reference provider,
+tool, model, or profile names only. Credentials belong in environment variables,
+future Mongoose secret/profile storage, or a configured provider.
+
+## Package Management Boundary
+
+Mongoose package management installs, updates, discovers, and records agents so
+the runtime can find manifests and entrypoints. Package metadata supports the
+runtime contract, but it does not define what an agent is allowed to access.
+Runtime access is defined by the manifest `requires` declarations and the
+provider descriptors passed in `MONGOOSE_RUNTIME_CONTEXT`.
+
 ## Runtime Errors
 
 Mongoose-side runtime failures use this shape:

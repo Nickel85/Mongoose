@@ -31,13 +31,28 @@ DEFAULT_REGISTRY_URL = "https://github.com/Nickel85/Mongoose.git"
 DEFAULT_LOG_RETENTION_DAYS = 30
 MONGOOSE_RELEASES_API_URL = "https://api.github.com/repos/Nickel85/Mongoose/releases"
 MONGOOSE_RELEASE_ASSET_NAME = "mongoose.exe"
-MONGOOSE_VERSION = "0.3.0"
+MONGOOSE_VERSION = "0.3.1"
 MONGOOSE_RELEASE_KIND = "development"
 MONGOOSE_RELEASE_TAG = ""
 # Increment only for breaking manifest contract changes. Additive optional metadata stays on the same version.
 SUPPORTED_MANIFEST_SCHEMA_VERSION = 1
 SUPPORTED_RUNTIME_CONTRACT_VERSION = 1
 COMMAND_NAME_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9_-]*$")
+PROVIDER_REQUIREMENT_KEYS = {
+    "configuration",
+    "logs",
+    "state",
+    "storage",
+    "memory",
+    "tools",
+    "apiProfiles",
+    "apis",
+    "models",
+    "llm",
+    "execution",
+}
+AVAILABLE_RUNTIME_PROVIDERS = {"configuration", "logs", "state", "storage"}
+REQUIREMENT_MODES = {"optional", "required"}
 SECRET_KEYWORDS = (
     "access_token",
     "api_key",
@@ -342,6 +357,51 @@ def find_manifest_secret_values(value: Any, path: str = "") -> list[str]:
     elif isinstance(value, list):
         for index, item in enumerate(value):
             errors.extend(find_manifest_secret_values(item, f"{path}[{index}]"))
+    elif isinstance(value, str) and SECRET_TEXT_PATTERN.search(value):
+        errors.append(f"{path or 'manifest'} must not contain a secret-like value.")
+    return errors
+
+
+def validate_provider_requirements(value: Any, path: str) -> list[str]:
+    errors: list[str] = []
+    if value in ({}, None):
+        return errors
+    if not isinstance(value, dict):
+        return [f"{path} must be an object when present."]
+
+    for provider_name, requirement in value.items():
+        provider = str(provider_name).strip()
+        requirement_path = f"{path}.{provider}" if provider else path
+        if provider not in PROVIDER_REQUIREMENT_KEYS:
+            errors.append(
+                f"{requirement_path} is not a supported provider requirement. "
+                f"Use one of: {', '.join(sorted(PROVIDER_REQUIREMENT_KEYS))}."
+            )
+            continue
+
+        if not isinstance(requirement, dict):
+            errors.append(f"{requirement_path} must be an object.")
+            continue
+
+        mode = str(requirement.get("mode", "required")).strip()
+        if mode not in REQUIREMENT_MODES:
+            errors.append(f"{requirement_path}.mode must be one of: optional, required.")
+        if mode == "required" and provider not in AVAILABLE_RUNTIME_PROVIDERS and provider != "execution":
+            errors.append(
+                f"{requirement_path} requires provider '{provider}', but Mongoose does not support that provider yet."
+            )
+
+        for list_field in ("names", "profiles", "features"):
+            if requirement.get(list_field) is not None and not isinstance(requirement.get(list_field), list):
+                errors.append(f"{requirement_path}.{list_field} must be a list when present.")
+        if provider == "execution":
+            platforms = requirement.get("platforms")
+            if platforms is not None and not isinstance(platforms, list):
+                errors.append(f"{requirement_path}.platforms must be a list when present.")
+            python_version = requirement.get("python")
+            if python_version is not None and not isinstance(python_version, str):
+                errors.append(f"{requirement_path}.python must be a string when present.")
+
     return errors
 
 
@@ -382,6 +442,8 @@ def validate_manifest(manifest: dict[str, Any], manifest_path: Path) -> None:
     identity = manifest.get("identity", {})
     if identity and not isinstance(identity, dict):
         errors.append("identity must be an object when present.")
+
+    errors.extend(validate_provider_requirements(manifest.get("requires", {}), "requires"))
 
     entrypoints = manifest.get("entrypoints", {})
     if entrypoints and not isinstance(entrypoints, dict):
@@ -427,6 +489,8 @@ def validate_manifest(manifest: dict[str, Any], manifest_path: Path) -> None:
             config = capability.get("configuration", capability.get("config", {}))
             if config and not isinstance(config, dict):
                 errors.append(f"{prefix}.configuration must be an object.")
+
+            errors.extend(validate_provider_requirements(capability.get("requires", {}), f"{prefix}.requires"))
 
             llm = capability.get("llm", {})
             if llm and not isinstance(llm, dict):
@@ -487,6 +551,7 @@ def discover_capabilities(agent_dir: Path, manifest: dict[str, Any]) -> list[dic
                     "description": str(capability.get("description", "")).strip(),
                     "taskTypes": string_list(capability.get("taskTypes", [])),
                     "requiredInputs": capability.get("requiredInputs", []),
+                    "requires": capability.get("requires", {}),
                     "configuration": capability.get("configuration", capability.get("config", {})),
                     "compatibility": capability.get("compatibility", {}),
                     "llm": capability.get("llm", {"mode": "none"}),
@@ -512,6 +577,7 @@ def discover_capabilities(agent_dir: Path, manifest: dict[str, Any]) -> list[dic
                 "description": first_markdown_paragraph(readme),
                 "taskTypes": [],
                 "requiredInputs": [],
+                "requires": {},
                 "configuration": {},
                 "compatibility": {},
                 "llm": {"mode": "none"},
@@ -555,6 +621,7 @@ def agent_record(manifest: dict[str, Any], manifest_path: Path) -> dict[str, Any
         "manifestPath": str(manifest_path.resolve()),
         "taskTypes": string_list(manifest.get("taskTypes", [])),
         "requiredInputs": manifest.get("requiredInputs", []),
+        "requires": manifest.get("requires", {}),
         "configuration": manifest.get("configuration", {}),
         "compatibility": manifest.get("compatibility", {}),
         "llm": manifest.get("llm", {"mode": "none"}),
@@ -606,6 +673,7 @@ def save_installed_agent(agent: dict[str, Any], launcher_path: Path) -> None:
         "installedAt": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
         "taskTypes": agent.get("taskTypes", []),
         "requiredInputs": agent.get("requiredInputs", []),
+        "requires": agent.get("requires", {}),
         "configuration": agent.get("configuration", {}),
         "compatibility": agent.get("compatibility", {}),
         "llm": agent.get("llm", {"mode": "none"}),
