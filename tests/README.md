@@ -87,9 +87,11 @@ This test verifies:
 - `mongoose show <agent>` displays manifest, version, source, entrypoint, and capability metadata.
 - `mongoose capabilities` enumerates routeable installed capability metadata.
 - `mongoose route` selects and dispatches capabilities by task type or request text.
+- `mongoose route` passes Runtime Contract v1 context to fixture capabilities.
+- missing config, unavailable providers, and incompatible runtime contracts emit structured runtime error codes.
 - ambiguous and unsupported routes fail with actionable messages.
 - `mongoose validate` checks manifest shape, compatibility metadata, capability metadata, and secret-free declarations.
-- `mongoose run <agent> ...` dispatches to an installed fixture agent entrypoint.
+- `mongoose run <agent> ...` dispatches to an installed fixture agent entrypoint and passes Runtime Contract v1 context.
 - `mongoose remove <agent>` removes the launcher and installed state without deleting source files.
 - the generated launcher calls the agent through `ask`.
 - `mongoose uninstall Njord` removes the launcher.
