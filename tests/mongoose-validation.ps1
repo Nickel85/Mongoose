@@ -60,10 +60,25 @@ function New-FixtureAgent {
     New-Item -ItemType Directory -Path $agentDirectory -Force | Out-Null
 
     $agentPython = @"
+import json
+import os
 import sys
 
 print("$Name fixture agent")
 print("ARGS=" + "|".join(sys.argv[1:]))
+context_path = os.environ.get("MONGOOSE_RUNTIME_CONTEXT", "")
+if context_path:
+    with open(context_path, "r", encoding="utf-8") as handle:
+        context = json.load(handle)
+    print("CTX_VERSION=" + str(context.get("contractVersion")))
+    print("CTX_MODE=" + str(context.get("invocation", {}).get("mode")))
+    print("CTX_AGENT=" + str(context.get("agent", {}).get("commandName")))
+    print("CTX_CAPABILITY=" + str((context.get("capability") or {}).get("name", "")))
+    print("CTX_STORAGE=" + str(context.get("providers", {}).get("storage", {}).get("available")))
+    print("CTX_CONFIG_PROVIDER=" + str(context.get("providers", {}).get("configuration", {}).get("interface", "")))
+    print("CTX_RUNTIME_PATH=" + str(bool(context.get("paths", {}).get("runtime"))))
+    secret_value = os.environ.get("ALPHA_SECRET_TOKEN", "")
+    print("CTX_HAS_SECRET=" + str(bool(secret_value and secret_value in json.dumps(context))))
 "@
     Set-Content -Path (Join-Path $agentDirectory "agent.py") -Value $agentPython -Encoding ASCII
 
@@ -81,6 +96,25 @@ print("ARGS=" + "|".join(sys.argv[1:]))
             description = "Plan fixture work."
             taskTypes = @("planning", "work-plan")
             entrypointPath = "agent.py"
+        }
+        $capabilities += @{
+            name = "secure"
+            description = "Require fixture configuration."
+            taskTypes = @("secure")
+            entrypointPath = "agent.py"
+            configuration = @{
+                required = @("ALPHA_SECRET_TOKEN")
+            }
+        }
+        $capabilities += @{
+            name = "llm-only"
+            description = "Require an unavailable LLM runtime."
+            taskTypes = @("llm-only")
+            entrypointPath = "agent.py"
+            llm = @{
+                mode = "required"
+                deterministicFallback = "This fixture intentionally requires an LLM for validation."
+            }
         }
     }
     if ($Name -eq "Beta") {
@@ -144,6 +178,33 @@ function New-UnsupportedSchemaFixtureAgent {
     return $agentDirectory
 }
 
+function New-IncompatibleRuntimeFixtureAgent {
+    $agentDirectory = Join-Path $fixtureRoot "agents\future-runtime"
+    New-Item -ItemType Directory -Path $agentDirectory -Force | Out-Null
+    Set-Content -Path (Join-Path $agentDirectory "agent.py") -Value "print('future runtime')" -Encoding ASCII
+    $manifest = @{
+        commandName = "FutureRuntime"
+        displayName = "Future Runtime"
+        version = "1.0.0"
+        entrypointPath = "agent.py"
+        example = "future"
+        description = "Fixture requiring a future Mongoose runtime contract."
+        compatibility = @{
+            mongooseRuntimeContract = 999
+        }
+        capabilities = @(
+            @{
+                name = "future"
+                description = "Future runtime fixture capability."
+                taskTypes = @("future-runtime")
+                entrypointPath = "agent.py"
+            }
+        )
+    } | ConvertTo-Json -Depth 5
+    Set-Content -Path (Join-Path $agentDirectory "agent.json") -Value $manifest -Encoding ASCII
+    return $agentDirectory
+}
+
 Assert-True (Test-Path $mongooseCli) "mongoose CLI is missing."
 
 if (Test-Path $testLocalAppData) {
@@ -155,6 +216,7 @@ if (Test-Path $fixtureRoot) {
 New-Item -ItemType Directory -Path $testLocalAppData -Force | Out-Null
 $alphaPath = New-FixtureAgent -Name "Alpha" -Description "Alpha fixture agent."
 $betaPath = New-FixtureAgent -Name "Beta" -Description "Beta fixture agent."
+$futureRuntimePath = New-IncompatibleRuntimeFixtureAgent
 $invalidPath = New-InvalidFixtureAgent
 $env:LOCALAPPDATA = $testLocalAppData
 
@@ -176,7 +238,7 @@ Assert-True ($help.Output -match "mongoose state --init") "mongoose --help did n
 
 $version = Invoke-Mongoose -Arguments @("--version")
 Assert-True ($version.ExitCode -eq 0) "mongoose --version failed. Output: $($version.Output)"
-Assert-True ($version.Output -match "mongoose 0.2.0") "mongoose --version did not report expected version."
+Assert-True ($version.Output -match "mongoose 0.3.0") "mongoose --version did not report expected version."
 Assert-True ($version.Output -match "development") "mongoose --version did not report development release kind."
 
 $state = Invoke-Mongoose -Arguments @("state", "--init", "--json")
@@ -185,7 +247,7 @@ $statePaths = $state.Output | ConvertFrom-Json
 Assert-True (Test-Path $statePaths.state) "mongoose state did not create the shared state directory."
 Assert-True (Test-Path $statePaths.logs) "mongoose state did not create the log directory."
 Assert-True (Test-Path $statePaths.jobs) "mongoose state did not create the jobs directory."
-Assert-True ($statePaths.version -eq "0.2.0") "mongoose state did not report CLI version."
+Assert-True ($statePaths.version -eq "0.3.0") "mongoose state did not report CLI version."
 Assert-True ($statePaths.releaseKind -eq "development") "mongoose state did not report development release kind."
 Assert-True ($statePaths.releaseTag -eq "") "mongoose state should not report a release tag for development builds."
 Assert-True ($statePaths.cliSource -match "mongoose.py") "mongoose state did not report CLI source."
@@ -274,6 +336,13 @@ $betaStatePath = Join-Path $testLocalAppData "Agents\state\agents\Beta.json"
 Assert-True (Test-Path $betaLauncher) "mongoose install by path did not create Beta launcher."
 Assert-True (Test-Path $betaStatePath) "mongoose install by path did not write Beta state."
 
+$installFutureRuntimeByPath = Invoke-Mongoose -Arguments @("install", $futureRuntimePath)
+Assert-True ($installFutureRuntimeByPath.ExitCode -eq 0) "mongoose install by path for FutureRuntime failed. Output: $($installFutureRuntimeByPath.Output)"
+$futureRuntimeLauncher = Join-Path $testLocalAppData "Agents\bin\FutureRuntime.cmd"
+$futureRuntimeStatePath = Join-Path $testLocalAppData "Agents\state\agents\FutureRuntime.json"
+Assert-True (Test-Path $futureRuntimeLauncher) "mongoose install by path did not create FutureRuntime launcher."
+Assert-True (Test-Path $futureRuntimeStatePath) "mongoose install by path did not write FutureRuntime state."
+
 $showAlpha = Invoke-Mongoose -Arguments @("show", "Alpha")
 Assert-True ($showAlpha.ExitCode -eq 0) "mongoose show Alpha failed. Output: $($showAlpha.Output)"
 Assert-True ($showAlpha.Output -match "Version: 1.0.0") "mongoose show Alpha did not include version."
@@ -285,11 +354,41 @@ Assert-True ($capabilities.Output -match "Alpha::echo") "mongoose capabilities d
 Assert-True ($capabilities.Output -match "Alpha::plan") "mongoose capabilities did not include Alpha plan."
 Assert-True ($capabilities.Output -match "Beta::report") "mongoose capabilities did not include Beta report."
 
+$missingConfigRoute = Invoke-Mongoose -Arguments @("route", "--task-type", "secure")
+Assert-True ($missingConfigRoute.ExitCode -ne 0) "mongoose route unexpectedly ran a capability with missing config. Output: $($missingConfigRoute.Output)"
+Assert-True ($missingConfigRoute.Output -match "mongoose.missing_required_configuration") "missing config route did not emit a structured error code."
+Assert-True ($missingConfigRoute.Output -match "ALPHA_SECRET_TOKEN") "missing config route did not identify the missing config name."
+
+$env:ALPHA_SECRET_TOKEN = "super-secret-fixture-token"
+$secureRoute = Invoke-Mongoose -Arguments @("route", "--task-type", "secure", "check")
+Assert-True ($secureRoute.ExitCode -eq 0) "mongoose route did not run secure capability with required config present. Output: $($secureRoute.Output)"
+Assert-True ($secureRoute.Output -match "CTX_HAS_SECRET=False") "runtime context leaked a secret environment value."
+Assert-True ($secureRoute.Output -notmatch "super-secret-fixture-token") "secure route output leaked a secret environment value."
+Remove-Item Env:\ALPHA_SECRET_TOKEN
+
+$llmRoute = Invoke-Mongoose -Arguments @("route", "--task-type", "llm-only")
+Assert-True ($llmRoute.ExitCode -ne 0) "mongoose route unexpectedly ran an LLM-required capability. Output: $($llmRoute.Output)"
+Assert-True ($llmRoute.Output -match "mongoose.provider_unavailable") "LLM-required route did not emit a structured provider error."
+
+$futureRuntimeRoute = Invoke-Mongoose -Arguments @("route", "--task-type", "future-runtime")
+Assert-True ($futureRuntimeRoute.ExitCode -ne 0) "mongoose route unexpectedly ran an incompatible runtime capability. Output: $($futureRuntimeRoute.Output)"
+Assert-True ($futureRuntimeRoute.Output -match "mongoose.incompatible_runtime_contract") "incompatible runtime route did not emit a structured error."
+
+$futureRuntimeRun = Invoke-Mongoose -Arguments @("run", "FutureRuntime")
+Assert-True ($futureRuntimeRun.ExitCode -ne 0) "mongoose run unexpectedly ran an incompatible runtime agent. Output: $($futureRuntimeRun.Output)"
+Assert-True ($futureRuntimeRun.Output -match "mongoose.incompatible_runtime_contract") "incompatible runtime run did not emit a structured error."
+
 $routeAlpha = Invoke-Mongoose -Arguments @("route", "--task-type", "work-plan", "build", "steps")
 Assert-True ($routeAlpha.ExitCode -eq 0) "mongoose route did not dispatch to Alpha. Output: $($routeAlpha.Output)"
 Assert-True ($routeAlpha.Output -match "Selected: Alpha::plan") "mongoose route did not select Alpha plan."
 Assert-True ($routeAlpha.Output -match "Alpha fixture agent") "mongoose route did not execute Alpha fixture."
 Assert-True ($routeAlpha.Output -match "ARGS=plan\|build\|steps") "mongoose route did not pass Alpha capability arguments."
+Assert-True ($routeAlpha.Output -match "CTX_VERSION=1") "mongoose route did not pass runtime contract version to Alpha fixture."
+Assert-True ($routeAlpha.Output -match "CTX_MODE=route") "mongoose route context did not identify route mode."
+Assert-True ($routeAlpha.Output -match "CTX_AGENT=Alpha") "mongoose route context did not identify the agent."
+Assert-True ($routeAlpha.Output -match "CTX_CAPABILITY=plan") "mongoose route context did not identify the selected capability."
+Assert-True ($routeAlpha.Output -match "CTX_STORAGE=True") "mongoose route context did not expose the local storage provider."
+Assert-True ($routeAlpha.Output -match "CTX_CONFIG_PROVIDER=mongoose.configuration.v1") "mongoose route context did not expose configuration provider metadata."
 
 $routeBeta = Invoke-Mongoose -Arguments @("route", "please", "build", "a", "summary")
 Assert-True ($routeBeta.ExitCode -eq 0) "mongoose route did not dispatch to Beta from natural-language request. Output: $($routeBeta.Output)"
@@ -311,6 +410,10 @@ $runAlpha = Invoke-Mongoose -Arguments @("run", "Alpha", "echo", "hello")
 Assert-True ($runAlpha.ExitCode -eq 0) "mongoose run Alpha failed. Output: $($runAlpha.Output)"
 Assert-True ($runAlpha.Output -match "Alpha fixture agent") "mongoose run Alpha did not execute fixture agent."
 Assert-True ($runAlpha.Output -match "ARGS=echo\|hello") "mongoose run Alpha did not pass agent arguments."
+Assert-True ($runAlpha.Output -match "CTX_VERSION=1") "mongoose run did not pass runtime contract version to Alpha fixture."
+Assert-True ($runAlpha.Output -match "CTX_MODE=run") "mongoose run context did not identify run mode."
+Assert-True ($runAlpha.Output -match "CTX_AGENT=Alpha") "mongoose run context did not identify the agent."
+Assert-True ($runAlpha.Output -match "CTX_RUNTIME_PATH=True") "mongoose run context did not include runtime state path."
 
 $removeAlpha = Invoke-Mongoose -Arguments @("remove", "Alpha")
 Assert-True ($removeAlpha.ExitCode -eq 0) "mongoose remove Alpha failed. Output: $($removeAlpha.Output)"
@@ -321,6 +424,11 @@ $removeBeta = Invoke-Mongoose -Arguments @("remove", "Beta")
 Assert-True ($removeBeta.ExitCode -eq 0) "mongoose remove Beta failed. Output: $($removeBeta.Output)"
 Assert-True (-not (Test-Path $betaLauncher)) "mongoose remove did not remove Beta launcher."
 Assert-True (-not (Test-Path $betaStatePath)) "mongoose remove did not remove Beta state."
+
+$removeFutureRuntime = Invoke-Mongoose -Arguments @("remove", "FutureRuntime")
+Assert-True ($removeFutureRuntime.ExitCode -eq 0) "mongoose remove FutureRuntime failed. Output: $($removeFutureRuntime.Output)"
+Assert-True (-not (Test-Path $futureRuntimeLauncher)) "mongoose remove did not remove FutureRuntime launcher."
+Assert-True (-not (Test-Path $futureRuntimeStatePath)) "mongoose remove did not remove FutureRuntime state."
 
 Write-Host "Mongoose validation passed."
 

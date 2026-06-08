@@ -369,6 +369,27 @@ python <capability entrypoint> <capability name> <request arguments...>
 
 Capability-specific `entrypointPath` overrides the agent default entrypoint. `--dry-run` prints the selected capability, entrypoint, and argument vector without executing agent code.
 
+## Runtime Contract
+
+Mongoose Runtime Contract v1 lets agents discover host state and provider
+availability without reading Mongoose internals. Existing agent arguments remain
+stable, and Mongoose adds:
+
+```text
+MONGOOSE_RUNTIME_CONTEXT=<path-to-json-context>
+MONGOOSE_RUNTIME_CONTRACT_VERSION=1
+```
+
+The context file includes invocation metadata, selected agent and capability
+metadata, user-local state paths, provider descriptors, and structured runtime
+error metadata. Provider descriptors currently include configuration, logs,
+state, local storage, memory, tools, API profiles, and LLM. Secret values are
+never written to manifests, logs, job metadata, package directories, or runtime
+context files.
+
+See [Runtime Contract v1](../docs/runtime-contract.md) for the full contract and
+provider interface design.
+
 ## Manifest Contract
 
 Mongoose reads `agent.json` without importing agent code. Current manifests are backward-compatible with the original required fields and may opt into richer metadata with `schemaVersion: 1`.
@@ -405,7 +426,8 @@ Recommended metadata:
   "compatibility": {
     "platforms": ["windows"],
     "python": ">=3.11",
-    "mongooseManifestSchema": 1
+    "mongooseManifestSchema": 1,
+    "mongooseRuntimeContract": 1
   },
   "llm": {
     "mode": "none",

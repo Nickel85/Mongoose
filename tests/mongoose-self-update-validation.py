@@ -117,19 +117,19 @@ release_current = {
     "assets": [{"name": "mongoose.exe", "browser_download_url": "https://example.invalid/mongoose.exe"}],
 }
 release_next = {
-    "tag_name": "v0.2.1",
+    "tag_name": "v0.3.1",
     "draft": False,
     "prerelease": False,
     "assets": [{"name": "mongoose.exe", "browser_download_url": "https://example.invalid/mongoose.exe"}],
 }
 release_prerelease = {
-    "tag_name": "v0.2.2-alpha",
+    "tag_name": "v0.3.2-alpha",
     "draft": False,
     "prerelease": True,
     "assets": [{"name": "mongoose.exe", "browser_download_url": "https://example.invalid/mongoose.exe"}],
 }
 release_without_asset = {
-    "tag_name": "v0.2.1",
+    "tag_name": "v0.3.1",
     "draft": False,
     "prerelease": False,
     "assets": [],
@@ -155,7 +155,7 @@ assert_true(code == 0, f"Update-available path failed: {output}")
 assert_true(downloads, "Update-available path did not download the release asset.")
 assert_true(replacements, "Update-available path did not replace the executable.")
 assert_true(replacements[0][1] == mongoose.installed_mongoose_exe_path(), "Self-update targeted the wrong executable.")
-assert_true("Updated Mongoose to 0.2.1" in output, "Successful update output did not report the new version.")
+assert_true("Updated Mongoose to 0.3.1" in output, "Successful update output did not report the new version.")
 
 code, output, _downloads, replacements = run_update(mongoose, [release_without_asset])
 assert_true(code == 1, "Missing release asset did not fail.")

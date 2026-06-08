@@ -25,15 +25,18 @@ LOG_ROOT = AGENTS_ROOT / "logs"
 JOBS_ROOT = STATE_ROOT / "jobs"
 AGENT_STATE_ROOT = STATE_ROOT / "agents"
 NON_SECRET_CONFIG_ROOT = STATE_ROOT / "config"
+RUNTIME_ROOT = STATE_ROOT / "runtime"
+STORAGE_ROOT = STATE_ROOT / "storage"
 DEFAULT_REGISTRY_URL = "https://github.com/Nickel85/Mongoose.git"
 DEFAULT_LOG_RETENTION_DAYS = 30
 MONGOOSE_RELEASES_API_URL = "https://api.github.com/repos/Nickel85/Mongoose/releases"
 MONGOOSE_RELEASE_ASSET_NAME = "mongoose.exe"
-MONGOOSE_VERSION = "0.2.0"
+MONGOOSE_VERSION = "0.3.0"
 MONGOOSE_RELEASE_KIND = "development"
 MONGOOSE_RELEASE_TAG = ""
 # Increment only for breaking manifest contract changes. Additive optional metadata stays on the same version.
 SUPPORTED_MANIFEST_SCHEMA_VERSION = 1
+SUPPORTED_RUNTIME_CONTRACT_VERSION = 1
 COMMAND_NAME_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9_-]*$")
 SECRET_KEYWORDS = (
     "access_token",
@@ -185,6 +188,8 @@ def state_contract() -> dict[str, str]:
         "agentState": str(AGENT_STATE_ROOT),
         "jobs": str(JOBS_ROOT),
         "logs": str(LOG_ROOT),
+        "runtime": str(RUNTIME_ROOT),
+        "storage": str(STORAGE_ROOT),
     }
     return paths
 
@@ -200,6 +205,8 @@ def ensure_state_layout() -> dict[str, str]:
         "agentState",
         "jobs",
         "logs",
+        "runtime",
+        "storage",
     }
     for key, value in paths.items():
         path = Path(value)
@@ -654,6 +661,200 @@ def required_configuration_names(agent: dict[str, Any], capability: dict[str, An
 
 def missing_required_configuration(agent: dict[str, Any], capability: dict[str, Any]) -> list[str]:
     return [name for name in required_configuration_names(agent, capability) if not os.environ.get(name)]
+
+
+def runtime_contract_requirement(agent: dict[str, Any], capability: dict[str, Any] | None = None) -> int:
+    for source in (capability or {}, agent):
+        compatibility = source.get("compatibility", {})
+        if not isinstance(compatibility, dict):
+            continue
+        value = compatibility.get("mongooseRuntimeContract", compatibility.get("runtimeContract"))
+        if isinstance(value, int):
+            return value
+        if isinstance(value, str) and value.isdigit():
+            return int(value)
+    return SUPPORTED_RUNTIME_CONTRACT_VERSION
+
+
+def runtime_error(code: str, message: str, **details: Any) -> dict[str, Any]:
+    error: dict[str, Any] = {
+        "contractVersion": SUPPORTED_RUNTIME_CONTRACT_VERSION,
+        "code": code,
+        "message": message,
+    }
+    if details:
+        error["details"] = redact_secrets(details)
+    return error
+
+
+def print_runtime_error(error: dict[str, Any]) -> None:
+    print_error(str(error.get("message", "Runtime error.")))
+    print(label_line("Runtime error", error.get("code", "mongoose.runtime_error"), "error"))
+    details = error.get("details")
+    if isinstance(details, dict) and details:
+        print(label_line("Details", json.dumps(details, sort_keys=True), "muted"))
+
+
+def runtime_config_status(agent: dict[str, Any], capability: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+    capability = capability or {}
+    names = required_configuration_names(agent, capability)
+    optional_names: list[str] = []
+    for source in (agent.get("configuration", {}), capability.get("configuration", {})):
+        if isinstance(source, dict):
+            optional_names.extend(string_list(source.get("optional", [])))
+
+    records = []
+    for name in unique_strings(names + optional_names):
+        records.append(
+            {
+                "name": name,
+                "required": name in names,
+                "available": bool(os.environ.get(name)),
+                "source": "environment",
+                "secret": is_secret_key(name),
+            }
+        )
+    return records
+
+
+def runtime_provider_descriptors(agent: dict[str, Any], capability: dict[str, Any] | None = None) -> dict[str, Any]:
+    command_name = str(agent.get("commandName", "agent")).strip() or "agent"
+    capability_name = str((capability or {}).get("name", "")).strip()
+    storage_scope = re.sub(r"[^A-Za-z0-9_.-]+", "-", command_name).strip(".-") or "agent"
+    storage_path = STORAGE_ROOT / storage_scope
+    if capability_name:
+        storage_path = storage_path / re.sub(r"[^A-Za-z0-9_.-]+", "-", capability_name).strip(".-")
+    storage_path.mkdir(parents=True, exist_ok=True)
+
+    llm = (capability or {}).get("llm", agent.get("llm", {"mode": "none"}))
+    llm_mode = llm.get("mode", "none") if isinstance(llm, dict) else "none"
+    return {
+        "configuration": {
+            "available": True,
+            "interface": "mongoose.configuration.v1",
+            "values": runtime_config_status(agent, capability),
+            "secrets": "referenced-by-name",
+        },
+        "logs": {
+            "available": True,
+            "interface": "mongoose.logs.v1",
+            "path": str(LOG_ROOT),
+        },
+        "state": {
+            "available": True,
+            "interface": "mongoose.state.v1",
+            "path": str(STATE_ROOT),
+        },
+        "storage": {
+            "available": True,
+            "interface": "mongoose.storage.local.v1",
+            "path": str(storage_path),
+        },
+        "memory": {
+            "available": False,
+            "interface": "mongoose.memory.v1",
+            "reason": "No durable memory provider is configured yet.",
+        },
+        "tools": {
+            "available": False,
+            "interface": "mongoose.tools.v1",
+            "reason": "No tool provider is configured yet.",
+        },
+        "apiProfiles": {
+            "available": False,
+            "interface": "mongoose.api-profiles.v1",
+            "reason": "No API profile provider is configured yet.",
+        },
+        "llm": {
+            "available": False,
+            "interface": "mongoose.llm.v1",
+            "mode": llm_mode,
+            "reason": "No LLM runtime provider is configured yet.",
+        },
+    }
+
+
+def runtime_context(
+    *,
+    mode: str,
+    agent: dict[str, Any],
+    agent_args: list[str],
+    capability: dict[str, Any] | None = None,
+    route: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    paths = ensure_state_layout()
+    return {
+        "contractVersion": SUPPORTED_RUNTIME_CONTRACT_VERSION,
+        "invocation": {
+            "id": f"{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')}-{os.getpid()}",
+            "mode": mode,
+            "arguments": agent_args,
+            "createdAt": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+        },
+        "mongoose": {
+            "version": MONGOOSE_VERSION,
+            "releaseKind": MONGOOSE_RELEASE_KIND,
+            "releaseTag": MONGOOSE_RELEASE_TAG,
+            "runtimeContractVersion": SUPPORTED_RUNTIME_CONTRACT_VERSION,
+        },
+        "agent": {
+            "commandName": agent.get("commandName", ""),
+            "displayName": agent.get("displayName", ""),
+            "version": agent.get("version", ""),
+            "sourcePath": agent.get("sourcePath", ""),
+            "manifestPath": agent.get("manifestPath", ""),
+            "schemaVersion": agent.get("schemaVersion", SUPPORTED_MANIFEST_SCHEMA_VERSION),
+        },
+        "capability": capability or None,
+        "route": route or None,
+        "paths": paths,
+        "providers": runtime_provider_descriptors(agent, capability),
+        "errors": {
+            "interface": "mongoose.runtime-errors.v1",
+            "fields": ["contractVersion", "code", "message", "details"],
+        },
+    }
+
+
+def write_runtime_context(context: dict[str, Any]) -> Path:
+    ensure_state_layout()
+    RUNTIME_ROOT.mkdir(parents=True, exist_ok=True)
+    invocation = context.get("invocation", {})
+    invocation_id = str(invocation.get("id", f"{os.getpid()}")).strip()
+    safe_id = re.sub(r"[^A-Za-z0-9_.-]+", "-", invocation_id).strip(".-") or str(os.getpid())
+    path = RUNTIME_ROOT / f"{safe_id}.json"
+    write_json_atomic(path, context)
+    return path
+
+
+def run_agent_with_runtime(
+    *,
+    mode: str,
+    agent: dict[str, Any],
+    entrypoint: Path,
+    agent_args: list[str],
+    capability: dict[str, Any] | None = None,
+    route: dict[str, Any] | None = None,
+) -> int:
+    context = runtime_context(
+        mode=mode,
+        agent=agent,
+        capability=capability,
+        route=route,
+        agent_args=agent_args,
+    )
+    context_path = write_runtime_context(context)
+    env = {
+        **os.environ,
+        "MONGOOSE_RUNTIME_CONTEXT": str(context_path),
+        "MONGOOSE_RUNTIME_CONTRACT_VERSION": str(SUPPORTED_RUNTIME_CONTRACT_VERSION),
+    }
+    completed = subprocess.run(
+        [sys.executable, str(entrypoint), *agent_args],
+        check=False,
+        env=env,
+    )
+    return completed.returncode
 
 
 def capability_entrypoint(agent: dict[str, Any], capability: dict[str, Any]) -> Path:
@@ -1320,20 +1521,50 @@ def cmd_show(args: argparse.Namespace) -> int:
 def cmd_run(args: argparse.Namespace) -> int:
     agent = load_installed_agent(args.agent)
     if agent is None:
-        print_error(f"Agent '{args.agent}' is not installed. Run: mongoose install {args.agent}")
+        print_runtime_error(
+            runtime_error(
+                "mongoose.agent_not_installed",
+                f"Agent '{args.agent}' is not installed. Run: mongoose install {args.agent}",
+                agent=args.agent,
+            )
+        )
+        return 1
+
+    required_contract = runtime_contract_requirement(agent)
+    if required_contract > SUPPORTED_RUNTIME_CONTRACT_VERSION:
+        print_runtime_error(
+            runtime_error(
+                "mongoose.incompatible_runtime_contract",
+                (
+                    f"Agent '{args.agent}' requires Mongoose runtime contract {required_contract}, "
+                    f"but this CLI supports {SUPPORTED_RUNTIME_CONTRACT_VERSION}."
+                ),
+                agent=args.agent,
+                requiredRuntimeContract=required_contract,
+                supportedRuntimeContract=SUPPORTED_RUNTIME_CONTRACT_VERSION,
+            )
+        )
         return 1
 
     entrypoint = Path(str(agent.get("entrypoint", "")))
     if not entrypoint.exists():
-        print_error(f"Installed agent entrypoint no longer exists: {entrypoint}")
+        print_runtime_error(
+            runtime_error(
+                "mongoose.entrypoint_missing",
+                f"Installed agent entrypoint no longer exists: {entrypoint}",
+                agent=args.agent,
+                entrypoint=str(entrypoint),
+            )
+        )
         return 1
 
     agent_args = args.agent_args or ["ask", str(agent.get("example", "Hello"))]
-    completed = subprocess.run(
-        [sys.executable, str(entrypoint), *agent_args],
-        check=False,
+    return run_agent_with_runtime(
+        mode="run",
+        agent=agent,
+        entrypoint=entrypoint,
+        agent_args=agent_args,
     )
-    return completed.returncode
 
 
 def cmd_route(args: argparse.Namespace) -> int:
@@ -1371,24 +1602,58 @@ def cmd_route(args: argparse.Namespace) -> int:
         return 1
 
     selected = matches[0]
+    required_contract = runtime_contract_requirement(selected["agent"], selected["capability"])
+    if required_contract > SUPPORTED_RUNTIME_CONTRACT_VERSION:
+        print_runtime_error(
+            runtime_error(
+                "mongoose.incompatible_runtime_contract",
+                (
+                    f"Selected {format_route_candidate(selected)}, but it requires Mongoose runtime contract "
+                    f"{required_contract}; this CLI supports {SUPPORTED_RUNTIME_CONTRACT_VERSION}."
+                ),
+                selected=format_route_candidate(selected),
+                requiredRuntimeContract=required_contract,
+                supportedRuntimeContract=SUPPORTED_RUNTIME_CONTRACT_VERSION,
+            )
+        )
+        return 1
+
     missing = missing_required_configuration(selected["agent"], selected["capability"])
     if missing:
-        print_warning(f"Selected {format_route_candidate(selected)}, but required configuration is missing:")
-        for name in missing:
-            print(f"  {name}")
-        print("")
+        print_runtime_error(
+            runtime_error(
+                "mongoose.missing_required_configuration",
+                f"Selected {format_route_candidate(selected)}, but required configuration is missing.",
+                selected=format_route_candidate(selected),
+                missing=missing,
+            )
+        )
         print_muted("Set the missing environment variables or choose another capability.")
         return 1
 
     llm = selected["capability"].get("llm", {})
     if isinstance(llm, dict) and llm.get("mode") == "required":
-        print_warning(f"Selected {format_route_candidate(selected)}, but it requires an LLM runtime.")
+        print_runtime_error(
+            runtime_error(
+                "mongoose.provider_unavailable",
+                f"Selected {format_route_candidate(selected)}, but it requires an LLM runtime.",
+                selected=format_route_candidate(selected),
+                provider="llm",
+            )
+        )
         print_muted("Mongoose LLM runtime configuration is not available yet.")
         return 1
 
     entrypoint = Path(str(selected["entrypoint"]))
     if not entrypoint.exists():
-        print_error(f"Selected {format_route_candidate(selected)}, but its entrypoint does not exist: {entrypoint}")
+        print_runtime_error(
+            runtime_error(
+                "mongoose.entrypoint_missing",
+                f"Selected {format_route_candidate(selected)}, but its entrypoint does not exist: {entrypoint}",
+                selected=format_route_candidate(selected),
+                entrypoint=str(entrypoint),
+            )
+        )
         return 1
 
     agent_args = [selected["capabilityName"], *(args.request or [])]
@@ -1398,11 +1663,18 @@ def cmd_route(args: argparse.Namespace) -> int:
         print(label_line("Arguments", " ".join(agent_args), "muted"))
         return 0
 
-    completed = subprocess.run(
-        [sys.executable, str(entrypoint), *agent_args],
-        check=False,
+    return run_agent_with_runtime(
+        mode="route",
+        agent=selected["agent"],
+        capability=selected["capability"],
+        route={
+            "selected": format_route_candidate(selected),
+            "taskType": args.task_type,
+            "query": query,
+        },
+        entrypoint=entrypoint,
+        agent_args=agent_args,
     )
-    return completed.returncode
 
 
 def cmd_update(args: argparse.Namespace) -> int:

@@ -1,5 +1,34 @@
 # Changelog
 
+## v0.3.0 - Capability Runtime Contract
+
+Planned release type: minor.
+
+This release introduces Mongoose Runtime Contract v1: a portable execution
+context that lets agents discover host state, selected capability metadata,
+configuration status, provider availability, and structured diagnostics without
+knowing the local environment layout.
+
+### Added
+
+- Add `MONGOOSE_RUNTIME_CONTEXT` and `MONGOOSE_RUNTIME_CONTRACT_VERSION` for
+  `mongoose run` and non-dry-run `mongoose route` executions.
+- Add Runtime Contract v1 context files under user-local Mongoose runtime state.
+- Add provider descriptors for configuration, logs, state, local storage,
+  memory, tools, API profiles, and LLM.
+- Add agent/capability-scoped local storage provider paths.
+- Add structured runtime error codes for missing agents, missing entrypoints,
+  missing required configuration, unavailable providers, and incompatible
+  runtime contracts.
+- Add runtime contract and provider-interface documentation.
+
+### Changed
+
+- Preserve existing agent subprocess argument shapes while adding runtime
+  context through environment variables.
+- Extend validation fixtures to prove agents receive runtime context and can
+  discover providers without importing Mongoose internals.
+
 ## v0.2.0 - Update Lifecycle Release
 
 Planned release type: minor.

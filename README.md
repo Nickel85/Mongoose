@@ -34,6 +34,9 @@ roadmap tracks:
 - portable agent execution contracts in [#41](https://github.com/Nickel85/Mongoose/issues/41)
 - common memory, storage, tool, and API provider interfaces in [#42](https://github.com/Nickel85/Mongoose/issues/42)
 
+The current runtime contract and provider interface design is documented in
+[docs/runtime-contract.md](docs/runtime-contract.md).
+
 Mongoose platform milestones and Njord agent-value milestones are intentionally
 sequenced separately. Njord is the first concrete use case and should prove
 useful deterministic finance workflows before the platform grows package,

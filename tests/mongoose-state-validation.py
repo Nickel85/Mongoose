@@ -43,7 +43,7 @@ mongoose = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mongoose)
 
 paths = mongoose.ensure_state_layout()
-for key in ("root", "bin", "mongoose", "state", "nonSecretConfig", "agentState", "jobs", "logs"):
+for key in ("root", "bin", "mongoose", "state", "nonSecretConfig", "agentState", "jobs", "logs", "runtime", "storage"):
     assert_true(Path(paths[key]).is_dir(), f"Missing state directory for {key}: {paths[key]}")
 
 state_file = mongoose.NON_SECRET_CONFIG_ROOT / "sample.json"
