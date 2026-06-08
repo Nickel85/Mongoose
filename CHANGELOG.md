@@ -1,5 +1,39 @@
 # Changelog
 
+## v0.2.0 - Update Lifecycle Release
+
+Planned release type: minor.
+
+This release makes the install/update/release loop reliable enough for the
+next capability-runtime milestones. Mongoose remains local-first and
+capability-runtime-first: install, update, versioning, and release artifacts
+are lifecycle support for portable agents, not the whole product identity.
+
+### Added
+
+- Add installed-binary self-update validation for `%LOCALAPPDATA%\Agents\bin\mongoose.exe`.
+- Add release scope gates and a release-prep checklist for milestone discipline.
+- Add validation that guards against repository-name drift, default registry URL
+  drift, and release workflow ordering problems.
+
+### Changed
+
+- Make `mongoose update` run both registry refresh and Mongoose CLI update
+  phases with explicit output and a phase summary.
+- Add `mongoose update --registry-only` and `mongoose update --self-only` for
+  automation and recovery workflows while keeping `mongoose update --self` as
+  an alias.
+- Reposition docs around Mongoose as a local-first capability runtime.
+
+### Recovery Notes
+
+- If self-update cannot replace the running executable immediately, Mongoose
+  schedules replacement after the command exits and tells the user to confirm
+  with `mongoose --version` in a new terminal.
+- If replacement fails, Mongoose reports the staged download path and manual
+  recovery guidance.
+- The previous release asset remains available from the GitHub Releases page.
+
 ## v0.1.2 - CLI Version Hotfix
 
 Planned release type: hotfix.
