@@ -89,6 +89,7 @@ This test verifies:
 - `mongoose route` selects and dispatches capabilities by task type or request text.
 - `mongoose route` passes Runtime Contract v1 context to fixture capabilities.
 - missing config, unavailable providers, and incompatible runtime contracts emit structured runtime error codes.
+- manifest validation checks valid, malformed, unsupported, and secret-like provider requirement declarations.
 - ambiguous and unsupported routes fail with actionable messages.
 - `mongoose validate` checks manifest shape, compatibility metadata, capability metadata, and secret-free declarations.
 - `mongoose run <agent> ...` dispatches to an installed fixture agent entrypoint and passes Runtime Contract v1 context.

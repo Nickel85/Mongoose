@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.3.1 - Capability Requirement Validation
+
+Planned release type: patch.
+
+This corrective v0.3 release completes the capability runtime contract
+milestone by validating manifest provider requirements and adding concrete
+contract examples.
+
+### Added
+
+- Add manifest `requires` validation for runtime provider declarations.
+- Reject malformed provider requirements, unknown provider names, unsupported
+  required providers, and secret-like provider metadata.
+- Add Njord and non-finance examples for Runtime Contract v1.
+- Clarify that package management supports runtime discovery but does not
+  define runtime access.
+
 ## v0.3.0 - Capability Runtime Contract
 
 Planned release type: minor.

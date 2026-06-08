@@ -88,6 +88,14 @@ if context_path:
             description = "Echo fixture arguments."
             taskTypes = @("test", "echo")
             entrypointPath = "agent.py"
+            requires = @{
+                storage = @{
+                    mode = "required"
+                }
+                logs = @{
+                    mode = "optional"
+                }
+            }
         }
     )
     if ($Name -eq "Alpha") {
@@ -133,6 +141,11 @@ if context_path:
         entrypointPath = "agent.py"
         example = "hello from $Name"
         description = $Description
+        requires = @{
+            state = @{
+                mode = "required"
+            }
+        }
         capabilities = $capabilities
     } | ConvertTo-Json -Depth 5
     Set-Content -Path (Join-Path $agentDirectory "agent.json") -Value $manifest -Encoding ASCII
@@ -155,6 +168,19 @@ function New-InvalidFixtureAgent {
                 name = "broken"
                 description = "Broken fixture."
                 taskTypes = "not-a-list"
+                requires = @{
+                    storage = "required"
+                    tools = @{
+                        mode = "required"
+                    }
+                    apiProfiles = @{
+                        mode = "optional"
+                        profiles = @("token=fixture-secret")
+                    }
+                    unknownProvider = @{
+                        mode = "optional"
+                    }
+                }
             }
         )
     } | ConvertTo-Json -Depth 5
@@ -238,7 +264,7 @@ Assert-True ($help.Output -match "mongoose state --init") "mongoose --help did n
 
 $version = Invoke-Mongoose -Arguments @("--version")
 Assert-True ($version.ExitCode -eq 0) "mongoose --version failed. Output: $($version.Output)"
-Assert-True ($version.Output -match "mongoose 0.3.0") "mongoose --version did not report expected version."
+Assert-True ($version.Output -match "mongoose 0.3.1") "mongoose --version did not report expected version."
 Assert-True ($version.Output -match "development") "mongoose --version did not report development release kind."
 
 $state = Invoke-Mongoose -Arguments @("state", "--init", "--json")
@@ -247,7 +273,7 @@ $statePaths = $state.Output | ConvertFrom-Json
 Assert-True (Test-Path $statePaths.state) "mongoose state did not create the shared state directory."
 Assert-True (Test-Path $statePaths.logs) "mongoose state did not create the log directory."
 Assert-True (Test-Path $statePaths.jobs) "mongoose state did not create the jobs directory."
-Assert-True ($statePaths.version -eq "0.3.0") "mongoose state did not report CLI version."
+Assert-True ($statePaths.version -eq "0.3.1") "mongoose state did not report CLI version."
 Assert-True ($statePaths.releaseKind -eq "development") "mongoose state did not report development release kind."
 Assert-True ($statePaths.releaseTag -eq "") "mongoose state should not report a release tag for development builds."
 Assert-True ($statePaths.cliSource -match "mongoose.py") "mongoose state did not report CLI source."
@@ -304,6 +330,10 @@ Assert-True ($validateInvalid.ExitCode -ne 0) "mongoose validate unexpectedly pa
 Assert-True ($validateInvalid.Output -match "Invalid agent manifest") "invalid manifest output did not identify the manifest."
 Assert-True ($validateInvalid.Output -match "entrypointPath does not exist") "invalid manifest output did not explain the missing entrypoint."
 Assert-True ($validateInvalid.Output -match "taskTypes must be a list") "invalid manifest output did not explain invalid capability taskTypes."
+Assert-True ($validateInvalid.Output -match "requires.storage must be an object") "invalid manifest output did not explain malformed provider requirement shape."
+Assert-True ($validateInvalid.Output -match "requires provider 'tools'") "invalid manifest output did not explain unsupported required provider."
+Assert-True ($validateInvalid.Output -match "unknownProvider is not a supported provider requirement") "invalid manifest output did not explain unknown provider requirement."
+Assert-True ($validateInvalid.Output -match "must not contain a secret-like value") "invalid manifest output did not reject secret-like provider metadata."
 
 Remove-Item -Path $invalidPath -Recurse -Force
 
