@@ -6,7 +6,7 @@ This directory contains local validation scripts that are also run by GitHub Act
 
 The workflow lives at `.github/workflows/install-validation.yml`.
 
-The mongoose package build workflow lives at `.github/workflows/mongoose-build.yml`.
+The Mongoose executable build workflow lives at `.github/workflows/mongoose-build.yml`.
 
 The mongoose command smoke workflow lives at `.github/workflows/mongoose-smoke.yml`.
 

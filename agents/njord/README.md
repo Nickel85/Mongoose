@@ -181,7 +181,7 @@ evidence for later briefs or recommendations to reuse.
 
 Install Njord as the user-local `Njord` command without administrator privileges.
 
-Preferred package-manager flow:
+Preferred Mongoose runtime flow:
 
 ```powershell
 mongoose install Njord
