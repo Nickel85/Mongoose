@@ -243,6 +243,22 @@ mongoose run Njord config status
 mongoose run Njord ask "Get me my latest budget"
 ```
 
+Configure and test an LLM profile before LLM-backed agents use it:
+
+```powershell
+mongoose llm add fake-main --provider fake --model fake-chat --default
+mongoose llm ping fake-main
+mongoose llm list
+mongoose llm show fake-main
+```
+
+Remote providers store secret references only:
+
+```powershell
+mongoose llm add openai-main --provider openai --model gpt-4.1-mini --api-key-env OPENAI_API_KEY --default
+mongoose llm ping openai-main
+```
+
 Remove an installed agent:
 
 ```powershell
@@ -389,6 +405,8 @@ context files.
 
 See [Runtime Contract v1](../docs/runtime-contract.md) for the full contract and
 provider interface design.
+See [LLM Runtime v1](../docs/llm-runtime.md) for provider-neutral LLM profile
+configuration, ping behavior, and guardrails.
 
 ## Manifest Contract
 
@@ -466,7 +484,7 @@ Recommended metadata:
 }
 ```
 
-LLM metadata is descriptive only at this layer. Provider credentials and API keys must not be stored in manifests. Agents should reference configuration names or future Mongoose LLM profile names; actual secrets belong in environment variables or future Mongoose secret/profile storage.
+LLM metadata references runtime profiles only. Provider credentials and API keys must not be stored in manifests. Agents should reference configuration names or Mongoose LLM profile names; actual secrets belong in environment variables or future Mongoose secret storage.
 
 Schema version policy:
 

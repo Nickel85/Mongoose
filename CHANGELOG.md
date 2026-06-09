@@ -1,5 +1,32 @@
 # Changelog
 
+## v0.4.0 - Provider-Neutral LLM Runtime Interfaces
+
+Planned release type: minor.
+
+This release adds the first provider-neutral LLM profile and ping surface so
+agents can depend on Mongoose-managed LLM configuration instead of hard-coding
+providers or owning raw credentials.
+
+### Added
+
+- Add `mongoose llm add`, `mongoose llm list`, `mongoose llm use`,
+  `mongoose llm show`, and `mongoose llm ping`.
+- Add secret-safe LLM profile storage under user-local Mongoose state.
+- Add provider-neutral profile support for OpenAI-compatible, Anthropic-style,
+  local HTTP, and fake validation providers.
+- Add LLM profile resolution to Runtime Contract v1 provider descriptors.
+- Allow LLM-required capabilities to run when their configured profile resolves.
+- Add structured errors for missing profiles, missing secrets, invalid profiles,
+  and ping failures.
+
+### Changed
+
+- Manifest validation continues to reject secret-bearing LLM metadata while
+  allowing profile names and requirement declarations.
+- Validation fixtures now cover fake-provider ping, missing profiles, missing
+  secrets, provider diagnostics, and redacted profile output.
+
 ## v0.3.1 - Capability Requirement Validation
 
 Planned release type: patch.
