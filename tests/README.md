@@ -79,6 +79,7 @@ This test verifies:
 - `mongoose setup` writes configuration against the local repo.
 - `mongoose --help` includes install, routing, and update guidance.
 - `mongoose state --init --json` reports and creates shared local state paths.
+- `mongoose llm` configures, lists, shows, selects, and pings secret-safe LLM profiles.
 - `mongoose list` discovers available agents from `agent.json`.
 - installing a missing agent fails and prints available agents.
 - `mongoose install Njord` creates a user-local `Njord.cmd` launcher.
@@ -89,6 +90,7 @@ This test verifies:
 - `mongoose route` selects and dispatches capabilities by task type or request text.
 - `mongoose route` passes Runtime Contract v1 context to fixture capabilities.
 - missing config, unavailable providers, and incompatible runtime contracts emit structured runtime error codes.
+- missing LLM profiles, missing LLM secrets, and fake-provider ping behavior are validated.
 - manifest validation checks valid, malformed, unsupported, and secret-like provider requirement declarations.
 - ambiguous and unsupported routes fail with actionable messages.
 - `mongoose validate` checks manifest shape, compatibility metadata, capability metadata, and secret-free declarations.

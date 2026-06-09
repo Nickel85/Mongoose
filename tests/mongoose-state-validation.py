@@ -45,6 +45,7 @@ spec.loader.exec_module(mongoose)
 paths = mongoose.ensure_state_layout()
 for key in ("root", "bin", "mongoose", "state", "nonSecretConfig", "agentState", "jobs", "logs", "runtime", "storage"):
     assert_true(Path(paths[key]).is_dir(), f"Missing state directory for {key}: {paths[key]}")
+assert_true(Path(paths["llmProfiles"]).parent.is_dir(), "Missing LLM profile storage directory.")
 
 state_file = mongoose.NON_SECRET_CONFIG_ROOT / "sample.json"
 mongoose.write_json_atomic(state_file, {"name": "sample", "nested": {"enabled": True}})

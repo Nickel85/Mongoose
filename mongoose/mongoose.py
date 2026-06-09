@@ -10,6 +10,8 @@ import re
 import shutil
 import subprocess
 import sys
+import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
@@ -27,11 +29,13 @@ AGENT_STATE_ROOT = STATE_ROOT / "agents"
 NON_SECRET_CONFIG_ROOT = STATE_ROOT / "config"
 RUNTIME_ROOT = STATE_ROOT / "runtime"
 STORAGE_ROOT = STATE_ROOT / "storage"
+LLM_PROFILE_ROOT = STATE_ROOT / "llm"
+LLM_PROFILE_PATH = LLM_PROFILE_ROOT / "profiles.json"
 DEFAULT_REGISTRY_URL = "https://github.com/Nickel85/Mongoose.git"
 DEFAULT_LOG_RETENTION_DAYS = 30
 MONGOOSE_RELEASES_API_URL = "https://api.github.com/repos/Nickel85/Mongoose/releases"
 MONGOOSE_RELEASE_ASSET_NAME = "mongoose.exe"
-MONGOOSE_VERSION = "0.3.1"
+MONGOOSE_VERSION = "0.4.0"
 MONGOOSE_RELEASE_KIND = "development"
 MONGOOSE_RELEASE_TAG = ""
 # Increment only for breaking manifest contract changes. Additive optional metadata stays on the same version.
@@ -51,8 +55,10 @@ PROVIDER_REQUIREMENT_KEYS = {
     "llm",
     "execution",
 }
-AVAILABLE_RUNTIME_PROVIDERS = {"configuration", "logs", "state", "storage"}
+AVAILABLE_RUNTIME_PROVIDERS = {"configuration", "logs", "state", "storage", "llm"}
 REQUIREMENT_MODES = {"optional", "required"}
+LLM_PROVIDERS = {"openai", "anthropic", "local-http", "fake"}
+LLM_SECRET_MODES = {"env"}
 SECRET_KEYWORDS = (
     "access_token",
     "api_key",
@@ -205,6 +211,7 @@ def state_contract() -> dict[str, str]:
         "logs": str(LOG_ROOT),
         "runtime": str(RUNTIME_ROOT),
         "storage": str(STORAGE_ROOT),
+        "llmProfiles": str(LLM_PROFILE_PATH),
     }
     return paths
 
@@ -225,7 +232,7 @@ def ensure_state_layout() -> dict[str, str]:
     }
     for key, value in paths.items():
         path = Path(value)
-        if key == "mongooseConfig":
+        if key in {"mongooseConfig", "llmProfiles"}:
             path.parent.mkdir(parents=True, exist_ok=True)
         elif key == "registry":
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -257,6 +264,119 @@ def read_json(path: Path, default: Any | None = None) -> Any:
 
 def write_json_atomic(path: Path, data: Any) -> None:
     atomic_write_text(path, json.dumps(data, indent=2, sort_keys=True) + "\n")
+
+
+def load_llm_profiles() -> dict[str, Any]:
+    data = read_json(LLM_PROFILE_PATH, default={"default": "", "profiles": {}})
+    if not isinstance(data, dict):
+        return {"default": "", "profiles": {}}
+    profiles = data.get("profiles", {})
+    if not isinstance(profiles, dict):
+        profiles = {}
+    return {
+        "default": str(data.get("default", "")).strip(),
+        "profiles": profiles,
+    }
+
+
+def save_llm_profiles(data: dict[str, Any]) -> None:
+    ensure_state_layout()
+    write_json_atomic(LLM_PROFILE_PATH, data)
+
+
+def normalize_profile_name(name: str) -> str:
+    normalized = name.strip()
+    if not normalized:
+        raise ValueError("LLM profile name cannot be empty.")
+    if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_.-]*", normalized):
+        raise ValueError("LLM profile name must start with a letter and contain only letters, numbers, '.', '_' or '-'.")
+    return normalized
+
+
+def validate_llm_profile(profile: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    provider = str(profile.get("provider", "")).strip()
+    if provider not in LLM_PROVIDERS:
+        errors.append(f"provider must be one of: {', '.join(sorted(LLM_PROVIDERS))}.")
+    if not str(profile.get("model", "")).strip():
+        errors.append("model is required.")
+    secret = profile.get("secret", {})
+    if secret and not isinstance(secret, dict):
+        errors.append("secret must be an object.")
+    elif isinstance(secret, dict):
+        mode = str(secret.get("mode", "env")).strip()
+        if mode not in LLM_SECRET_MODES:
+            errors.append(f"secret.mode must be one of: {', '.join(sorted(LLM_SECRET_MODES))}.")
+        env_name = str(secret.get("env", "")).strip()
+        if provider in {"openai", "anthropic"} and not env_name:
+            errors.append("secret.env is required for remote providers.")
+        if env_name and not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", env_name):
+            errors.append("secret.env must be an environment variable name.")
+    endpoint = str(profile.get("endpoint", "")).strip()
+    if provider in {"local-http", "openai", "anthropic"} and endpoint:
+        parsed = urllib.parse.urlparse(endpoint)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            errors.append("endpoint must be an http(s) URL when present.")
+    if provider == "local-http" and not endpoint:
+        errors.append("endpoint is required for local-http providers.")
+    for key, value in profile.items():
+        if manifest_secret_key(str(key)) and key != "secret" and str(value).strip():
+            errors.append(f"profile.{key} must not contain a secret value.")
+    if isinstance(secret, dict):
+        for key, value in secret.items():
+            if key not in {"mode", "env"} and str(value).strip():
+                errors.append(f"profile.secret.{key} must not contain a secret value.")
+    return errors
+
+
+def llm_profile_summary(name: str, profile: dict[str, Any]) -> dict[str, Any]:
+    secret = profile.get("secret", {}) if isinstance(profile.get("secret", {}), dict) else {}
+    env_name = str(secret.get("env", "")).strip()
+    return {
+        "name": name,
+        "provider": profile.get("provider", ""),
+        "model": profile.get("model", ""),
+        "endpoint": profile.get("endpoint", ""),
+        "apiKeyEnv": env_name,
+        "secretAvailable": bool(env_name and os.environ.get(env_name)),
+        "capabilities": profile.get("capabilities", []),
+    }
+
+
+def resolve_llm_profile(name: str | None = None) -> tuple[str, dict[str, Any], dict[str, Any] | None]:
+    data = load_llm_profiles()
+    profile_name = normalize_profile_name(name) if name else str(data.get("default", "")).strip()
+    if not profile_name:
+        return "", {}, runtime_error(
+            "mongoose.llm_profile_missing",
+            "No default LLM profile is configured. Run: mongoose llm add <name> ...",
+        )
+    profiles = data.get("profiles", {})
+    profile = profiles.get(profile_name) if isinstance(profiles, dict) else None
+    if not isinstance(profile, dict):
+        return profile_name, {}, runtime_error(
+            "mongoose.llm_profile_missing",
+            f"LLM profile '{profile_name}' was not found.",
+            profile=profile_name,
+        )
+    errors = validate_llm_profile(profile)
+    if errors:
+        return profile_name, profile, runtime_error(
+            "mongoose.llm_profile_invalid",
+            f"LLM profile '{profile_name}' is invalid.",
+            profile=profile_name,
+            errors=errors,
+        )
+    secret = profile.get("secret", {})
+    env_name = str(secret.get("env", "")).strip() if isinstance(secret, dict) else ""
+    if env_name and not os.environ.get(env_name):
+        return profile_name, profile, runtime_error(
+            "mongoose.llm_secret_missing",
+            f"LLM profile '{profile_name}' is missing required environment variable {env_name}.",
+            profile=profile_name,
+            env=env_name,
+        )
+    return profile_name, profile, None
 
 
 def is_secret_key(key: str) -> bool:
@@ -796,6 +916,15 @@ def runtime_provider_descriptors(agent: dict[str, Any], capability: dict[str, An
 
     llm = (capability or {}).get("llm", agent.get("llm", {"mode": "none"}))
     llm_mode = llm.get("mode", "none") if isinstance(llm, dict) else "none"
+    llm_profiles = load_llm_profiles()
+    default_llm = str(llm_profiles.get("default", "")).strip()
+    default_profile = llm_profiles.get("profiles", {}).get(default_llm, {}) if default_llm else {}
+    default_summary = (
+        llm_profile_summary(default_llm, default_profile)
+        if default_llm and isinstance(default_profile, dict)
+        else {}
+    )
+    _, _, default_error = resolve_llm_profile(default_llm) if default_llm else ("", {}, None)
     return {
         "configuration": {
             "available": True,
@@ -834,10 +963,12 @@ def runtime_provider_descriptors(agent: dict[str, Any], capability: dict[str, An
             "reason": "No API profile provider is configured yet.",
         },
         "llm": {
-            "available": False,
+            "available": bool(default_summary and default_error is None),
             "interface": "mongoose.llm.v1",
             "mode": llm_mode,
-            "reason": "No LLM runtime provider is configured yet.",
+            "defaultProfile": default_llm,
+            "profile": default_summary,
+            "reason": "" if default_summary else "No default LLM profile is configured yet.",
         },
     }
 
@@ -1701,16 +1832,21 @@ def cmd_route(args: argparse.Namespace) -> int:
 
     llm = selected["capability"].get("llm", {})
     if isinstance(llm, dict) and llm.get("mode") == "required":
-        print_runtime_error(
-            runtime_error(
-                "mongoose.provider_unavailable",
-                f"Selected {format_route_candidate(selected)}, but it requires an LLM runtime.",
-                selected=format_route_candidate(selected),
-                provider="llm",
+        profile_name = str(llm.get("profile", "")).strip() or None
+        resolved_name, _, error = resolve_llm_profile(profile_name)
+        if error:
+            print_runtime_error(
+                runtime_error(
+                    "mongoose.provider_unavailable",
+                    f"Selected {format_route_candidate(selected)}, but it requires an LLM runtime.",
+                    selected=format_route_candidate(selected),
+                    provider="llm",
+                    profile=resolved_name,
+                    reason=error,
+                )
             )
-        )
-        print_muted("Mongoose LLM runtime configuration is not available yet.")
-        return 1
+            print_muted("Configure and test an LLM profile with: mongoose llm add ...; mongoose llm ping")
+            return 1
 
     entrypoint = Path(str(selected["entrypoint"]))
     if not entrypoint.exists():
@@ -1743,6 +1879,188 @@ def cmd_route(args: argparse.Namespace) -> int:
         entrypoint=entrypoint,
         agent_args=agent_args,
     )
+
+
+def cmd_llm_add(args: argparse.Namespace) -> int:
+    name = normalize_profile_name(args.name)
+    provider = str(args.provider).strip()
+    profile: dict[str, Any] = {
+        "provider": provider,
+        "model": args.model,
+        "endpoint": args.endpoint or "",
+        "secret": {
+            "mode": "env",
+            "env": args.api_key_env or "",
+        },
+        "capabilities": unique_strings(args.capability or []),
+        "createdAt": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+    }
+    errors = validate_llm_profile(profile)
+    if errors:
+        print_runtime_error(
+            runtime_error(
+                "mongoose.llm_profile_invalid",
+                f"LLM profile '{name}' is invalid.",
+                profile=name,
+                errors=errors,
+            )
+        )
+        return 1
+
+    data = load_llm_profiles()
+    profiles = data.setdefault("profiles", {})
+    profiles[name] = profile
+    if args.default or not data.get("default"):
+        data["default"] = name
+    save_llm_profiles(data)
+    print_success("Mongoose LLM profile configured.")
+    print(label_line("Name", name))
+    print(label_line("Provider", provider))
+    print(label_line("Model", args.model))
+    if args.api_key_env:
+        print(label_line("API key env", args.api_key_env, "muted"))
+    if args.endpoint:
+        print(label_line("Endpoint", args.endpoint, "muted"))
+    if data.get("default") == name:
+        print(label_line("Default", "yes", "success"))
+    return 0
+
+
+def cmd_llm_use(args: argparse.Namespace) -> int:
+    name = normalize_profile_name(args.name)
+    data = load_llm_profiles()
+    profiles = data.get("profiles", {})
+    if not isinstance(profiles, dict) or name not in profiles:
+        print_runtime_error(
+            runtime_error("mongoose.llm_profile_missing", f"LLM profile '{name}' was not found.", profile=name)
+        )
+        return 1
+    data["default"] = name
+    save_llm_profiles(data)
+    print_success("Default Mongoose LLM profile selected.")
+    print(label_line("Default", name))
+    return 0
+
+
+def cmd_llm_list(_: argparse.Namespace) -> int:
+    data = load_llm_profiles()
+    profiles = data.get("profiles", {})
+    default = str(data.get("default", "")).strip()
+    if not isinstance(profiles, dict) or not profiles:
+        print_warning("No LLM profiles configured.")
+        print_muted("Add one with: mongoose llm add <name> --provider fake --model test")
+        return 0
+
+    print_heading("Mongoose LLM profiles")
+    for name, profile in sorted(profiles.items()):
+        if not isinstance(profile, dict):
+            continue
+        marker = " [default]" if name == default else ""
+        summary = llm_profile_summary(name, profile)
+        print(f"  {name}{marker} - {summary['provider']} / {summary['model']}")
+        if summary.get("apiKeyEnv"):
+            status = "set" if summary.get("secretAvailable") else "missing"
+            print(f"    api key env: {summary['apiKeyEnv']} ({status})")
+        if summary.get("endpoint"):
+            print(f"    endpoint: {summary['endpoint']}")
+    return 0
+
+
+def cmd_llm_show(args: argparse.Namespace) -> int:
+    name, profile, error = resolve_llm_profile(args.name)
+    if error:
+        print_runtime_error(error)
+        return 1
+    summary = llm_profile_summary(name, profile)
+    print_heading(f"LLM profile: {name}")
+    print(label_line("Provider", summary["provider"]))
+    print(label_line("Model", summary["model"]))
+    if summary.get("endpoint"):
+        print(label_line("Endpoint", summary["endpoint"], "muted"))
+    if summary.get("apiKeyEnv"):
+        print(label_line("API key env", summary["apiKeyEnv"], "muted"))
+        print(label_line("Secret available", "yes" if summary["secretAvailable"] else "no", "success" if summary["secretAvailable"] else "warning"))
+    if summary.get("capabilities"):
+        print(label_line("Capabilities", ", ".join(summary["capabilities"])))
+    return 0
+
+
+def fake_llm_ping(profile: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "ok": True,
+        "message": "Fake LLM provider reachable.",
+        "response": {
+            "role": "assistant",
+            "content": "pong",
+            "model": profile.get("model", ""),
+        },
+    }
+
+
+def http_llm_ping(profile: dict[str, Any], timeout_seconds: float) -> dict[str, Any]:
+    provider = str(profile.get("provider", "")).strip()
+    endpoint = str(profile.get("endpoint", "")).strip()
+    secret = profile.get("secret", {}) if isinstance(profile.get("secret", {}), dict) else {}
+    api_key = os.environ.get(str(secret.get("env", "")).strip(), "")
+    headers = {"User-Agent": f"mongoose/{MONGOOSE_VERSION}"}
+    if provider == "openai":
+        endpoint = endpoint or "https://api.openai.com/v1/models"
+        headers["Authorization"] = f"Bearer {api_key}"
+    elif provider == "anthropic":
+        endpoint = endpoint or "https://api.anthropic.com/v1/messages"
+        headers["x-api-key"] = api_key
+        headers["anthropic-version"] = "2023-06-01"
+
+    request = urllib.request.Request(endpoint, headers=headers, method="GET")
+    try:
+        with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
+            status = getattr(response, "status", 200)
+            return {"ok": 200 <= status < 300, "status": status, "message": "LLM provider reachable."}
+    except urllib.error.HTTPError as exc:
+        return {
+            "ok": False,
+            "status": exc.code,
+            "message": "LLM provider returned an HTTP error.",
+        }
+    except TimeoutError:
+        return {"ok": False, "message": "LLM provider ping timed out."}
+    except OSError as exc:
+        return {"ok": False, "message": redact_secret_text(str(exc))}
+
+
+def cmd_llm_ping(args: argparse.Namespace) -> int:
+    name, profile, error = resolve_llm_profile(args.name)
+    if error:
+        print_runtime_error(error)
+        return 1
+
+    start = time.perf_counter()
+    provider = str(profile.get("provider", "")).strip()
+    if provider == "fake":
+        result = fake_llm_ping(profile)
+    else:
+        result = http_llm_ping(profile, timeout_seconds=args.timeout)
+    latency_ms = int((time.perf_counter() - start) * 1000)
+
+    if result.get("ok"):
+        print_success("LLM provider reachable.")
+    else:
+        print_runtime_error(
+            runtime_error(
+                "mongoose.llm_ping_failed",
+                str(result.get("message", "LLM provider ping failed.")),
+                profile=name,
+                provider=provider,
+                status=result.get("status", ""),
+            )
+        )
+    print(label_line("Profile", name))
+    print(label_line("Provider", provider))
+    print(label_line("Model", profile.get("model", "")))
+    print(label_line("Latency", f"{latency_ms} ms", "muted"))
+    if provider == "fake" and isinstance(result.get("response"), dict):
+        print(label_line("Response", result["response"].get("content", ""), "muted"))
+    return 0 if result.get("ok") else 1
 
 
 def cmd_update(args: argparse.Namespace) -> int:
@@ -1809,6 +2127,8 @@ def build_parser() -> argparse.ArgumentParser:
   mongoose show Njord
   mongoose run Njord config status
   mongoose route --task-type budget-summary "current budget"
+  mongoose llm add openai-main --provider openai --model gpt-4.1-mini --api-key-env OPENAI_API_KEY
+  mongoose llm ping openai-main
   mongoose validate
   mongoose remove Njord
   mongoose update
@@ -1823,8 +2143,9 @@ workflow:
   3. Run `mongoose show <agent>` to inspect installed metadata and capabilities.
   4. Run `mongoose capabilities` to inspect routeable installed capabilities.
   5. Run `mongoose route --task-type <type> ...` or `mongoose run <agent> ...`.
-  6. Run `mongoose update` to refresh the registry and check for a Mongoose CLI update.
-  7. Use `mongoose update --registry-only` or `mongoose update --self-only` for scoped updates.
+  6. Run `mongoose llm add ...` and `mongoose llm ping ...` before enabling LLM-backed agents.
+  7. Run `mongoose update` to refresh the registry and check for a Mongoose CLI update.
+  8. Use `mongoose update --registry-only` or `mongoose update --self-only` for scoped updates.
 """
     parser = argparse.ArgumentParser(
         prog="mongoose",
@@ -1955,6 +2276,57 @@ workflow:
         help="Request words to pass to the selected capability.",
     )
     route.set_defaults(handler=cmd_route)
+
+    llm = subparsers.add_parser(
+        "llm",
+        help="Configure and test provider-neutral LLM profiles.",
+        description="Configure, inspect, select, and ping secret-safe provider-neutral LLM profiles.",
+    )
+    llm_subparsers = llm.add_subparsers(dest="llm_command", required=True)
+
+    llm_add = llm_subparsers.add_parser(
+        "add",
+        aliases=["configure"],
+        help="Add or update an LLM provider profile.",
+        description="Store a provider-neutral LLM profile with secret references only.",
+    )
+    llm_add.add_argument("name", help="Profile name, such as openai-main.")
+    llm_add.add_argument("--provider", required=True, choices=sorted(LLM_PROVIDERS), help="Provider backend type.")
+    llm_add.add_argument("--model", required=True, help="Model name for this profile.")
+    llm_add.add_argument("--api-key-env", help="Environment variable that contains the API key or token.")
+    llm_add.add_argument("--endpoint", help="Optional provider endpoint URL.")
+    llm_add.add_argument("--capability", action="append", help="Optional provider capability label; may be repeated.")
+    llm_add.add_argument("--default", action="store_true", help="Select this profile as the default.")
+    llm_add.set_defaults(handler=cmd_llm_add)
+
+    llm_list = llm_subparsers.add_parser(
+        "list",
+        aliases=["ls"],
+        help="List configured LLM profiles without printing secrets.",
+    )
+    llm_list.set_defaults(handler=cmd_llm_list)
+
+    llm_use = llm_subparsers.add_parser(
+        "use",
+        help="Select the default LLM profile.",
+    )
+    llm_use.add_argument("name", help="Configured profile name to use by default.")
+    llm_use.set_defaults(handler=cmd_llm_use)
+
+    llm_show = llm_subparsers.add_parser(
+        "show",
+        help="Show non-secret LLM profile metadata.",
+    )
+    llm_show.add_argument("name", nargs="?", help="Profile name; defaults to the active default profile.")
+    llm_show.set_defaults(handler=cmd_llm_show)
+
+    llm_ping = llm_subparsers.add_parser(
+        "ping",
+        help="Test a configured LLM profile without printing secrets.",
+    )
+    llm_ping.add_argument("name", nargs="?", help="Profile name; defaults to the active default profile.")
+    llm_ping.add_argument("--timeout", type=float, default=10.0, help="Ping timeout in seconds.")
+    llm_ping.set_defaults(handler=cmd_llm_ping)
 
     validate = subparsers.add_parser(
         "validate",

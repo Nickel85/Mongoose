@@ -36,6 +36,8 @@ roadmap tracks:
 
 The current runtime contract and provider interface design is documented in
 [docs/runtime-contract.md](docs/runtime-contract.md).
+The provider-neutral LLM profile and ping contract is documented in
+[docs/llm-runtime.md](docs/llm-runtime.md).
 
 Mongoose platform milestones and Njord agent-value milestones are intentionally
 sequenced separately. Njord is the first concrete use case and should prove

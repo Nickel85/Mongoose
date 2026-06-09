@@ -121,7 +121,19 @@ if context_path:
             entrypointPath = "agent.py"
             llm = @{
                 mode = "required"
+                profile = "missing-llm-profile"
                 deterministicFallback = "This fixture intentionally requires an LLM for validation."
+            }
+        }
+        $capabilities += @{
+            name = "llm-ready"
+            description = "Require the configured fake LLM runtime."
+            taskTypes = @("llm-ready")
+            entrypointPath = "agent.py"
+            llm = @{
+                mode = "required"
+                profile = "fake-main"
+                deterministicFallback = "This fixture uses the fake LLM profile for validation."
             }
         }
     }
@@ -168,6 +180,10 @@ function New-InvalidFixtureAgent {
                 name = "broken"
                 description = "Broken fixture."
                 taskTypes = "not-a-list"
+                llm = @{
+                    mode = "optional"
+                    api_key = "secret-fixture-key"
+                }
                 requires = @{
                     storage = "required"
                     tools = @{
@@ -257,6 +273,7 @@ Assert-True ($help.Output -match "mongoose install Njord") "mongoose --help did 
 Assert-True ($help.Output -match "mongoose show Njord") "mongoose --help did not include show example."
 Assert-True ($help.Output -match "mongoose run Njord") "mongoose --help did not include run example."
 Assert-True ($help.Output -match "mongoose route") "mongoose --help did not include route example."
+Assert-True ($help.Output -match "mongoose llm add") "mongoose --help did not include LLM profile example."
 Assert-True ($help.Output -match "mongoose validate") "mongoose --help did not include validate example."
 Assert-True ($help.Output -match "mongoose remove Njord") "mongoose --help did not include remove example."
 Assert-True ($help.Output -match "mongoose update") "mongoose --help did not include update guidance."
@@ -264,7 +281,7 @@ Assert-True ($help.Output -match "mongoose state --init") "mongoose --help did n
 
 $version = Invoke-Mongoose -Arguments @("--version")
 Assert-True ($version.ExitCode -eq 0) "mongoose --version failed. Output: $($version.Output)"
-Assert-True ($version.Output -match "mongoose 0.3.1") "mongoose --version did not report expected version."
+Assert-True ($version.Output -match "mongoose 0.4.0") "mongoose --version did not report expected version."
 Assert-True ($version.Output -match "development") "mongoose --version did not report development release kind."
 
 $state = Invoke-Mongoose -Arguments @("state", "--init", "--json")
@@ -273,13 +290,52 @@ $statePaths = $state.Output | ConvertFrom-Json
 Assert-True (Test-Path $statePaths.state) "mongoose state did not create the shared state directory."
 Assert-True (Test-Path $statePaths.logs) "mongoose state did not create the log directory."
 Assert-True (Test-Path $statePaths.jobs) "mongoose state did not create the jobs directory."
-Assert-True ($statePaths.version -eq "0.3.1") "mongoose state did not report CLI version."
+Assert-True ($statePaths.version -eq "0.4.0") "mongoose state did not report CLI version."
 Assert-True ($statePaths.releaseKind -eq "development") "mongoose state did not report development release kind."
 Assert-True ($statePaths.releaseTag -eq "") "mongoose state should not report a release tag for development builds."
 Assert-True ($statePaths.cliSource -match "mongoose.py") "mongoose state did not report CLI source."
 Assert-True ($statePaths.registry -eq $repoRoot) "mongoose state did not report configured registry path."
 Assert-True ($statePaths.registryRevision -notin @("", "missing", "not a git checkout")) "mongoose state did not report registry Git revision."
 Assert-True ($statePaths.registryStatus -in @("clean", "dirty")) "mongoose state did not report registry Git status."
+Assert-True ($statePaths.llmProfiles -match "profiles.json") "mongoose state did not report LLM profile storage."
+
+$emptyLlmList = Invoke-Mongoose -Arguments @("llm", "list")
+Assert-True ($emptyLlmList.ExitCode -eq 0) "mongoose llm list failed before profiles were configured. Output: $($emptyLlmList.Output)"
+Assert-True ($emptyLlmList.Output -match "No LLM profiles configured") "empty LLM profile list did not explain there are no profiles."
+
+$missingLlmPing = Invoke-Mongoose -Arguments @("llm", "ping")
+Assert-True ($missingLlmPing.ExitCode -ne 0) "mongoose llm ping unexpectedly passed without a default profile. Output: $($missingLlmPing.Output)"
+Assert-True ($missingLlmPing.Output -match "mongoose.llm_profile_missing") "missing default LLM ping did not emit a structured error."
+
+$missingSecretProfile = Invoke-Mongoose -Arguments @("llm", "add", "openai-main", "--provider", "openai", "--model", "gpt-test", "--api-key-env", "MONGOOSE_TEST_OPENAI_KEY")
+Assert-True ($missingSecretProfile.ExitCode -eq 0) "mongoose llm add openai-main failed. Output: $($missingSecretProfile.Output)"
+Assert-True ($missingSecretProfile.Output -notmatch "secret-fixture-key") "mongoose llm add leaked an unrelated secret-like value."
+
+$missingSecretPing = Invoke-Mongoose -Arguments @("llm", "ping", "openai-main")
+Assert-True ($missingSecretPing.ExitCode -ne 0) "mongoose llm ping unexpectedly passed with a missing secret. Output: $($missingSecretPing.Output)"
+Assert-True ($missingSecretPing.Output -match "mongoose.llm_secret_missing") "missing LLM secret ping did not emit a structured error."
+Assert-True ($missingSecretPing.Output -match "MONGOOSE_TEST_OPENAI_KEY") "missing LLM secret ping did not identify the env var name."
+
+$fakeProfile = Invoke-Mongoose -Arguments @("llm", "add", "fake-main", "--provider", "fake", "--model", "fake-chat", "--default", "--capability", "chat")
+Assert-True ($fakeProfile.ExitCode -eq 0) "mongoose llm add fake-main failed. Output: $($fakeProfile.Output)"
+Assert-True ($fakeProfile.Output -match "Mongoose LLM profile configured") "mongoose llm add did not report configuration success."
+Assert-True ($fakeProfile.Output -match "Default: yes") "mongoose llm add --default did not select the profile."
+
+$llmList = Invoke-Mongoose -Arguments @("llm", "list")
+Assert-True ($llmList.ExitCode -eq 0) "mongoose llm list failed. Output: $($llmList.Output)"
+Assert-True ($llmList.Output -match "fake-main") "mongoose llm list did not include fake-main."
+Assert-True ($llmList.Output -match "\[default\]") "mongoose llm list did not mark the default profile."
+Assert-True ($llmList.Output -notmatch "super-secret-fixture-token") "mongoose llm list leaked a secret value."
+
+$llmShow = Invoke-Mongoose -Arguments @("llm", "show", "fake-main")
+Assert-True ($llmShow.ExitCode -eq 0) "mongoose llm show failed. Output: $($llmShow.Output)"
+Assert-True ($llmShow.Output -match "Provider: fake") "mongoose llm show did not report provider."
+Assert-True ($llmShow.Output -match "Model: fake-chat") "mongoose llm show did not report model."
+
+$llmPing = Invoke-Mongoose -Arguments @("llm", "ping", "fake-main")
+Assert-True ($llmPing.ExitCode -eq 0) "mongoose llm ping fake-main failed. Output: $($llmPing.Output)"
+Assert-True ($llmPing.Output -match "LLM provider reachable") "mongoose llm ping did not report reachability."
+Assert-True ($llmPing.Output -match "Response: pong") "mongoose llm ping fake provider did not report fake response."
 
 $list = Invoke-Mongoose -Arguments @("list")
 Assert-True ($list.ExitCode -eq 0) "mongoose list failed. Output: $($list.Output)"
@@ -334,6 +390,7 @@ Assert-True ($validateInvalid.Output -match "requires.storage must be an object"
 Assert-True ($validateInvalid.Output -match "requires provider 'tools'") "invalid manifest output did not explain unsupported required provider."
 Assert-True ($validateInvalid.Output -match "unknownProvider is not a supported provider requirement") "invalid manifest output did not explain unknown provider requirement."
 Assert-True ($validateInvalid.Output -match "must not contain a secret-like value") "invalid manifest output did not reject secret-like provider metadata."
+Assert-True ($validateInvalid.Output -match "llm.api_key must not contain a secret value") "invalid manifest output did not reject secret-bearing LLM metadata."
 
 Remove-Item -Path $invalidPath -Recurse -Force
 
@@ -399,6 +456,11 @@ Remove-Item Env:\ALPHA_SECRET_TOKEN
 $llmRoute = Invoke-Mongoose -Arguments @("route", "--task-type", "llm-only")
 Assert-True ($llmRoute.ExitCode -ne 0) "mongoose route unexpectedly ran an LLM-required capability. Output: $($llmRoute.Output)"
 Assert-True ($llmRoute.Output -match "mongoose.provider_unavailable") "LLM-required route did not emit a structured provider error."
+
+$llmReadyRoute = Invoke-Mongoose -Arguments @("route", "--task-type", "llm-ready", "hello")
+Assert-True ($llmReadyRoute.ExitCode -eq 0) "mongoose route did not run an LLM-required capability with a configured fake profile. Output: $($llmReadyRoute.Output)"
+Assert-True ($llmReadyRoute.Output -match "Selected: Alpha::llm-ready") "mongoose route did not select the llm-ready capability."
+Assert-True ($llmReadyRoute.Output -match "ARGS=llm-ready\|hello") "mongoose route did not pass llm-ready capability arguments."
 
 $futureRuntimeRoute = Invoke-Mongoose -Arguments @("route", "--task-type", "future-runtime")
 Assert-True ($futureRuntimeRoute.ExitCode -ne 0) "mongoose route unexpectedly ran an incompatible runtime capability. Output: $($futureRuntimeRoute.Output)"
