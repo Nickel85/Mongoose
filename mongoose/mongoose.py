@@ -35,7 +35,7 @@ DEFAULT_REGISTRY_URL = "https://github.com/Nickel85/Mongoose.git"
 DEFAULT_LOG_RETENTION_DAYS = 30
 MONGOOSE_RELEASES_API_URL = "https://api.github.com/repos/Nickel85/Mongoose/releases"
 MONGOOSE_RELEASE_ASSET_NAME = "mongoose.exe"
-MONGOOSE_VERSION = "0.4.0"
+MONGOOSE_VERSION = "0.5.0"
 MONGOOSE_RELEASE_KIND = "development"
 MONGOOSE_RELEASE_TAG = ""
 # Increment only for breaking manifest contract changes. Additive optional metadata stays on the same version.
@@ -2116,6 +2116,374 @@ def cmd_validate(args: argparse.Namespace) -> int:
     return 0
 
 
+def relative_posix(path: Path, root: Path) -> str:
+    return path.resolve().relative_to(root.resolve()).as_posix()
+
+
+def architecture_output_root(root: Path, output_root: str | None = None) -> Path:
+    if output_root:
+        return Path(output_root).expanduser().resolve()
+    return root / "docs" / "architecture"
+
+
+def architecture_output_paths(root: Path, output_root: str | None = None) -> dict[str, Path]:
+    base = architecture_output_root(root, output_root)
+    return {
+        "model": base / "model.json",
+        "agents_sysml": base / "sysml" / "agents.sysml",
+        "runtime_sysml": base / "sysml" / "runtime-routing.sysml",
+        "agents_mermaid": base / "diagrams" / "agents.mmd",
+        "runtime_mermaid": base / "diagrams" / "runtime-routing.mmd",
+        "providers_mermaid": base / "diagrams" / "providers.mmd",
+    }
+
+
+def normalize_architecture_id(value: str, fallback: str) -> str:
+    raw = value.strip() or fallback
+    normalized = re.sub(r"[^A-Za-z0-9_]+", "_", raw)
+    normalized = normalized.strip("_")
+    if not normalized:
+        normalized = fallback
+    if not normalized[0].isalpha():
+        normalized = f"A_{normalized}"
+    return normalized
+
+
+def mermaid_id(value: str, fallback: str) -> str:
+    return normalize_architecture_id(value, fallback)
+
+
+def mermaid_label(value: str) -> str:
+    return str(value).replace('"', "'")
+
+
+def sysml_string(value: str) -> str:
+    return str(value).replace("\\", "\\\\").replace('"', '\\"')
+
+
+def config_names(metadata: dict[str, Any]) -> dict[str, list[str]]:
+    configuration = metadata.get("configuration", {})
+    if not isinstance(configuration, dict):
+        configuration = {}
+    required = string_list(configuration.get("required"))
+    optional = string_list(configuration.get("optional"))
+    if not required:
+        required = string_list(metadata.get("requiredInputs"))
+    return {
+        "required": sorted(dict.fromkeys(required)),
+        "optional": sorted(dict.fromkeys(optional)),
+        "secretRefs": sorted(dict.fromkeys(string_list(configuration.get("secretRefs")))),
+    }
+
+
+def capability_architecture(agent_dir: Path, root: Path, manifest: dict[str, Any], capability: dict[str, Any]) -> dict[str, Any]:
+    name = str(capability.get("name", "")).strip()
+    display_name = str(capability.get("displayName", name)).strip() or name
+    entrypoint = str(capability.get("entrypointPath", manifest.get("entrypointPath", "agent.py"))).strip()
+    requires = capability.get("requires", {})
+    if not isinstance(requires, dict):
+        requires = {}
+    llm = capability.get("llm", manifest.get("llm", {}))
+    if not isinstance(llm, dict):
+        llm = {}
+    return {
+        "name": name,
+        "id": normalize_architecture_id(name, "Capability"),
+        "displayName": display_name,
+        "description": str(capability.get("description", "")).strip(),
+        "entrypointPath": relative_posix(agent_dir / entrypoint, root),
+        "taskTypes": sorted(dict.fromkeys(string_list(capability.get("taskTypes")))),
+        "configuration": config_names(capability),
+        "requires": requires,
+        "llm": {
+            "mode": str(llm.get("mode", "unspecified")).strip() or "unspecified",
+            "deterministicFallback": str(llm.get("deterministicFallback", "")).strip(),
+        },
+    }
+
+
+def build_architecture_model(root: Path) -> dict[str, Any]:
+    root = root.expanduser().resolve()
+    manifests = agent_manifest_paths(root)
+    if not manifests:
+        raise ValueError(f"No agent manifests found under {root}")
+
+    agents: list[dict[str, Any]] = []
+    for manifest_path in manifests:
+        manifest = read_json(manifest_path)
+        if not isinstance(manifest, dict):
+            raise ManifestValidationError(manifest_path, ["Manifest must be a JSON object."])
+        validate_manifest(manifest, manifest_path)
+
+        agent_dir = manifest_path.parent
+        agent_name = str(manifest.get("commandName", manifest_path.parent.name)).strip()
+        agent_id = str(manifest.get("id", manifest_path.parent.name)).strip()
+        requires = manifest.get("requires", {})
+        if not isinstance(requires, dict):
+            requires = {}
+        llm = manifest.get("llm", {})
+        if not isinstance(llm, dict):
+            llm = {}
+        capabilities = [
+            capability_architecture(agent_dir, root, manifest, capability)
+            for capability in list_value(manifest.get("capabilities"))
+            if isinstance(capability, dict) and str(capability.get("name", "")).strip()
+        ]
+        agents.append(
+            {
+                "id": normalize_architecture_id(agent_id, "Agent"),
+                "manifestId": agent_id,
+                "commandName": agent_name,
+                "displayName": str(manifest.get("displayName", agent_name)).strip() or agent_name,
+                "version": str(manifest.get("version", "")).strip(),
+                "description": str(manifest.get("description", "")).strip(),
+                "manifestPath": relative_posix(manifest_path, root),
+                "entrypointPath": relative_posix(agent_dir / str(manifest.get("entrypointPath", "agent.py")).strip(), root),
+                "taskTypes": sorted(dict.fromkeys(string_list(manifest.get("taskTypes")))),
+                "configuration": config_names(manifest),
+                "requires": requires,
+                "llm": {
+                    "mode": str(llm.get("mode", "unspecified")).strip() or "unspecified",
+                    "deterministicFallback": str(llm.get("deterministicFallback", "")).strip(),
+                },
+                "capabilities": sorted(capabilities, key=lambda item: item["name"].lower()),
+            }
+        )
+
+    model = {
+        "schemaVersion": 1,
+        "generatedBy": f"mongoose {MONGOOSE_VERSION}",
+        "source": {
+            "root": ".",
+            "agentManifests": [relative_posix(path, root) for path in manifests],
+            "runtimeContractVersion": SUPPORTED_RUNTIME_CONTRACT_VERSION,
+            "manifestSchemaVersion": SUPPORTED_MANIFEST_SCHEMA_VERSION,
+        },
+        "runtime": {
+            "name": "Mongoose Runtime",
+            "responsibilities": [
+                "install agent commands",
+                "validate manifests",
+                "discover capabilities",
+                "route requests",
+                "provide runtime context",
+                "manage provider profiles",
+            ],
+        },
+        "providers": [
+            {"name": "configuration", "status": "implemented", "interface": "environment and user-local config names"},
+            {"name": "logs", "status": "implemented", "interface": "redacted JSONL logs"},
+            {"name": "state", "status": "implemented", "interface": "user-local state directories"},
+            {"name": "storage", "status": "implemented", "interface": "agent-scoped local storage path"},
+            {"name": "llm", "status": "profile-management", "interface": "provider-neutral LLM profiles and ping"},
+            {"name": "memory", "status": "planned", "interface": "runtime provider descriptor"},
+            {"name": "tools", "status": "planned", "interface": "runtime provider descriptor"},
+            {"name": "apiProfiles", "status": "planned", "interface": "configured external API profiles"},
+        ],
+        "externalSystems": [{"name": "YNAB API", "access": "read-only", "usedByTaskType": "ynab"}],
+        "agents": sorted(agents, key=lambda item: item["commandName"].lower()),
+    }
+    return model
+
+
+def render_architecture_model_json(model: dict[str, Any]) -> str:
+    return json.dumps(model, indent=2, sort_keys=True) + "\n"
+
+
+def render_agents_sysml(model: dict[str, Any]) -> str:
+    lines = [
+        "// Generated by `mongoose architecture generate`. Do not edit by hand.",
+        "package MongooseAgents {",
+        "  part def MongooseRuntime;",
+        "  part def Agent;",
+        "  part def Capability;",
+        "  part runtime : MongooseRuntime;",
+        "",
+    ]
+    for agent in model["agents"]:
+        agent_id = agent["id"]
+        lines.extend(
+            [
+                f"  part {agent_id} : Agent {{",
+                f'    attribute commandName = "{sysml_string(agent["commandName"])}";',
+                f'    attribute displayName = "{sysml_string(agent["displayName"])}";',
+                f'    attribute manifestPath = "{sysml_string(agent["manifestPath"])}";',
+                f'    attribute entrypointPath = "{sysml_string(agent["entrypointPath"])}";',
+                f'    attribute llmMode = "{sysml_string(agent["llm"]["mode"])}";',
+            ]
+        )
+        for item in agent["taskTypes"]:
+            lines.append(f'    attribute taskType = "{sysml_string(item)}";')
+        for item in agent["configuration"]["required"]:
+            lines.append(f'    attribute requiredConfiguration = "{sysml_string(item)}";')
+        for capability in agent["capabilities"]:
+            capability_id = f"{agent_id}_{capability['id']}"
+            lines.extend(
+                [
+                    f"    part {capability_id} : Capability {{",
+                    f'      attribute name = "{sysml_string(capability["name"])}";',
+                    f'      attribute displayName = "{sysml_string(capability["displayName"])}";',
+                    f'      attribute entrypointPath = "{sysml_string(capability["entrypointPath"])}";',
+                    f'      attribute llmMode = "{sysml_string(capability["llm"]["mode"])}";',
+                ]
+            )
+            for item in capability["taskTypes"]:
+                lines.append(f'      attribute taskType = "{sysml_string(item)}";')
+            for item in capability["configuration"]["required"]:
+                lines.append(f'      attribute requiredConfiguration = "{sysml_string(item)}";')
+            lines.append("    }")
+        lines.append("  }")
+        lines.append(f"  connect runtime to {agent_id};")
+        lines.append("")
+    lines.append("}")
+    return "\n".join(lines) + "\n"
+
+
+def render_runtime_sysml(model: dict[str, Any]) -> str:
+    lines = [
+        "// Generated by `mongoose architecture generate`. Do not edit by hand.",
+        "package MongooseRuntimeRouting {",
+        "  action def InstallAgent;",
+        "  action def ValidateManifest;",
+        "  action def DiscoverCapabilities;",
+        "  action def RouteRequest;",
+        "  action def DispatchCapability;",
+        "  action def ReadExternalApi;",
+        "  action runtimeRequestFlow {",
+        "    first start;",
+        "    then validateManifest : ValidateManifest;",
+        "    then discoverCapabilities : DiscoverCapabilities;",
+        "    then routeRequest : RouteRequest;",
+        "",
+    ]
+    for agent in model["agents"]:
+        for capability in agent["capabilities"]:
+            branch_name = normalize_architecture_id(
+                f"{agent['commandName']}_{capability['name']}", "RouteBranch"
+            )
+            lines.extend(
+                [
+                    f"    then {branch_name} : DispatchCapability;",
+                    f'    // branch taskTypes: {", ".join(capability["taskTypes"]) or "unspecified"}',
+                ]
+            )
+            if "ynab" in capability["taskTypes"] or "YNAB_ACCESS_TOKEN" in capability["configuration"]["required"]:
+                lines.append(f"    then {branch_name}_ReadYNAB : ReadExternalApi;")
+        lines.append("")
+    lines.extend(
+        [
+            "    then done;",
+            "  }",
+            "}",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def render_agents_mermaid(model: dict[str, Any]) -> str:
+    lines = [
+        "%% Generated by `mongoose architecture generate`. Do not edit by hand.",
+        "flowchart LR",
+        '  runtime["Mongoose Runtime"]',
+    ]
+    for agent in model["agents"]:
+        agent_node = mermaid_id(f"agent_{agent['commandName']}", "agent")
+        lines.append(f'  {agent_node}["{mermaid_label(agent["displayName"])}"]')
+        lines.append(f"  runtime --> {agent_node}")
+        for capability in agent["capabilities"]:
+            capability_node = mermaid_id(f"{agent_node}_{capability['name']}", "capability")
+            lines.append(f'  {capability_node}["{mermaid_label(capability["displayName"])}"]')
+            lines.append(f"  {agent_node} --> {capability_node}")
+    return "\n".join(lines) + "\n"
+
+
+def render_runtime_mermaid(model: dict[str, Any]) -> str:
+    lines = [
+        "%% Generated by `mongoose architecture generate`. Do not edit by hand.",
+        "flowchart TD",
+        '  request["User request"] --> route["mongoose route"]',
+        '  route --> manifest["Installed manifest metadata"]',
+        '  manifest --> select["Select capability"]',
+    ]
+    for agent in model["agents"]:
+        for capability in agent["capabilities"]:
+            capability_node = mermaid_id(f"dispatch_{agent['commandName']}_{capability['name']}", "dispatch")
+            task_label = ", ".join(capability["taskTypes"]) or capability["name"]
+            lines.append(f'  select -->|"{mermaid_label(task_label)}"| {capability_node}["{mermaid_label(agent["commandName"])} {mermaid_label(capability["name"])}"]')
+            if "ynab" in capability["taskTypes"] or "YNAB_ACCESS_TOKEN" in capability["configuration"]["required"]:
+                lines.append(f'  {capability_node} --> ynab["YNAB API read-only"]')
+            else:
+                lines.append(f'  {capability_node} --> local["Local deterministic execution"]')
+    return "\n".join(lines) + "\n"
+
+
+def render_providers_mermaid(model: dict[str, Any]) -> str:
+    lines = [
+        "%% Generated by `mongoose architecture generate`. Do not edit by hand.",
+        "flowchart LR",
+        '  runtime["Mongoose Runtime"]',
+    ]
+    for provider in model["providers"]:
+        provider_node = mermaid_id(f"provider_{provider['name']}", "provider")
+        label = f"{provider['name']} ({provider['status']})"
+        lines.append(f'  runtime --> {provider_node}["{mermaid_label(label)}"]')
+    for external in model["externalSystems"]:
+        external_node = mermaid_id(f"external_{external['name']}", "external")
+        lines.append(f'  runtime -.-> {external_node}["{mermaid_label(external["name"])}"]')
+    return "\n".join(lines) + "\n"
+
+
+def architecture_outputs(root: Path, output_root: str | None = None) -> dict[Path, str]:
+    model = build_architecture_model(root)
+    paths = architecture_output_paths(root, output_root)
+    return {
+        paths["model"]: render_architecture_model_json(model),
+        paths["agents_sysml"]: render_agents_sysml(model),
+        paths["runtime_sysml"]: render_runtime_sysml(model),
+        paths["agents_mermaid"]: render_agents_mermaid(model),
+        paths["runtime_mermaid"]: render_runtime_mermaid(model),
+        paths["providers_mermaid"]: render_providers_mermaid(model),
+    }
+
+
+def write_architecture_outputs(root: Path, output_root: str | None = None) -> list[Path]:
+    outputs = architecture_outputs(root, output_root)
+    for path, content in outputs.items():
+        atomic_write_text(path, content)
+    return sorted(outputs)
+
+
+def validate_architecture_outputs(root: Path, output_root: str | None = None) -> list[Path]:
+    stale: list[Path] = []
+    outputs = architecture_outputs(root, output_root)
+    for path, expected in outputs.items():
+        if not path.exists() or path.read_text(encoding="utf-8") != expected:
+            stale.append(path)
+    return sorted(stale)
+
+
+def cmd_architecture_generate(args: argparse.Namespace) -> int:
+    root = Path(args.root).expanduser().resolve()
+    written = write_architecture_outputs(root, args.output_root)
+    print_success("Generated Mongoose architecture artifacts.")
+    for path in written:
+        print(f"  {relative_posix(path, root) if path.is_relative_to(root) else path}")
+    return 0
+
+
+def cmd_architecture_validate(args: argparse.Namespace) -> int:
+    root = Path(args.root).expanduser().resolve()
+    stale = validate_architecture_outputs(root, args.output_root)
+    if stale:
+        print_error("Architecture artifacts are stale or missing.")
+        for path in stale:
+            print(f"  {relative_posix(path, root) if path.is_relative_to(root) else path}")
+        print_muted("Regenerate with: mongoose architecture generate --root .")
+        return 1
+    print_success("Architecture artifacts are fresh.")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     examples = """examples:
   mongoose --version
@@ -2130,6 +2498,8 @@ def build_parser() -> argparse.ArgumentParser:
   mongoose llm add openai-main --provider openai --model gpt-4.1-mini --api-key-env OPENAI_API_KEY
   mongoose llm ping openai-main
   mongoose validate
+  mongoose architecture generate --root .
+  mongoose architecture validate --root .
   mongoose remove Njord
   mongoose update
   mongoose update --registry-only
@@ -2339,6 +2709,47 @@ workflow:
         help="Optional manifest, agent directory, or registry root path to validate.",
     )
     validate.set_defaults(handler=cmd_validate)
+
+    architecture = subparsers.add_parser(
+        "architecture",
+        aliases=["arch"],
+        help="Generate and validate Mongoose architecture docs.",
+        description=(
+            "Generate or validate deterministic architecture artifacts from agent manifests, "
+            "including the shared model, SysML v2 text, and Mermaid diagrams."
+        ),
+    )
+    architecture_subparsers = architecture.add_subparsers(dest="architecture_command", required=True)
+
+    architecture_generate = architecture_subparsers.add_parser(
+        "generate",
+        help="Generate architecture model, SysML, and Mermaid artifacts.",
+    )
+    architecture_generate.add_argument(
+        "--root",
+        default=".",
+        help="Repository root to scan for agents/*/agent.json.",
+    )
+    architecture_generate.add_argument(
+        "--output-root",
+        help="Optional output directory; defaults to <root>/docs/architecture.",
+    )
+    architecture_generate.set_defaults(handler=cmd_architecture_generate)
+
+    architecture_validate = architecture_subparsers.add_parser(
+        "validate",
+        help="Validate generated architecture artifacts are fresh.",
+    )
+    architecture_validate.add_argument(
+        "--root",
+        default=".",
+        help="Repository root to scan for agents/*/agent.json.",
+    )
+    architecture_validate.add_argument(
+        "--output-root",
+        help="Optional output directory; defaults to <root>/docs/architecture.",
+    )
+    architecture_validate.set_defaults(handler=cmd_architecture_validate)
 
     update = subparsers.add_parser(
         "update",

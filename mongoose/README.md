@@ -35,6 +35,7 @@ and running agents from this repository. It can:
 - remove an installed agent command and state
 - update the local agent registry from GitHub
 - initialize and inspect user-local Mongoose state
+- generate and validate architecture model, SysML, and Mermaid documentation
 
 Check the CLI version:
 
@@ -236,6 +237,17 @@ mongoose validate
 mongoose validate agents\njord
 ```
 
+Generate or validate architecture artifacts from manifests and runtime metadata:
+
+```powershell
+mongoose architecture generate --root .
+mongoose architecture validate --root .
+```
+
+This writes a shared model, SysML v2 text views, and Mermaid diagram views under
+`docs/architecture/`. Mermaid does not parse SysML directly; both outputs are
+generated from the same architecture model.
+
 Run an installed agent entrypoint through Mongoose:
 
 ```powershell
@@ -407,6 +419,8 @@ See [Runtime Contract v1](../docs/runtime-contract.md) for the full contract and
 provider interface design.
 See [LLM Runtime v1](../docs/llm-runtime.md) for provider-neutral LLM profile
 configuration, ping behavior, and guardrails.
+See [Mongoose Architecture](../docs/architecture/README.md) for generated SysML
+and Mermaid views.
 
 ## Manifest Contract
 
