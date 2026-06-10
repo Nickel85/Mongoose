@@ -1,0 +1,244 @@
+{
+  "agents": [
+    {
+      "capabilities": [
+        {
+          "configuration": {
+            "optional": [],
+            "required": [
+              "YNAB_ACCESS_TOKEN",
+              "YNAB_BUDGET_ID"
+            ],
+            "secretRefs": [
+              "YNAB_ACCESS_TOKEN"
+            ]
+          },
+          "description": "Produce a weekly-style financial brief with observations, spending highlights, review items, and suggested next actions.",
+          "displayName": "Manual Financial Brief",
+          "entrypointPath": "agents/njord/agent.py",
+          "id": "brief",
+          "llm": {
+            "deterministicFallback": "Manual brief uses deterministic YNAB reads, review flags, spending review, and recommendations.",
+            "mode": "none"
+          },
+          "name": "brief",
+          "requires": {},
+          "taskTypes": [
+            "brief",
+            "finance",
+            "financial-brief",
+            "weekly-brief",
+            "ynab"
+          ]
+        },
+        {
+          "configuration": {
+            "optional": [
+              "YNAB_ACCESS_TOKEN",
+              "YNAB_BUDGET_ID"
+            ],
+            "required": [],
+            "secretRefs": [
+              "YNAB_ACCESS_TOKEN"
+            ]
+          },
+          "description": "Show YNAB configuration status without printing secrets.",
+          "displayName": "Configuration Status",
+          "entrypointPath": "agents/njord/agent.py",
+          "id": "config_status",
+          "llm": {
+            "deterministicFallback": "Configuration status is deterministic.",
+            "mode": "none"
+          },
+          "name": "config-status",
+          "requires": {},
+          "taskTypes": [
+            "configuration",
+            "credential-status",
+            "setup"
+          ]
+        },
+        {
+          "configuration": {
+            "optional": [
+              "YNAB_ACCESS_TOKEN"
+            ],
+            "required": [],
+            "secretRefs": [
+              "YNAB_ACCESS_TOKEN"
+            ]
+          },
+          "description": "Verify the local agent runtime and optional YNAB connection path.",
+          "displayName": "Hello World",
+          "entrypointPath": "agents/njord/agent.py",
+          "id": "hello_world",
+          "llm": {
+            "deterministicFallback": "Hello-world diagnostics are deterministic.",
+            "mode": "none"
+          },
+          "name": "hello-world",
+          "requires": {},
+          "taskTypes": [
+            "connection-test",
+            "diagnostic"
+          ]
+        },
+        {
+          "configuration": {
+            "optional": [],
+            "required": [
+              "YNAB_ACCESS_TOKEN",
+              "YNAB_BUDGET_ID"
+            ],
+            "secretRefs": [
+              "YNAB_ACCESS_TOKEN"
+            ]
+          },
+          "description": "Read YNAB data, build a normalized snapshot, and summarize the current budget state.",
+          "displayName": "YNAB Budget Summary",
+          "entrypointPath": "agents/njord/agent.py",
+          "id": "ynab_budget_summary",
+          "llm": {
+            "deterministicFallback": "Budget summary uses deterministic YNAB reads and snapshot calculations.",
+            "mode": "none"
+          },
+          "name": "ynab-budget-summary",
+          "requires": {},
+          "taskTypes": [
+            "budget-summary",
+            "finance",
+            "review-needed",
+            "ynab"
+          ]
+        },
+        {
+          "configuration": {
+            "optional": [],
+            "required": [
+              "YNAB_ACCESS_TOKEN",
+              "YNAB_BUDGET_ID"
+            ],
+            "secretRefs": [
+              "YNAB_ACCESS_TOKEN"
+            ]
+          },
+          "description": "Review income, outflows, net cash flow, top categories, and notable transactions for a month or date range.",
+          "displayName": "YNAB Spending Review",
+          "entrypointPath": "agents/njord/agent.py",
+          "id": "ynab_spending_review",
+          "llm": {
+            "deterministicFallback": "Spending review uses deterministic YNAB reads and snapshot calculations.",
+            "mode": "none"
+          },
+          "name": "ynab-spending-review",
+          "requires": {},
+          "taskTypes": [
+            "cash-flow",
+            "finance",
+            "spending-review",
+            "transactions",
+            "ynab"
+          ]
+        }
+      ],
+      "commandName": "Njord",
+      "configuration": {
+        "optional": [],
+        "required": [
+          "YNAB_ACCESS_TOKEN",
+          "YNAB_BUDGET_ID"
+        ],
+        "secretRefs": [
+          "YNAB_ACCESS_TOKEN"
+        ]
+      },
+      "description": "Personal finance agent for YNAB budget analysis and financial summaries.",
+      "displayName": "Njord",
+      "entrypointPath": "agents/njord/agent.py",
+      "id": "njord",
+      "llm": {
+        "deterministicFallback": "All current Njord capabilities run without an LLM.",
+        "mode": "none"
+      },
+      "manifestId": "njord",
+      "manifestPath": "agents/njord/agent.json",
+      "requires": {},
+      "taskTypes": [
+        "budget",
+        "finance",
+        "ynab"
+      ],
+      "version": "0.1.0"
+    }
+  ],
+  "externalSystems": [
+    {
+      "access": "read-only",
+      "name": "YNAB API",
+      "usedByTaskType": "ynab"
+    }
+  ],
+  "generatedBy": "mongoose 0.5.0",
+  "providers": [
+    {
+      "interface": "environment and user-local config names",
+      "name": "configuration",
+      "status": "implemented"
+    },
+    {
+      "interface": "redacted JSONL logs",
+      "name": "logs",
+      "status": "implemented"
+    },
+    {
+      "interface": "user-local state directories",
+      "name": "state",
+      "status": "implemented"
+    },
+    {
+      "interface": "agent-scoped local storage path",
+      "name": "storage",
+      "status": "implemented"
+    },
+    {
+      "interface": "provider-neutral LLM profiles and ping",
+      "name": "llm",
+      "status": "profile-management"
+    },
+    {
+      "interface": "runtime provider descriptor",
+      "name": "memory",
+      "status": "planned"
+    },
+    {
+      "interface": "runtime provider descriptor",
+      "name": "tools",
+      "status": "planned"
+    },
+    {
+      "interface": "configured external API profiles",
+      "name": "apiProfiles",
+      "status": "planned"
+    }
+  ],
+  "runtime": {
+    "name": "Mongoose Runtime",
+    "responsibilities": [
+      "install agent commands",
+      "validate manifests",
+      "discover capabilities",
+      "route requests",
+      "provide runtime context",
+      "manage provider profiles"
+    ]
+  },
+  "schemaVersion": 1,
+  "source": {
+    "agentManifests": [
+      "agents/njord/agent.json"
+    ],
+    "manifestSchemaVersion": 1,
+    "root": ".",
+    "runtimeContractVersion": 1
+  }
+}

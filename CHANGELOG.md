@@ -1,5 +1,23 @@
 # Changelog
 
+## v0.5.0 - Architecture Modeling And Diagram Generation
+
+Planned release type: minor.
+
+This release adds generated architecture documentation so Mongoose can describe
+agents, capabilities, routing behavior, runtime providers, and external API
+boundaries from the same manifest-backed model.
+
+### Added
+
+- Add `mongoose architecture generate` and `mongoose architecture validate`.
+- Generate a shared architecture model at `docs/architecture/model.json`.
+- Generate SysML v2 text views for agent structure and runtime routing.
+- Generate Mermaid diagram views for agents, routing, and runtime providers.
+- Add SysML modeling conventions for structure, behavior, variants, and branch
+  terminology.
+- Add CI validation that fails when generated architecture artifacts are stale.
+
 ## v0.4.0 - Provider-Neutral LLM Runtime Interfaces
 
 Planned release type: minor.

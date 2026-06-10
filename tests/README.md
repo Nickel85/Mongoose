@@ -10,6 +10,9 @@ The Mongoose executable build workflow lives at `.github/workflows/mongoose-buil
 
 The mongoose command smoke workflow lives at `.github/workflows/mongoose-smoke.yml`.
 
+The generated architecture validation workflow lives at
+`.github/workflows/architecture-validation.yml`.
+
 Install validation runs on:
 
 - `push`
@@ -24,6 +27,9 @@ The mongoose build workflow runs on:
 It uploads `dist/mongoose.exe` as an Actions artifact. On version tags, it also attaches `mongoose.exe` to the GitHub Release.
 
 The mongoose smoke workflow runs on the same pull request, push, and tag triggers. It builds `mongoose.exe`, validates installed-binary self-update behavior, then smoke-tests `list`, `install`, `uninstall`, and default/scoped `update` flows.
+
+The architecture validation workflow runs on `push` and `pull_request` and
+fails when generated architecture artifacts are stale.
 
 All workflows use `windows-latest` because the installer and executable are currently Windows-focused.
 
@@ -153,6 +159,24 @@ This test verifies:
 - active project docs/code do not contain stale legacy repository references.
 - GitHub Actions runs release-version validation before building, uploading, or
   attaching release assets.
+
+## Architecture Validation
+
+Script:
+
+```text
+tests/architecture-validation.py
+```
+
+Run locally from the repository root:
+
+```powershell
+python .\tests\architecture-validation.py
+```
+
+This test verifies that the committed architecture model, SysML text views, and
+Mermaid diagrams are fresh relative to current agent manifests and Mongoose
+runtime metadata.
 
 ## Self-Update Validation
 

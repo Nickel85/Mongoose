@@ -1,0 +1,18 @@
+name: Architecture Validation
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  validate-architecture:
+    name: Validate generated architecture artifacts
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate architecture artifacts
+        shell: pwsh
+        run: python ./tests/architecture-validation.py

@@ -38,6 +38,9 @@ The current runtime contract and provider interface design is documented in
 [docs/runtime-contract.md](docs/runtime-contract.md).
 The provider-neutral LLM profile and ping contract is documented in
 [docs/llm-runtime.md](docs/llm-runtime.md).
+Generated architecture views for the runtime, agents, SysML text, and Mermaid
+diagrams are documented in
+[docs/architecture/README.md](docs/architecture/README.md).
 
 Mongoose platform milestones and Njord agent-value milestones are intentionally
 sequenced separately. Njord is the first concrete use case and should prove
@@ -110,6 +113,8 @@ mongoose remove Njord
 mongoose update
 mongoose update --registry-only
 mongoose update --self-only
+mongoose architecture generate --root .
+mongoose architecture validate --root .
 ```
 
 `mongoose update` refreshes the configured GitHub-backed registry and checks the
@@ -142,6 +147,17 @@ mongoose route --task-type weekly-brief "weekly financial brief"
 ```
 
 Secrets do not belong in manifests. Manifests should reference configuration names such as `YNAB_ACCESS_TOKEN`; actual tokens stay in environment variables, user-local config, or future Mongoose secret/profile storage.
+
+Architecture artifacts can be regenerated from manifests and runtime metadata:
+
+```powershell
+mongoose architecture generate --root .
+mongoose architecture validate --root .
+```
+
+The generated Mermaid diagrams and SysML text both use the shared architecture
+model in `docs/architecture/model.json`; Mermaid is the visual projection and
+SysML is the formal textual view.
 
 Each agent README contains the agent-specific install name, configuration, examples, and any extra setup:
 
@@ -197,7 +213,7 @@ commercialize, license, sell, transfer, or otherwise monetize this project.
 - `install.cmd`: One-file no-admin installer for installable agents.
 - `install/`: User-local installer support scripts.
 - `mongoose/`: Mongoose runtime CLI and launcher source.
-- `docs/`: Release scope gates and project planning guidance.
+- `docs/`: Runtime, architecture, release scope, and project planning guidance.
 - `build-mongoose.cmd`: Builds `dist/mongoose.exe`.
 - `install-mongoose.cmd`: Installs `mongoose.exe` as a user-local CLI.
 - `tests/`: Local validation scripts also used by GitHub Actions.
