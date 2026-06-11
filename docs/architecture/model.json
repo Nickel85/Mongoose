@@ -178,7 +178,7 @@
       "usedByTaskType": "ynab"
     }
   ],
-  "generatedBy": "mongoose 0.5.0",
+  "generatedBy": "mongoose 0.6.0",
   "providers": [
     {
       "interface": "environment and user-local config names",
