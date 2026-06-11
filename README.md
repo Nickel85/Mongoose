@@ -109,6 +109,9 @@ mongoose capabilities
 mongoose route --task-type budget-summary "current budget"
 mongoose run Njord config status
 mongoose run Njord brief
+mongoose jobs list
+mongoose status
+mongoose llm setup
 mongoose remove Njord
 mongoose update
 mongoose update --registry-only
@@ -144,6 +147,23 @@ Once agents are installed, Mongoose can route requests across declared capabilit
 ```powershell
 mongoose route --task-type budget-summary "current budget"
 mongoose route --task-type weekly-brief "weekly financial brief"
+```
+
+Mongoose records jobs for `mongoose run` and non-dry-run `mongoose route`
+executions. Inspect recent activity and runtime health with:
+
+```powershell
+mongoose jobs list
+mongoose jobs show <job-id>
+mongoose status
+mongoose runtime status
+```
+
+Configure an LLM profile through a terminal-first guided setup flow:
+
+```powershell
+mongoose llm setup
+mongoose llm ping
 ```
 
 Secrets do not belong in manifests. Manifests should reference configuration names such as `YNAB_ACCESS_TOKEN`; actual tokens stay in environment variables, user-local config, or future Mongoose secret/profile storage.

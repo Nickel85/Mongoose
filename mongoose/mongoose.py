@@ -33,9 +33,11 @@ LLM_PROFILE_ROOT = STATE_ROOT / "llm"
 LLM_PROFILE_PATH = LLM_PROFILE_ROOT / "profiles.json"
 DEFAULT_REGISTRY_URL = "https://github.com/Nickel85/Mongoose.git"
 DEFAULT_LOG_RETENTION_DAYS = 30
+DEFAULT_JOB_RETENTION = 50
+DEFAULT_OLLAMA_TAGS_ENDPOINT = "http://localhost:11434/api/tags"
 MONGOOSE_RELEASES_API_URL = "https://api.github.com/repos/Nickel85/Mongoose/releases"
 MONGOOSE_RELEASE_ASSET_NAME = "mongoose.exe"
-MONGOOSE_VERSION = "0.5.0"
+MONGOOSE_VERSION = "0.6.0"
 MONGOOSE_RELEASE_KIND = "development"
 MONGOOSE_RELEASE_TAG = ""
 # Increment only for breaking manifest contract changes. Additive optional metadata stays on the same version.
@@ -1026,6 +1028,185 @@ def write_runtime_context(context: dict[str, Any]) -> Path:
     return path
 
 
+def now_utc_iso() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
+
+def safe_state_name(value: str, fallback: str) -> str:
+    safe_name = re.sub(r"[^A-Za-z0-9_.-]+", "-", value).strip(".-")
+    return safe_name or fallback
+
+
+def job_path(job_id: str) -> Path:
+    return JOBS_ROOT / f"{safe_state_name(job_id, 'job')}.json"
+
+
+def job_log_path(job_id: str) -> Path:
+    return LOG_ROOT / f"job-{safe_state_name(job_id, 'job')}.jsonl"
+
+
+def output_summary(stdout: str, stderr: str, max_chars: int = 2000) -> dict[str, Any]:
+    redacted_stdout = redact_secret_text(stdout or "")
+    redacted_stderr = redact_secret_text(stderr or "")
+    combined = "\n".join(part for part in (redacted_stdout.strip(), redacted_stderr.strip()) if part)
+    if len(combined) > max_chars:
+        combined = f"{combined[:max_chars]}..."
+    return {
+        "stdoutPreview": redacted_stdout[:max_chars],
+        "stderrPreview": redacted_stderr[:max_chars],
+        "combinedPreview": combined,
+        "truncated": len(redacted_stdout) > max_chars or len(redacted_stderr) > max_chars,
+    }
+
+
+def write_job_record(job: dict[str, Any]) -> Path:
+    ensure_state_layout()
+    path = job_path(str(job.get("id", "")))
+    write_json_atomic(path, redact_secrets(job))
+    return path
+
+
+def append_job_log(job_id: str, message: str, level: str = "INFO", **metadata: Any) -> Path:
+    ensure_state_layout()
+    path = job_log_path(job_id)
+    record = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "level": level.upper(),
+        "component": "mongoose.job",
+        "jobId": job_id,
+        "message": redact_secret_text(message),
+    }
+    if metadata:
+        record["metadata"] = redact_secrets(metadata)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as file:
+        file.write(json.dumps(record, sort_keys=True) + "\n")
+    return path
+
+
+def begin_job(
+    *,
+    context: dict[str, Any],
+    mode: str,
+    agent: dict[str, Any],
+    entrypoint: Path,
+    agent_args: list[str],
+    capability: dict[str, Any] | None = None,
+    route: dict[str, Any] | None = None,
+    context_path: Path,
+) -> dict[str, Any]:
+    invocation = context.get("invocation", {})
+    job_id = str(invocation.get("id", f"{int(time.time())}-{os.getpid()}"))
+    started_at = now_utc_iso()
+    job = {
+        "schemaVersion": 1,
+        "id": job_id,
+        "status": "running",
+        "mode": mode,
+        "agent": {
+            "commandName": agent.get("commandName", ""),
+            "displayName": agent.get("displayName", ""),
+            "version": agent.get("version", ""),
+        },
+        "capability": capability.get("name", "") if isinstance(capability, dict) else "",
+        "route": route or {},
+        "arguments": redact_secrets(agent_args),
+        "entrypoint": str(entrypoint),
+        "startedAt": started_at,
+        "finishedAt": "",
+        "durationMs": 0,
+        "exitCode": None,
+        "contextPath": str(context_path),
+        "logPath": str(job_log_path(job_id)),
+        "outputSummary": {},
+    }
+    write_job_record(job)
+    append_job_log(job_id, "Job started.", mode=mode, agent=job["agent"], capability=job["capability"])
+    return job
+
+
+def finish_job(job: dict[str, Any], exit_code: int, stdout: str, stderr: str) -> dict[str, Any]:
+    finished_at = datetime.now(timezone.utc)
+    started = datetime.fromisoformat(str(job.get("startedAt", now_utc_iso())))
+    status = "succeeded" if exit_code == 0 else "failed"
+    job.update(
+        {
+            "status": status,
+            "finishedAt": finished_at.replace(microsecond=0).isoformat(),
+            "durationMs": int((finished_at - started).total_seconds() * 1000),
+            "exitCode": exit_code,
+            "outputSummary": output_summary(stdout, stderr),
+        }
+    )
+    write_job_record(job)
+    append_job_log(job["id"], f"Job {status}.", level="INFO" if exit_code == 0 else "ERROR", exitCode=exit_code)
+    prune_jobs(DEFAULT_JOB_RETENTION)
+    return job
+
+
+def load_job_records() -> list[dict[str, Any]]:
+    if not JOBS_ROOT.exists():
+        return []
+    records: list[dict[str, Any]] = []
+    for path in sorted(JOBS_ROOT.glob("*.json")):
+        record = read_json(path, default={})
+        if isinstance(record, dict) and record.get("id"):
+            records.append(record)
+    return sorted(records, key=lambda item: str(item.get("startedAt", "")), reverse=True)
+
+
+def load_job_record(job_id: str) -> dict[str, Any] | None:
+    path = job_path(job_id)
+    record = read_json(path, default=None)
+    return record if isinstance(record, dict) else None
+
+
+def prune_jobs(max_records: int) -> list[Path]:
+    if max_records <= 0 or not JOBS_ROOT.exists():
+        return []
+    records = load_job_records()
+    stale = records[max_records:]
+    removed: list[Path] = []
+    for record in stale:
+        path = job_path(str(record.get("id", "")))
+        if path.exists():
+            path.unlink()
+            removed.append(path)
+    return removed
+
+
+def runtime_state_path() -> Path:
+    return RUNTIME_ROOT / "runtime.json"
+
+
+def load_runtime_state() -> dict[str, Any]:
+    state = read_json(runtime_state_path(), default={})
+    if not isinstance(state, dict):
+        state = {}
+    return {
+        "schemaVersion": 1,
+        "status": state.get("status", "stopped"),
+        "startedAt": state.get("startedAt", ""),
+        "updatedAt": state.get("updatedAt", ""),
+        "message": state.get("message", "No background runtime daemon is running."),
+    }
+
+
+def save_runtime_state(status: str, message: str) -> dict[str, Any]:
+    ensure_state_layout()
+    existing = load_runtime_state()
+    timestamp = now_utc_iso()
+    state = {
+        "schemaVersion": 1,
+        "status": status,
+        "startedAt": timestamp if status == "running" else existing.get("startedAt", ""),
+        "updatedAt": timestamp,
+        "message": message,
+    }
+    write_json_atomic(runtime_state_path(), state)
+    return state
+
+
 def run_agent_with_runtime(
     *,
     mode: str,
@@ -1043,16 +1224,34 @@ def run_agent_with_runtime(
         agent_args=agent_args,
     )
     context_path = write_runtime_context(context)
+    job = begin_job(
+        context=context,
+        mode=mode,
+        agent=agent,
+        capability=capability,
+        route=route,
+        entrypoint=entrypoint,
+        agent_args=agent_args,
+        context_path=context_path,
+    )
     env = {
         **os.environ,
         "MONGOOSE_RUNTIME_CONTEXT": str(context_path),
         "MONGOOSE_RUNTIME_CONTRACT_VERSION": str(SUPPORTED_RUNTIME_CONTRACT_VERSION),
+        "MONGOOSE_JOB_ID": job["id"],
     }
     completed = subprocess.run(
         [sys.executable, str(entrypoint), *agent_args],
         check=False,
         env=env,
+        capture_output=True,
+        text=True,
     )
+    if completed.stdout:
+        print(completed.stdout, end="")
+    if completed.stderr:
+        print(completed.stderr, end="", file=sys.stderr)
+    finish_job(job, completed.returncode, completed.stdout or "", completed.stderr or "")
     return completed.returncode
 
 
@@ -1517,6 +1716,158 @@ def cmd_state(args: argparse.Namespace) -> int:
     return 0
 
 
+def runtime_health_summary() -> dict[str, Any]:
+    ensure_state_layout()
+    runtime = load_runtime_state()
+    jobs = load_job_records()
+    active_jobs = [job for job in jobs if job.get("status") == "running"]
+    recent_failures = [job for job in jobs if job.get("status") == "failed"][:5]
+    installed = load_installed_agents()
+    llm_profiles = load_llm_profiles()
+    default_llm = str(llm_profiles.get("default", "")).strip()
+    registry = registry_path(load_config())
+    return {
+        "version": MONGOOSE_VERSION,
+        "runtime": runtime,
+        "paths": state_contract(),
+        "registry": {
+            "path": str(registry),
+            "revision": registry_revision(registry),
+            "status": registry_status(registry),
+        },
+        "installedAgents": len(installed),
+        "installedCapabilities": len(installed_capability_records(installed)),
+        "jobs": {
+            "total": len(jobs),
+            "active": len(active_jobs),
+            "recentFailures": len(recent_failures),
+            "latest": jobs[0]["id"] if jobs else "",
+        },
+        "llm": {
+            "defaultProfile": default_llm,
+            "configuredProfiles": len(llm_profiles.get("profiles", {})) if isinstance(llm_profiles.get("profiles", {}), dict) else 0,
+        },
+    }
+
+
+def print_runtime_health(summary: dict[str, Any]) -> None:
+    print_heading("Mongoose status")
+    print(label_line("Version", summary["version"]))
+    print(label_line("Runtime", summary["runtime"].get("status", "unknown"), "success" if summary["runtime"].get("status") == "running" else "warning"))
+    if summary["runtime"].get("message"):
+        print(label_line("Runtime note", summary["runtime"]["message"], "muted"))
+    print(label_line("Registry", f"{summary['registry']['status']} @ {summary['registry']['revision']}"))
+    print(label_line("Installed agents", summary["installedAgents"]))
+    print(label_line("Installed capabilities", summary["installedCapabilities"]))
+    print(label_line("Jobs", f"{summary['jobs']['total']} total, {summary['jobs']['active']} active, {summary['jobs']['recentFailures']} recent failure(s)"))
+    if summary["jobs"].get("latest"):
+        print(label_line("Latest job", summary["jobs"]["latest"], "muted"))
+    llm_default = summary["llm"].get("defaultProfile") or "none"
+    print(label_line("Default LLM", llm_default, "success" if llm_default != "none" else "warning"))
+
+
+def cmd_status(args: argparse.Namespace) -> int:
+    summary = runtime_health_summary()
+    if args.json:
+        print(json.dumps(summary, indent=2, sort_keys=True))
+    else:
+        print_runtime_health(summary)
+    return 0
+
+
+def cmd_runtime_status(args: argparse.Namespace) -> int:
+    return cmd_status(args)
+
+
+def cmd_runtime_start(_: argparse.Namespace) -> int:
+    state = save_runtime_state(
+        "running",
+        "Runtime foundation is marked running. Background daemon execution is planned for scheduler milestones.",
+    )
+    print_success("Mongoose runtime marked running.")
+    print(label_line("Status", state["status"]))
+    print(label_line("State", runtime_state_path(), "muted"))
+    return 0
+
+
+def cmd_runtime_stop(_: argparse.Namespace) -> int:
+    state = save_runtime_state("stopped", "Runtime foundation is stopped.")
+    print_success("Mongoose runtime marked stopped.")
+    print(label_line("Status", state["status"]))
+    return 0
+
+
+def cmd_runtime_restart(args: argparse.Namespace) -> int:
+    cmd_runtime_stop(args)
+    print("")
+    return cmd_runtime_start(args)
+
+
+def cmd_jobs_list(args: argparse.Namespace) -> int:
+    jobs = load_job_records()[: args.limit]
+    if args.json:
+        print(json.dumps(jobs, indent=2, sort_keys=True))
+        return 0
+    if not jobs:
+        print_warning("No Mongoose jobs recorded yet.")
+        print_muted("Run an installed agent through `mongoose run` or `mongoose route` to create a job record.")
+        return 0
+    print_heading("Mongoose jobs")
+    for job in jobs:
+        capability = f"::{job.get('capability')}" if job.get("capability") else ""
+        print(
+            f"  {job.get('id')}  {job.get('status')}  "
+            f"{job.get('agent', {}).get('commandName', '')}{capability}  "
+            f"exit={job.get('exitCode')}  {job.get('startedAt')}"
+        )
+    return 0
+
+
+def cmd_jobs_show(args: argparse.Namespace) -> int:
+    job = load_job_record(args.id)
+    if job is None:
+        print_error(f"Job '{args.id}' was not found.")
+        return 1
+    if args.json:
+        print(json.dumps(job, indent=2, sort_keys=True))
+        return 0
+    print_heading(f"Job: {job.get('id')}")
+    print(label_line("Status", job.get("status", ""), "success" if job.get("status") == "succeeded" else "warning"))
+    print(label_line("Mode", job.get("mode", "")))
+    print(label_line("Agent", job.get("agent", {}).get("commandName", "")))
+    if job.get("capability"):
+        print(label_line("Capability", job.get("capability")))
+    print(label_line("Started", job.get("startedAt", ""), "muted"))
+    if job.get("finishedAt"):
+        print(label_line("Finished", job.get("finishedAt"), "muted"))
+    print(label_line("Exit code", job.get("exitCode")))
+    print(label_line("Context", job.get("contextPath", ""), "muted"))
+    print(label_line("Log", job.get("logPath", ""), "muted"))
+    preview = job.get("outputSummary", {}).get("combinedPreview", "")
+    if preview:
+        print("")
+        print_heading("Output preview")
+        print(preview)
+    return 0
+
+
+def cmd_jobs_cancel(args: argparse.Namespace) -> int:
+    job = load_job_record(args.id)
+    if job is None:
+        print_error(f"Job '{args.id}' was not found.")
+        return 1
+    if job.get("status") != "running":
+        print_warning(f"Job '{args.id}' is already {job.get('status')}.")
+        return 0
+    job["status"] = "cancel-requested"
+    job["finishedAt"] = now_utc_iso()
+    job["message"] = "Cancellation requested. Direct process cancellation is not available for this runtime foundation."
+    write_job_record(job)
+    append_job_log(job["id"], job["message"], level="WARNING")
+    print_warning(job["message"])
+    return 0
+
+
 def cmd_list(args: argparse.Namespace) -> int:
     installed = load_installed_agents()
     if args.installed:
@@ -1924,6 +2275,181 @@ def cmd_llm_add(args: argparse.Namespace) -> int:
     if data.get("default") == name:
         print(label_line("Default", "yes", "success"))
     return 0
+
+
+def prompt_text(prompt: str, default: str = "") -> str:
+    suffix = f" [{default}]" if default else ""
+    value = input(f"{prompt}{suffix}: ").strip()
+    return value or default
+
+
+def prompt_yes_no(prompt: str, default: bool = True) -> bool:
+    default_label = "Y/n" if default else "y/N"
+    value = input(f"{prompt} [{default_label}]: ").strip().lower()
+    if not value:
+        return default
+    return value in {"y", "yes", "true", "1"}
+
+
+def normalize_setup_provider(provider: str) -> str:
+    normalized = provider.strip().lower()
+    aliases = {
+        "ollama": "local-http",
+        "local": "local-http",
+        "local-http": "local-http",
+        "openai": "openai",
+        "anthropic": "anthropic",
+        "fake": "fake",
+        "test": "fake",
+    }
+    if normalized not in aliases:
+        raise ValueError("Provider must be one of: ollama, local-http, openai, anthropic, fake.")
+    return aliases[normalized]
+
+
+def ollama_models(endpoint: str, timeout_seconds: float = 2.0) -> tuple[bool, list[str], str]:
+    request = urllib.request.Request(endpoint, headers={"User-Agent": f"mongoose/{MONGOOSE_VERSION}"}, method="GET")
+    try:
+        with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except (OSError, TimeoutError, json.JSONDecodeError) as exc:
+        return False, [], redact_secret_text(str(exc))
+
+    models: list[str] = []
+    if isinstance(payload, dict):
+        for item in list_value(payload.get("models")):
+            if isinstance(item, dict):
+                name = str(item.get("name", "")).strip()
+                if name:
+                    models.append(name)
+    return True, sorted(dict.fromkeys(models)), ""
+
+
+def save_llm_profile_from_setup(
+    *,
+    name: str,
+    provider: str,
+    model: str,
+    endpoint: str = "",
+    api_key_env: str = "",
+    make_default: bool = False,
+) -> tuple[int, dict[str, Any]]:
+    profile = {
+        "provider": provider,
+        "model": model,
+        "endpoint": endpoint,
+        "secret": {
+            "mode": "env",
+            "env": api_key_env,
+        },
+        "capabilities": [],
+        "createdAt": now_utc_iso(),
+        "configuredBy": "mongoose llm setup",
+    }
+    errors = validate_llm_profile(profile)
+    if errors:
+        print_runtime_error(
+            runtime_error(
+                "mongoose.llm_profile_invalid",
+                f"LLM profile '{name}' is invalid.",
+                profile=name,
+                errors=errors,
+            )
+        )
+        return 1, profile
+    data = load_llm_profiles()
+    profiles = data.setdefault("profiles", {})
+    profiles[name] = profile
+    if make_default or not data.get("default"):
+        data["default"] = name
+    save_llm_profiles(data)
+    return 0, profile
+
+
+def cmd_llm_setup(args: argparse.Namespace) -> int:
+    print_heading("Mongoose LLM setup")
+    raw_provider = args.provider or ("ollama" if args.yes else prompt_text("Provider (ollama, openai, anthropic, fake)", "ollama"))
+    provider = normalize_setup_provider(raw_provider)
+    display_provider = "ollama" if raw_provider.strip().lower() == "ollama" else provider
+
+    default_name = {
+        "local-http": "ollama-local" if display_provider == "ollama" else "local-http",
+        "openai": "openai-main",
+        "anthropic": "anthropic-main",
+        "fake": "fake-main",
+    }[provider]
+    name = normalize_profile_name(args.name or (default_name if args.yes else prompt_text("Profile name", default_name)))
+
+    endpoint = args.endpoint or ""
+    model = args.model or ""
+    api_key_env = args.api_key_env or ""
+
+    if provider == "local-http":
+        endpoint = endpoint or (DEFAULT_OLLAMA_TAGS_ENDPOINT if args.yes else prompt_text("Local HTTP endpoint", DEFAULT_OLLAMA_TAGS_ENDPOINT))
+        reachable, models, error = ollama_models(endpoint)
+        if reachable:
+            print_success("Local LLM endpoint reachable.")
+            if models:
+                print(label_line("Available models", ", ".join(models)))
+                model = model or (models[0] if args.yes else prompt_text("Model", models[0]))
+            else:
+                print_warning("No local models were reported by the endpoint.")
+                print_muted("For Ollama, install a model with: ollama pull llama3.2")
+                model = model or ("llama3.2" if args.yes else prompt_text("Model to configure", "llama3.2"))
+        else:
+            print_warning("Local LLM endpoint was not reachable.")
+            print_muted(f"Endpoint error: {error}")
+            print_muted("For Ollama, start Ollama and install a model with: ollama pull llama3.2")
+            model = model or ("llama3.2" if args.yes else prompt_text("Model to configure", "llama3.2"))
+    elif provider == "fake":
+        model = model or ("fake-chat" if args.yes else prompt_text("Model", "fake-chat"))
+    elif provider == "openai":
+        model = model or ("gpt-4.1-mini" if args.yes else prompt_text("Model", "gpt-4.1-mini"))
+        api_key_env = api_key_env or ("OPENAI_API_KEY" if args.yes else prompt_text("API key environment variable", "OPENAI_API_KEY"))
+    elif provider == "anthropic":
+        model = model or ("claude-3-5-sonnet-latest" if args.yes else prompt_text("Model", "claude-3-5-sonnet-latest"))
+        api_key_env = api_key_env or ("ANTHROPIC_API_KEY" if args.yes else prompt_text("API key environment variable", "ANTHROPIC_API_KEY"))
+
+    if api_key_env:
+        if os.environ.get(api_key_env):
+            print_success(f"Environment variable {api_key_env} is set.")
+        else:
+            print_warning(f"Environment variable {api_key_env} is not set in this terminal.")
+            print_muted(f"Set it before pinging this profile: $env:{api_key_env}='<secret>'")
+
+    make_default = args.default or args.yes or prompt_yes_no("Make this the default LLM profile?", True)
+    code, profile = save_llm_profile_from_setup(
+        name=name,
+        provider=provider,
+        model=model,
+        endpoint=endpoint,
+        api_key_env=api_key_env,
+        make_default=make_default,
+    )
+    if code != 0:
+        return code
+
+    print_success("Mongoose LLM profile configured.")
+    print(label_line("Name", name))
+    print(label_line("Provider", provider))
+    print(label_line("Model", model))
+    if endpoint:
+        print(label_line("Endpoint", endpoint, "muted"))
+    if api_key_env:
+        print(label_line("API key env", api_key_env, "muted"))
+    print(label_line("Default", "yes" if make_default or load_llm_profiles().get("default") == name else "no"))
+
+    if args.skip_ping:
+        print_muted("Skipped LLM ping.")
+        return 0
+
+    print("")
+    print_heading("Ping")
+    ping_args = argparse.Namespace(name=name, timeout=args.timeout)
+    result = cmd_llm_ping(ping_args)
+    if result != 0:
+        print_muted("Review the diagnostics above, then rerun: mongoose llm ping " + name)
+    return result
 
 
 def cmd_llm_use(args: argparse.Namespace) -> int:
@@ -2495,7 +3021,10 @@ def build_parser() -> argparse.ArgumentParser:
   mongoose show Njord
   mongoose run Njord config status
   mongoose route --task-type budget-summary "current budget"
+  mongoose jobs list
+  mongoose status
   mongoose llm add openai-main --provider openai --model gpt-4.1-mini --api-key-env OPENAI_API_KEY
+  mongoose llm setup
   mongoose llm ping openai-main
   mongoose validate
   mongoose architecture generate --root .
@@ -2513,9 +3042,10 @@ workflow:
   3. Run `mongoose show <agent>` to inspect installed metadata and capabilities.
   4. Run `mongoose capabilities` to inspect routeable installed capabilities.
   5. Run `mongoose route --task-type <type> ...` or `mongoose run <agent> ...`.
-  6. Run `mongoose llm add ...` and `mongoose llm ping ...` before enabling LLM-backed agents.
-  7. Run `mongoose update` to refresh the registry and check for a Mongoose CLI update.
-  8. Use `mongoose update --registry-only` or `mongoose update --self-only` for scoped updates.
+  6. Run `mongoose jobs list` and `mongoose status` to inspect runtime activity.
+  7. Run `mongoose llm setup` or `mongoose llm add ...` before enabling LLM-backed agents.
+  8. Run `mongoose update` to refresh the registry and check for a Mongoose CLI update.
+  9. Use `mongoose update --registry-only` or `mongoose update --self-only` for scoped updates.
 """
     parser = argparse.ArgumentParser(
         prog="mongoose",
@@ -2564,6 +3094,48 @@ workflow:
         help="Number of days of logs to keep when --cleanup-logs is used.",
     )
     state.set_defaults(handler=cmd_state)
+
+    status = subparsers.add_parser(
+        "status",
+        help="Show Mongoose runtime health and observability summary.",
+        description="Summarize installed agents, registry health, jobs, runtime state, and LLM profile setup.",
+    )
+    status.add_argument("--json", action="store_true", help="Print status as JSON.")
+    status.set_defaults(handler=cmd_status)
+
+    runtime = subparsers.add_parser(
+        "runtime",
+        help="Inspect and control the local Mongoose runtime foundation.",
+        description="Show or mark local runtime foundation state. Background daemon scheduling is future work.",
+    )
+    runtime_subparsers = runtime.add_subparsers(dest="runtime_command", required=True)
+    runtime_status = runtime_subparsers.add_parser("status", help="Show runtime status and health.")
+    runtime_status.add_argument("--json", action="store_true", help="Print runtime status as JSON.")
+    runtime_status.set_defaults(handler=cmd_runtime_status)
+    runtime_start = runtime_subparsers.add_parser("start", help="Mark runtime foundation as running.")
+    runtime_start.set_defaults(handler=cmd_runtime_start)
+    runtime_stop = runtime_subparsers.add_parser("stop", help="Mark runtime foundation as stopped.")
+    runtime_stop.set_defaults(handler=cmd_runtime_stop)
+    runtime_restart = runtime_subparsers.add_parser("restart", help="Restart the runtime foundation marker.")
+    runtime_restart.set_defaults(handler=cmd_runtime_restart)
+
+    jobs = subparsers.add_parser(
+        "jobs",
+        help="Inspect recent Mongoose agent jobs and run records.",
+        description="List, show, and request cancellation for jobs created by mongoose run and route.",
+    )
+    jobs_subparsers = jobs.add_subparsers(dest="jobs_command", required=True)
+    jobs_list = jobs_subparsers.add_parser("list", aliases=["ls"], help="List recent jobs.")
+    jobs_list.add_argument("--limit", type=int, default=20, help="Maximum jobs to show.")
+    jobs_list.add_argument("--json", action="store_true", help="Print jobs as JSON.")
+    jobs_list.set_defaults(handler=cmd_jobs_list)
+    jobs_show = jobs_subparsers.add_parser("show", help="Show one job record.")
+    jobs_show.add_argument("id", help="Job id to inspect.")
+    jobs_show.add_argument("--json", action="store_true", help="Print job as JSON.")
+    jobs_show.set_defaults(handler=cmd_jobs_show)
+    jobs_cancel = jobs_subparsers.add_parser("cancel", help="Request cancellation for an active job.")
+    jobs_cancel.add_argument("id", help="Job id to cancel.")
+    jobs_cancel.set_defaults(handler=cmd_jobs_cancel)
 
     list_parser = subparsers.add_parser(
         "list",
@@ -2653,6 +3225,22 @@ workflow:
         description="Configure, inspect, select, and ping secret-safe provider-neutral LLM profiles.",
     )
     llm_subparsers = llm.add_subparsers(dest="llm_command", required=True)
+
+    llm_setup = llm_subparsers.add_parser(
+        "setup",
+        help="Walk through guided LLM profile setup.",
+        description="Configure a provider-neutral LLM profile with prompts and secret-safe diagnostics.",
+    )
+    llm_setup.add_argument("--provider", choices=["ollama", "local-http", "openai", "anthropic", "fake"], help="Provider setup path.")
+    llm_setup.add_argument("--name", help="Profile name.")
+    llm_setup.add_argument("--model", help="Model name.")
+    llm_setup.add_argument("--endpoint", help="Endpoint URL for local HTTP providers.")
+    llm_setup.add_argument("--api-key-env", help="Environment variable that contains a remote provider API key.")
+    llm_setup.add_argument("--default", action="store_true", help="Make this profile the default.")
+    llm_setup.add_argument("--yes", action="store_true", help="Accept non-secret defaults for omitted prompts.")
+    llm_setup.add_argument("--skip-ping", action="store_true", help="Configure the profile without pinging it.")
+    llm_setup.add_argument("--timeout", type=float, default=10.0, help="Ping timeout in seconds.")
+    llm_setup.set_defaults(handler=cmd_llm_setup)
 
     llm_add = llm_subparsers.add_parser(
         "add",

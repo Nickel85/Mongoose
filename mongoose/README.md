@@ -36,6 +36,7 @@ and running agents from this repository. It can:
 - update the local agent registry from GitHub
 - initialize and inspect user-local Mongoose state
 - generate and validate architecture model, SysML, and Mermaid documentation
+- inspect persisted jobs, runtime health, and guided LLM setup status
 
 Check the CLI version:
 
@@ -65,6 +66,7 @@ Show local state, registry path, and registry revision diagnostics:
 ```powershell
 mongoose state
 mongoose state --json
+mongoose status
 ```
 
 Implemented agent metadata includes manifest schema validation, local entrypoint
@@ -258,6 +260,7 @@ mongoose run Njord ask "Get me my latest budget"
 Configure and test an LLM profile before LLM-backed agents use it:
 
 ```powershell
+mongoose llm setup
 mongoose llm add fake-main --provider fake --model fake-chat --default
 mongoose llm ping fake-main
 mongoose llm list
@@ -269,6 +272,16 @@ Remote providers store secret references only:
 ```powershell
 mongoose llm add openai-main --provider openai --model gpt-4.1-mini --api-key-env OPENAI_API_KEY --default
 mongoose llm ping openai-main
+```
+
+The guided setup flow asks for provider metadata and stores environment variable
+names, not raw secrets. It supports Ollama/local HTTP, OpenAI, Anthropic, and a
+fake/test provider:
+
+```powershell
+mongoose llm setup
+mongoose llm setup --provider fake --yes
+mongoose llm setup --provider ollama --yes
 ```
 
 Remove an installed agent:
@@ -324,6 +337,7 @@ Show the user-local state contract:
 ```powershell
 mongoose state
 mongoose state --init --json
+mongoose status --json
 ```
 
 `mongoose state --init` creates the shared no-admin directory layout under `%LOCALAPPDATA%\Agents`.
@@ -346,13 +360,33 @@ The shared layout is:
   state\
     config\            Non-secret shared configuration
     agents\            Installed agent metadata and agent-scoped local state
-    jobs\              Future job metadata
+    jobs\              Job records from mongoose run and route executions
+    runtime\           Runtime context files and runtime foundation status
   logs\                JSONL logs
 ```
 
 Only non-secret configuration belongs under `state\config`. Access tokens, API keys, passwords, and other credentials should stay in environment variables or future secret storage. Mongoose redacts secret-like keys and `token=value` style text before writing structured logs.
 
 Logs are JSONL files under `%LOCALAPPDATA%\Agents\logs`. Use `mongoose state --cleanup-logs` to remove log files older than the default 30-day retention window. Pass `--log-retention-days <days>` to use a different retention window.
+
+`mongoose run` and non-dry-run `mongoose route` create job records under
+`%LOCALAPPDATA%\Agents\state\jobs` and per-job JSONL logs under
+`%LOCALAPPDATA%\Agents\logs`. Inspect them with:
+
+```powershell
+mongoose jobs list
+mongoose jobs show <job-id>
+mongoose jobs cancel <job-id>
+```
+
+The v0.6 runtime foundation records local runtime state for observability. It is
+not a full background scheduler daemon yet:
+
+```powershell
+mongoose runtime start
+mongoose runtime status
+mongoose runtime stop
+```
 
 To reset local Mongoose state, uninstall agent commands first if needed, then remove `%LOCALAPPDATA%\Agents`. Reinstall with `install-mongoose.cmd` or rerun `mongoose setup`.
 

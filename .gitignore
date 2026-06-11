@@ -11,6 +11,7 @@ __pycache__/
 .test-localappdata/
 .test-localappdata-mongoose/
 .test-localappdata-mongoose-state/
+.test-localappdata-mongoose-runtime/
 .test-localappdata-exe/
 .test-localappdata-mongoose-exe/
 .test-localappdata-mongoose-installed-self-update/
@@ -19,6 +20,7 @@ __pycache__/
 .test-mongoose-registry-only-update/
 .test-mongoose-update-registry/
 .test-mongoose-fixtures/
+.test-mongoose-runtime-fixtures/
 
 # Build artifacts
 dist/

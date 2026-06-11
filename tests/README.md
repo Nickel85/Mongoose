@@ -85,6 +85,9 @@ This test verifies:
 - `mongoose setup` writes configuration against the local repo.
 - `mongoose --help` includes install, routing, and update guidance.
 - `mongoose state --init --json` reports and creates shared local state paths.
+- `mongoose status`, `mongoose runtime`, and `mongoose jobs` expose runtime
+  observability.
+- `mongoose llm setup` configures provider profiles through guided setup paths.
 - `mongoose llm` configures, lists, shows, selects, and pings secret-safe LLM profiles.
 - `mongoose list` discovers available agents from `agent.json`.
 - installing a missing agent fails and prints available agents.
@@ -132,6 +135,30 @@ This test verifies:
 - `mongoose state --init --json` reports the expected path contract.
 
 The test uses `.test-localappdata-mongoose-state/` as a temporary local AppData substitute. That folder is ignored by Git.
+
+## Runtime Observability Validation
+
+Script:
+
+```text
+tests/mongoose-runtime-observability-validation.py
+```
+
+Run locally from the repository root:
+
+```powershell
+python .\tests\mongoose-runtime-observability-validation.py
+```
+
+This test verifies:
+
+- guided fake, local HTTP/Ollama-style, and remote-provider LLM setup flows.
+- API-key values are never written to stored profile JSON.
+- runtime status start/stop state is persisted.
+- `mongoose run` creates job records, runtime context files, per-job logs, and
+  redacted output summaries.
+- `mongoose jobs list`, `mongoose jobs show`, and `mongoose status` report the
+  recorded activity.
 
 ## Release Version Validation
 

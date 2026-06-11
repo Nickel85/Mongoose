@@ -1,5 +1,27 @@
 # Changelog
 
+## v0.6.0 - Persistent Runtime, Observability, and LLM Setup
+
+Planned release type: minor.
+
+This release adds the first persistent runtime observability layer and a guided
+LLM setup flow so users can inspect Mongoose activity and connect provider
+profiles from the terminal.
+
+### Added
+
+- Add `mongoose status` for runtime, registry, job, installed-agent, and LLM
+  setup health.
+- Add `mongoose runtime status/start/stop/restart` for the local runtime
+  foundation.
+- Add `mongoose jobs list/show/cancel` for persisted run records created by
+  `mongoose run` and non-dry-run `mongoose route`.
+- Persist job metadata, runtime context paths, per-job logs, exit status, and
+  redacted output previews under user-local Mongoose state.
+- Add `mongoose llm setup` as a guided terminal-first setup path for
+  Ollama/local HTTP, OpenAI, Anthropic, and fake/test providers.
+- Add v0.6 runtime observability validation coverage.
+
 ## v0.5.0 - Architecture Modeling And Diagram Generation
 
 Planned release type: minor.
