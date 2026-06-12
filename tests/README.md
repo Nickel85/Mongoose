@@ -61,7 +61,8 @@ This test verifies:
 - `entrypointPath` stays inside its own agent directory.
 - unknown agents fail and print available agents.
 - known agents install into a user-local test bin directory.
-- generated launchers call the configured entrypoint and the `ask` command.
+- generated launchers call the configured entrypoint and pass arguments through
+  without forcing `ask`.
 
 The test uses `.test-localappdata/` as a temporary local AppData substitute. That folder is ignored by Git.
 
@@ -105,8 +106,33 @@ This test verifies:
 - `mongoose validate` checks manifest shape, compatibility metadata, capability metadata, and secret-free declarations.
 - `mongoose run <agent> ...` dispatches to an installed fixture agent entrypoint and passes Runtime Contract v1 context.
 - `mongoose remove <agent>` removes the launcher and installed state without deleting source files.
-- the generated launcher calls the agent through `ask`.
+- the generated launcher calls the agent entrypoint directly so no-arg commands
+  can open the agent's interactive session.
 - `mongoose uninstall Njord` removes the launcher.
+
+## Njord REPL Validation
+
+Script:
+
+```text
+tests/njord-repl-validation.py
+```
+
+Run locally from the repository root:
+
+```powershell
+python .\tests\njord-repl-validation.py
+```
+
+This test verifies:
+
+- `Njord`/`agent.py` with no args opens the `Njord>` prompt.
+- `exit`, `quit`, `/exit`, and `/quit` exit cleanly.
+- `/help`, `/status`, `/brief`, `/summary`, and `/spending` are handled as
+  deterministic session commands.
+- unknown slash commands fail clearly and are not routed as natural language.
+- natural-language input routes through the existing deterministic request path.
+- launcher-style free-form arguments continue to route through `ask`.
 
 The test uses `.test-localappdata-mongoose/` as a temporary local AppData substitute. That folder is ignored by Git.
 
@@ -314,7 +340,7 @@ This test verifies Njord YNAB configuration handling without calling the live AP
 - the preferred user-local config file can supply `YNAB_ACCESS_TOKEN` and `YNAB_BUDGET_ID`.
 - missing tokens produce actionable status output.
 - configured budget/plan IDs are validated against returned plans.
-- installed-command style `Njord config status` routing works through `ask`.
+- installed-command style `Njord config status` works as an explicit subcommand.
 - secret values are not printed in status output.
 
 ## Njord Snapshot Validation

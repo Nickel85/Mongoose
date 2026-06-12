@@ -23,13 +23,15 @@ python agents\njord\agent.py brief
 After installing Njord:
 
 ```powershell
-Njord brief
+Njord
+Njord> /brief
 ```
 
 Natural-language routing:
 
 ```powershell
-Njord "Give me a weekly financial brief."
+Njord
+Njord> Give me a weekly financial brief.
 ```
 
 ## Output
