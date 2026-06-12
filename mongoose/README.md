@@ -116,11 +116,38 @@ local storage, tool invocation, external API profiles, logs, and job context
 without binding themselves to a single host environment or secret layout.
 
 Njord is the first concrete agent use case, not the whole platform. The Njord
-roadmap is expected to prove useful deterministic financial workflows, including
-the manual weekly brief tracked in
-[#28](https://github.com/Nickel85/Mongoose/issues/28), while Mongoose separately
-adds the package, scheduling, provider, capability, and portability features
-needed for agents to run consistently across environments.
+roadmap is expected to prove useful deterministic financial workflows before
+guarded autonomy is added. The core Njord budget-maintenance path is:
+
+```text
+Analyze budget state
+-> draft a money-movement or new-money allocation plan
+-> require user approval
+-> execute only approved YNAB writes
+-> reconcile state and record decision outcomes
+```
+
+The manual weekly brief tracked in
+[#28](https://github.com/Nickel85/Mongoose/issues/28) remains read-only
+financial value. The guarded write-planning work in
+[#17](https://github.com/Nickel85/Mongoose/issues/17),
+[#18](https://github.com/Nickel85/Mongoose/issues/18),
+[#19](https://github.com/Nickel85/Mongoose/issues/19), and
+[#121](https://github.com/Nickel85/Mongoose/issues/121) turns recommendations
+into reviewable budget-maintenance plans. The guarded write-execution work in
+[#20](https://github.com/Nickel85/Mongoose/issues/20) and
+[#21](https://github.com/Nickel85/Mongoose/issues/21) executes only approved
+plans and reconciles the result. Decision metrics and learned budgeting
+preferences are tracked in
+[#66](https://github.com/Nickel85/Mongoose/issues/66) and the broader
+v2.1 decision-learning milestone.
+
+Mongoose separately adds the package, scheduling, provider, capability, and
+portability features needed for agents to run consistently across environments.
+Those platform features should be pulled into Njord releases only when they are
+required to preserve the budget-maintenance contract. The Njord roadmap should
+not absorb unrelated Mongoose platform expansion, commerce capabilities, or UI
+host work simply because those features are also useful later.
 
 This sequencing is intentional. Agent-value milestones validate what the
 platform actually needs; Mongoose platform milestones then generalize those

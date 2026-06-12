@@ -8,6 +8,12 @@ The current release train is anchored on making the install, update, version,
 release asset, and documentation loop boringly reliable before expanding into
 LLM providers, UI, scheduling, persistence, or guarded autonomy.
 
+Njord budget-maintenance work is scoped separately from unrelated platform
+expansion. A release may include Mongoose runtime changes only when they are
+necessary for the active Njord milestone's read, plan, approve, execute,
+reconcile, or learn loop. Otherwise, platform, UI, commerce, and non-Njord agent
+work should remain in their own milestones.
+
 ## v0.2.0 Exit Checklist
 
 v0.2.0 is the update lifecycle release. It is ready to ship only when all of
@@ -57,6 +63,18 @@ past v0.2.0 release work:
 - UI, scheduling, guarded writes, and autonomy milestones can start only after
   the runtime capability they depend on exists in a tested CLI or local service
   surface.
+- v1.2.0 Njord Guarded Write Planning can start only after read-only Njord
+  analysis can produce stable evidence for recommendations. It may create
+  budget-maintenance plans for moving money or allocating new money, but it
+  must not call YNAB write endpoints.
+- v1.4.0 Njord Guarded Write Execution can start only after write plans,
+  approvals, expiration, and stale-state checks are represented as durable
+  records. It must execute only approved plans and emit audit records from the
+  first write operation.
+- v2.1.0 Decision Learning and Guarded Autonomy can start only after proposal
+  outcomes and write reconciliation exist. Preference learning may influence
+  ranking and rationale before auto-approval is enabled, but auto-approval must
+  remain policy-gated and limited to low-risk, reversible operations.
 
 If a milestone wants to violate a start gate, create or update an issue that
 names the dependency risk, the reason for the exception, and the rollback plan.

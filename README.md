@@ -42,6 +42,43 @@ Generated architecture views for the runtime, agents, SysML text, and Mermaid
 diagrams are documented in
 [docs/architecture/README.md](docs/architecture/README.md).
 
+## Njord Budget-Maintenance Release Path
+
+Njord's release path is anchored on a methodical budget-maintenance loop rather
+than direct natural-language writes. The intended progression is:
+
+```text
+Analyze budget state
+-> propose money movement or new-money allocation plan
+-> explain rationale, evidence, risk, and expected impact
+-> require explicit approval
+-> execute only approved YNAB writes
+-> reconcile the resulting budget state
+-> record outcomes for preference learning
+```
+
+This keeps the Mongoose architecture intact: Mongoose supplies reusable runtime
+contracts for providers, jobs, state, logs, approvals, execution, and audit
+records; Njord supplies the finance-specific analysis, budgeting policy, and
+YNAB operation semantics.
+
+Implementation should stay inside this release path. Work is in scope when it
+directly improves Njord's ability to analyze a YNAB budget, draft budget
+maintenance plans, collect approval decisions, execute approved writes,
+reconcile results, or learn from reviewed outcomes. Work is out of scope when
+it introduces unrelated agents, commerce integrations, general UI surfaces, or
+broad Mongoose platform features that are not required by the current Njord
+budget-maintenance milestone.
+
+The budget-maintenance milestones are:
+
+- v1.0 proves a stable local runtime and read-only Njord/LLM finance narration.
+- v1.2 adds guarded budget-maintenance planning for allocating new money and
+  moving money between categories without executing writes.
+- v1.4 adds approved YNAB write execution, audit records, and reconciliation.
+- v2.1 adds decision metrics, preference learning, and policy-gated
+  auto-approval after enough user-reviewed evidence exists.
+
 Mongoose platform milestones and Njord agent-value milestones are intentionally
 sequenced separately. Njord is the first concrete use case and should prove
 useful deterministic finance workflows before the platform grows package,

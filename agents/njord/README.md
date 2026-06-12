@@ -389,13 +389,52 @@ In VS Code, open a terminal from the repository root before running the command.
 
 ## Roadmap
 
-1. Accountant mode: summarize financials from YNAB.
-2. Analyst mode: identify patterns, anomalies, and trends.
-3. Advisor mode: provide recommendations and tradeoffs.
-4. Planner mode: forecast upcoming obligations and budget pressure.
-5. Operator mode: optionally prepare YNAB updates for explicit approval.
+Njord is moving toward budget maintenance in deliberate layers. The target flow
+is:
+
+```text
+Read YNAB state
+-> detect new money, overspending, underfunding, and category pressure
+-> draft a money-movement or allocation plan
+-> explain evidence, rationale, risk, and expected impact
+-> require explicit approval
+-> execute only approved writes
+-> reconcile the result
+-> retain outcomes for future preference learning
+```
+
+Milestone progression:
+
+1. Read-only accountant and analyst mode: summarize financials from YNAB and
+   identify patterns, anomalies, budget pressure, and review items.
+2. Advisor mode: provide recommendations and tradeoffs without implying that
+   Njord can change the budget.
+3. Guarded planner mode: draft structured budget-maintenance plans for moving
+   money between categories or allocating new money, including before/after
+   values, rationale, risk, and source evidence.
+4. Approval mode: let the user approve, reject, edit, defer, or expire a plan
+   before any write operation is eligible to run.
+5. Guarded operator mode: execute only approved, non-expired, policy-compliant
+   YNAB write plans and create durable audit records.
+6. Reconciliation mode: compare intended changes with current YNAB state and
+   flag success, partial success, drift, or unknown status.
+7. Preference-learning mode: measure approval, edit, rejection, and reversal
+   rates so future recommendations can better match the user's budgeting style.
+
+Scope boundary:
+
+- In scope: YNAB budget reads, budget pressure detection, new-money allocation
+  plans, category money-movement plans, approval records, guarded writes,
+  reconciliation, audit records, and preference-learning inputs.
+- Out of scope: unrelated Mongoose package-manager work, commerce
+  integrations, non-Njord agents, broad UI host work, and auto-approval before
+  proposal history and reconciliation data exist.
 
 ## Notes
 
-This agent should begin as read-only. Any future capability that writes to YNAB should be documented separately, require explicit confirmation, and prefer draft recommendations over automatic changes.
+This agent should begin as read-only. Any future capability that writes to YNAB
+must be documented separately, require explicit confirmation, and prefer draft
+recommendations over automatic changes. Natural-language requests must not
+directly mutate YNAB; they should produce plans that pass through policy,
+approval, execution, reconciliation, and audit steps.
 
