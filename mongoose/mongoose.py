@@ -1938,7 +1938,7 @@ def cmd_capabilities(_: argparse.Namespace) -> int:
 def create_agent_launcher(command_name: str, entrypoint: str) -> Path:
     USER_BIN.mkdir(parents=True, exist_ok=True)
     launcher_path = USER_BIN / f"{command_name}.cmd"
-    launcher = f'@echo off\npython "{entrypoint}" ask %*\n'
+    launcher = f'@echo off\npython "{entrypoint}" %*\n'
     launcher_path.write_text(launcher, encoding="ascii")
     return launcher_path
 
@@ -1969,7 +1969,7 @@ def cmd_install(args: argparse.Namespace) -> int:
     print(label_line("State", installed_agent_path(agent["commandName"]), "muted"))
     print("")
     print_heading("Try")
-    print(f"{agent['commandName']} \"{agent.get('example', 'Hello')}\"")
+    print(agent["commandName"])
     return 0
 
 

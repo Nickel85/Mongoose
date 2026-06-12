@@ -53,6 +53,12 @@ Create the folder if needed, then add:
 Check the configuration without printing secrets:
 
 ```powershell
+Njord
+```
+
+Then run `/status` in the session. For automation or direct checks:
+
+```powershell
 Njord config status
 ```
 
@@ -145,10 +151,10 @@ the manual brief MVP can reuse them without requiring an LLM.
 The main manual workflow is:
 
 ```powershell
-Njord brief
+Njord
 ```
 
-For direct repository development:
+Then run `/brief` in the session. For automation or direct repository development:
 
 ```powershell
 python agents\njord\agent.py brief
@@ -227,25 +233,25 @@ It also adds that folder to the current user's `PATH`. Open a new terminal after
 Then run:
 
 ```powershell
-Njord "Get me my latest budget"
+Njord
 ```
 
 Validate YNAB setup first:
 
 ```powershell
-Njord config status
+/status
 ```
 
-Unquoted requests work too:
+Inside the session, enter a natural-language request:
 
 ```powershell
-Njord Get me my latest budget
+Njord> Get me my latest budget
 ```
 
 If the current terminal cannot find `Njord` yet, open a new terminal or call the launcher directly:
 
 ```powershell
-& "$env:LOCALAPPDATA\Agents\bin\Njord.cmd" "Get me my latest budget"
+& "$env:LOCALAPPDATA\Agents\bin\Njord.cmd"
 ```
 
 For installer internals, update notes, and uninstall instructions, see [../../install/README.md](../../install/README.md).
@@ -273,15 +279,23 @@ Example requests:
 
 ## Run The Agent
 
-Run agent capabilities through `agent.py`.
+Run the interactive session through `agent.py`.
 
 From the repository root:
 
 ```powershell
-python agents\njord\agent.py ask "Hey Njord, get me my latest budget."
+python agents\njord\agent.py
 ```
 
-The `ask` command routes natural-language requests to the best available capability.
+The REPL prompt is `Njord>`. It supports `/help`, `/status`, `/brief`,
+`/summary`, `/spending`, `/exit`, and natural-language requests. Natural
+language routes through the same deterministic `ask` path used by automation.
+
+For scripts, tests, and Mongoose dispatch, one-shot commands remain available:
+
+```powershell
+python agents\njord\agent.py ask "Hey Njord, get me my latest budget."
+```
 
 You can also call capabilities directly:
 
@@ -334,7 +348,7 @@ python agents\njord\agent.py config status
 After running the user-local installer, you can call this agent from any new terminal:
 
 ```powershell
-Njord "Get me my latest budget"
+Njord
 ```
 
 The `hello-world` capability also tests the YNAB API connection by loading `YNAB_ACCESS_TOKEN` through the shared configuration stack and calling the YNAB plans endpoint.

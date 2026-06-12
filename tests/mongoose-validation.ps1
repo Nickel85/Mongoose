@@ -360,7 +360,8 @@ $njordStatePath = Join-Path $testLocalAppData "Agents\state\agents\Njord.json"
 Assert-True (Test-Path $njordStatePath) "mongoose did not write Njord installed state."
 
 $launcher = Get-Content -Raw -Path $launcherPath
-Assert-True ($launcher -match "\sask\s") "Njord launcher does not call ask."
+Assert-True ($launcher -notmatch "\sask\s") "Njord launcher should not force ask."
+Assert-True ($launcher -match "%\*") "Njord launcher does not pass user arguments through."
 Assert-True ($launcher -match "njord") "Njord launcher does not point at Njord."
 
 $showNjord = Invoke-Mongoose -Arguments @("show", "Njord")

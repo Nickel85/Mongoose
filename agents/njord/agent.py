@@ -15,8 +15,19 @@ if str(AGENT_ROOT) not in sys.path:
 
 from config import ConfigFileError, config_status_lines, current_config_snapshot
 from router import route_request
+from session import run_repl
 from terminal import should_use_color, style_output
 from ynab_api import YnabClient, choose_plan
+
+
+COMMAND_NAMES = {
+    "hello-world",
+    "ynab-budget-summary",
+    "brief",
+    "ynab-spending-review",
+    "config",
+    "ask",
+}
 
 
 def configure_output() -> None:
@@ -240,7 +251,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     subparsers = parser.add_subparsers(
         dest="capability",
-        required=True,
+        required=False,
         help="Capability to run.",
     )
 
@@ -322,11 +333,42 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def normalize_argv(argv: list[str]) -> list[str]:
+    if not argv:
+        return argv
+
+    command_index = 0
+    while command_index < len(argv) and argv[command_index] == "--no-color":
+        command_index += 1
+
+    if command_index >= len(argv):
+        return argv
+
+    if argv[command_index] not in COMMAND_NAMES and not argv[command_index].startswith("-"):
+        return [*argv[:command_index], "ask", *argv[command_index:]]
+
+    return argv
+
+
 def main() -> None:
     configure_output()
     parser = build_parser()
-    args = parser.parse_args()
+    args = parser.parse_args(normalize_argv(sys.argv[1:]))
     color_enabled = should_use_color(args.no_color)
+
+    if args.capability is None:
+        raise SystemExit(
+            run_repl(
+                input_stream=sys.stdin,
+                output_stream=sys.stdout,
+                color_enabled=color_enabled,
+                answer_request=answer_request,
+                config_status=run_config_status,
+                brief=run_brief,
+                budget_summary=run_ynab_budget_summary,
+                spending_review=run_ynab_spending_review,
+            )
+        )
 
     if args.capability == "hello-world":
         ok, output = run_hello_world_with_status(args.name)

@@ -114,7 +114,8 @@ foreach ($commandName in ($commandNames.Keys | Sort-Object)) {
 
     $launcher = Get-Content -Raw -Path $launcherPath
     Assert-True ($launcher.Contains($entrypointsByCommandName[$commandName])) "Launcher does not call the configured entrypoint."
-    Assert-True ($launcher -match "\sask\s") "Launcher does not call the ask command."
+    Assert-True ($launcher -notmatch "\sask\s") "Launcher should not force the ask command."
+    Assert-True ($launcher -match "%\*") "Launcher does not pass user arguments through."
 }
 
 Write-Host "Install validation passed for $($commandNames.Count) agent(s)."

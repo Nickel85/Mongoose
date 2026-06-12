@@ -154,7 +154,7 @@ New-Item -ItemType Directory -Path $installBin -Force | Out-Null
 $launcherPath = Join-Path $installBin "$commandName.cmd"
 $launcher = @"
 @echo off
-$pythonCommand "$agentPath" ask %*
+$pythonCommand "$agentPath" %*
 "@
 
 Set-Content -Path $launcherPath -Value $launcher -Encoding ASCII
@@ -165,6 +165,6 @@ Write-Host "Launcher: $launcherPath"
 Write-Host "Agent: $agentPath"
 Write-Host ""
 Write-Host "Try it now:"
-Write-Host "$commandName `"$example`""
+Write-Host "$commandName"
 Write-Host ""
 Write-Host "If a terminal cannot find $commandName, close and reopen it so PATH refreshes."

@@ -15,7 +15,14 @@ Each capability should live in its own folder and include a `README.md` that exp
 
 ## Natural-Language Routing
 
-Use the agent-level `ask` command to let Njord choose the capability:
+Use the Njord session to let Njord choose the capability:
+
+```powershell
+python agents\njord\agent.py
+Njord> Hey Njord, get me my latest budget.
+```
+
+For scripts, tests, and Mongoose dispatch, the `ask` command remains available:
 
 ```powershell
 python agents\njord\agent.py ask "Hey Njord, get me my latest budget."
