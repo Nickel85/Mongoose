@@ -384,6 +384,8 @@ In VS Code, open a terminal from the repository root before running the command.
 - `recommendations.py`: Produces evidence-backed recommended reviews and actions.
 - `spending.py`: Calculates period spending reviews from normalized transactions.
 - `snapshot.py`: Normalized financial snapshot model for Njord analysis features.
+- `write-safety.md`: Safety model for future YNAB write plans, approvals,
+  audit records, and reconciliation.
 - `ynab_api.py`: Shared read-only YNAB API client and normalization helpers.
 - `capabilities/`: Capability implementations and documentation.
 
@@ -437,4 +439,8 @@ must be documented separately, require explicit confirmation, and prefer draft
 recommendations over automatic changes. Natural-language requests must not
 directly mutate YNAB; they should produce plans that pass through policy,
 approval, execution, reconciliation, and audit steps.
+
+The write safety contract is documented in
+[write-safety.md](write-safety.md). Later budget-maintenance issues must
+preserve that contract.
 

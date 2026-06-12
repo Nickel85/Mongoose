@@ -430,6 +430,29 @@ This test verifies manual brief composition without calling the live API:
 - read-only/write-safety boundaries are included.
 - weekly financial brief requests route to the `brief` capability.
 
+## Njord Write Safety Validation
+
+Script:
+
+```text
+tests/njord-write-safety-validation.py
+```
+
+Run locally from the repository root:
+
+```powershell
+python .\tests\njord-write-safety-validation.py
+```
+
+This test verifies the design contract for future YNAB writes without calling
+the live API:
+
+- the write safety document distinguishes recommendations, proposed plans,
+  approved plans, executed writes, and reconciliation records.
+- supported operation classes, approval decisions, audit records,
+  reconciliation statuses, and idempotency are documented.
+- the current shared YNAB API client remains read-only.
+
 ## Mongoose EXE Smoke
 
 Script:
