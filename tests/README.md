@@ -13,6 +13,9 @@ The mongoose command smoke workflow lives at `.github/workflows/mongoose-smoke.y
 The generated architecture validation workflow lives at
 `.github/workflows/architecture-validation.yml`.
 
+The release-on-merge workflow lives at
+`.github/workflows/release-on-merge.yml`.
+
 Install validation runs on:
 
 - `push`
@@ -21,12 +24,20 @@ Install validation runs on:
 The mongoose build workflow runs on:
 
 - pull requests targeting `main`
+- pull requests targeting `release/v*`
 - pushes to `main`
+- pushes to `release/v*`
 - version tags matching `v*`
 
 It uploads `dist/mongoose.exe` as an Actions artifact. On version tags, it also attaches `mongoose.exe` to the GitHub Release.
 
 The mongoose smoke workflow runs on the same pull request, push, and tag triggers. It builds `mongoose.exe`, validates installed-binary self-update behavior, then smoke-tests `list`, `install`, `uninstall`, and default/scoped `update` flows.
+
+The release-on-merge workflow runs when a merged pull request to `main` came
+from a `release/v*` branch. It validates release metadata, creates the matching
+tag, extracts that version's changelog section into release notes, and creates
+the GitHub Release. The tag then triggers the build workflow that attaches the
+official `mongoose.exe` asset.
 
 The architecture validation workflow runs on `push` and `pull_request` and
 fails when generated architecture artifacts are stale.
@@ -206,12 +217,17 @@ This test verifies:
 - `CHANGELOG.md` has a matching section for the current CLI version.
 - `docs/release-scope-gates.md` documents release gates and release-prep
   checklist sections.
+- release-branch configuration management is documented and enforced.
+- release branches named `release/v<version>` match `MONGOOSE_VERSION`.
 - version-tagged GitHub Actions runs use a tag that matches the CLI version.
 - source builds default to `development` release metadata.
 - the default registry URL points at the public Mongoose repository.
 - active project docs/code do not contain stale legacy repository references.
 - GitHub Actions runs release-version validation before building, uploading, or
   attaching release assets.
+- GitHub Actions builds and smokes pull requests and pushes for `release/v*`
+  branches.
+- merged release branches to `main` create the matching tag and GitHub Release.
 
 ## Architecture Validation
 
