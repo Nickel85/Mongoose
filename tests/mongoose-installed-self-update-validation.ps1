@@ -22,6 +22,23 @@ $installedExe = Join-Path $testLocalAppData "Agents\bin\mongoose.exe"
 $appRoot = Join-Path $testLocalAppData "Agents\mongoose"
 [byte[]]$script:marker = [Text.Encoding]::ASCII.GetBytes("MONGOOSE-INSTALLED-SELF-UPDATE-MARKER")
 
+function Get-MongooseVersion {
+    $source = Get-Content -Raw -Path (Join-Path $repoRoot "mongoose\mongoose.py")
+    if ($source -notmatch '(?m)^MONGOOSE_VERSION\s*=\s*"([^"]+)"') {
+        throw "Could not read MONGOOSE_VERSION from mongoose.py."
+    }
+    return $Matches[1]
+}
+
+function Get-NextPatchVersion {
+    param([string]$Version)
+
+    if ($Version -notmatch '^(\d+)\.(\d+)\.(\d+)$') {
+        throw "Could not parse semantic version: $Version"
+    }
+    return "$($Matches[1]).$($Matches[2]).$([int]$Matches[3] + 1)"
+}
+
 function Assert-True {
     param(
         [object]$Condition,
@@ -76,13 +93,14 @@ function Invoke-InstalledMongoose {
 
 function New-ReleaseFixture {
     param(
-        [string]$AssetPath
+        [string]$AssetPath,
+        [string]$ReleaseVersion
     )
 
     $assetUri = ([System.Uri](Resolve-Path $AssetPath).Path).AbsoluteUri
     $releases = @(
         @{
-            tag_name = "v0.6.1"
+            tag_name = "v$ReleaseVersion"
             draft = $false
             prerelease = $false
             assets = @(
@@ -147,22 +165,24 @@ foreach ($path in @($testLocalAppData, $fixtureRoot)) {
 New-Item -ItemType Directory -Path $testLocalAppData -Force | Out-Null
 New-Item -ItemType Directory -Path $fixtureRoot -Force | Out-Null
 $env:LOCALAPPDATA = $testLocalAppData
+$expectedVersion = Get-MongooseVersion
+$releaseVersion = Get-NextPatchVersion -Version $expectedVersion
 
 $releaseAsset = Join-Path $fixtureRoot "mongoose.exe"
 Copy-Item -Path $MongooseExe -Destination $releaseAsset -Force
 [IO.File]::WriteAllBytes($releaseAsset, [byte[]]([IO.File]::ReadAllBytes($releaseAsset) + $script:marker))
-$releaseUrl = New-ReleaseFixture -AssetPath $releaseAsset
+$releaseUrl = New-ReleaseFixture -AssetPath $releaseAsset -ReleaseVersion $releaseVersion
 
 Install-TestMongoose
 $version = Invoke-InstalledMongoose -Arguments @("--version")
 Assert-True ($version.ExitCode -eq 0) "installed mongoose.exe --version failed. Output: $($version.Output)"
-Assert-True ($version.Output -match "mongoose 0.6.1") "installed mongoose.exe did not report expected version. Output: $($version.Output)"
+Assert-True ($version.Output -match "mongoose $expectedVersion") "installed mongoose.exe did not report expected version. Output: $($version.Output)"
 
 $update = Invoke-InstalledMongoose -Arguments @("update", "--self") -Environment @{
     MONGOOSE_RELEASES_API_URL = $releaseUrl
 }
 Assert-True ($update.ExitCode -eq 0) "installed mongoose.exe self-update failed. Output: $($update.Output)"
-Assert-True ($update.Output -match "Downloaded Mongoose 0.6.1; replacement will finish after this command exits.") "self-update did not report deferred replacement. Output: $($update.Output)"
+Assert-True ($update.Output -match "Downloaded Mongoose $releaseVersion; replacement will finish after this command exits.") "self-update did not report deferred replacement. Output: $($update.Output)"
 Assert-True (Test-Path (Join-Path $appRoot "apply-mongoose-update.ps1")) "self-update did not write the deferred replacement script."
 Wait-ForInstalledMarker
 
@@ -176,7 +196,7 @@ Assert-True ($failedUpdate.ExitCode -ne 0) "self-update unexpectedly succeeded w
 Assert-True ($failedUpdate.Output -match "Downloaded update to") "failed replacement output did not include the staged recovery path. Output: $($failedUpdate.Output)"
 Assert-True ($failedUpdate.Output -match "could not replace") "failed replacement output did not explain the target replacement failure. Output: $($failedUpdate.Output)"
 Assert-True ($failedUpdate.Output -match "Retry later, or download mongoose.exe manually") "failed replacement output did not include manual recovery guidance. Output: $($failedUpdate.Output)"
-$stagedDownloads = @(Get-ChildItem -Path $appRoot -Filter ".mongoose.exe.v0.6.1.*.download")
+$stagedDownloads = @(Get-ChildItem -Path $appRoot -Filter ".mongoose.exe.v$releaseVersion.*.download")
 Assert-True ($stagedDownloads.Count -ge 1) "failed replacement did not leave a staged download for recovery."
 
 Write-Host "Installed mongoose.exe self-update validation passed."
