@@ -41,8 +41,8 @@
     "mongooseManifestSchema": 1
   },
   "llm": {
-    "mode": "none",
-    "deterministicFallback": "All current Njord capabilities run without an LLM."
+    "mode": "optional",
+    "deterministicFallback": "Njord can produce deterministic finance output without an LLM; configured LLM profiles add read-only narration."
   },
   "capabilities": [
     {
@@ -121,8 +121,8 @@
         ]
       },
       "llm": {
-        "mode": "none",
-        "deterministicFallback": "Budget summary uses deterministic YNAB reads and snapshot calculations."
+        "mode": "optional",
+        "deterministicFallback": "Budget summary uses deterministic YNAB reads and snapshot calculations without LLM narration."
       }
     },
     {
@@ -152,8 +152,8 @@
         ]
       },
       "llm": {
-        "mode": "none",
-        "deterministicFallback": "Manual brief uses deterministic YNAB reads, review flags, spending review, and recommendations."
+        "mode": "optional",
+        "deterministicFallback": "Manual brief uses deterministic YNAB reads, review flags, spending review, and recommendations without LLM narration."
       }
     },
     {
@@ -183,8 +183,8 @@
         ]
       },
       "llm": {
-        "mode": "none",
-        "deterministicFallback": "Spending review uses deterministic YNAB reads and snapshot calculations."
+        "mode": "optional",
+        "deterministicFallback": "Spending review uses deterministic YNAB reads and snapshot calculations without LLM narration."
       }
     }
   ]

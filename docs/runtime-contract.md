@@ -63,8 +63,9 @@ Reserved v1 descriptors:
 - `tools`: `mongoose.tools.v1`; unavailable until tool invocation is added.
 - `apiProfiles`: `mongoose.api-profiles.v1`; unavailable until profile
   resolution is added.
-- `llm`: `mongoose.llm.v1`; unavailable until the provider-neutral LLM runtime
-  is configured.
+- `llm`: `mongoose.llm.v1`; available when a compatible profile is configured.
+  Exposes non-secret profile metadata and an `invokeCommand` that agents can run
+  with prompt text on stdin to receive JSON output from the configured provider.
 
 Deterministic agents can use the `storage`, `state`, and `logs` descriptors
 without requiring an LLM.
@@ -90,10 +91,10 @@ Supported requirement names:
 - `execution`
 
 Runtime Contract v1 currently supports required `configuration`, `logs`,
-`state`, and `storage` providers. Required `memory`, `tools`, `apiProfiles`,
-`apis`, `models`, and `llm` requirements fail validation until those providers
-exist. Optional declarations are allowed so agents can describe future or
-fallback behavior.
+`state`, `storage`, and `llm` providers. Required `memory`, `tools`,
+`apiProfiles`, `apis`, and `models` requirements fail validation until those
+providers exist. Optional declarations are allowed so agents can describe future
+or fallback behavior.
 
 Example Njord capability:
 
@@ -163,6 +164,10 @@ Current runtime error codes:
 - `mongoose.agent_not_installed`
 - `mongoose.entrypoint_missing`
 - `mongoose.missing_required_configuration`
+- `mongoose.llm_profile_missing`
+- `mongoose.llm_profile_invalid`
+- `mongoose.llm_secret_missing`
+- `mongoose.llm_invoke_failed`
 - `mongoose.provider_unavailable`
 - `mongoose.incompatible_runtime_contract`
 

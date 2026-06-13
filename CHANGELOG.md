@@ -1,5 +1,41 @@
 # Changelog
 
+## v0.7.0 - LLM Capability Provider Runtime
+
+Planned release type: minor.
+
+This release makes the provider-neutral LLM runtime usable by installed
+capabilities and by Njord's REPL for safe, read-only finance narration.
+
+### Added
+
+- Add `mongoose llm invoke` as the first provider-neutral LLM invocation path
+  for installed capabilities.
+- Expose an `invokeCommand` in the Runtime Contract v1 `llm` provider
+  descriptor so agents can invoke configured profiles without reading secrets
+  or hard-coding providers.
+- Add fake-provider invocation support for deterministic validation without
+  network access.
+- Connect Njord finance answers to the Mongoose-managed LLM runtime for
+  labeled, read-only narration from deterministic budget facts.
+- Add `text_delta` response events and renderer behavior for progressive
+  session output.
+
+### Changed
+
+- Mark Njord finance capabilities as optional LLM consumers while preserving
+  deterministic fallback behavior when no compatible LLM profile is configured.
+- Update LLM/runtime contract docs and generated architecture artifacts for the
+  invocable LLM provider interface.
+
+### Validation
+
+- Add Mongoose validation coverage for `mongoose llm invoke`, missing-provider
+  fallback, fake-provider invocation, and routed capability access to the LLM
+  invoke command.
+- Add Njord REPL validation coverage for fake-provider narration and
+  progressive response-event rendering.
+
 ## v0.6.1 - Njord REPL-First Session
 
 Planned release type: patch.

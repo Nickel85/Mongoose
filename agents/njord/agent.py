@@ -14,6 +14,7 @@ if str(AGENT_ROOT) not in sys.path:
     sys.path.insert(0, str(AGENT_ROOT))
 
 from config import ConfigFileError, config_status_lines, current_config_snapshot
+from llm_runtime import narrate_finance_response
 from router import route_request
 from session import run_repl
 from terminal import should_use_color, style_output
@@ -237,7 +238,20 @@ def answer_request(request: str) -> tuple[bool, str]:
     else:
         return False, f"I do not know how to run capability: {route.capability}"
 
-    return ok, f"Request: {request}\nCapability: {route.capability}\nReason: {route.reason}\n\n{output}"
+    response = f"Request: {request}\nCapability: {route.capability}\nReason: {route.reason}\n\n{output}"
+    if ok and route.capability in {"brief", "ynab-spending-review", "ynab-budget-summary"}:
+        narration = narrate_finance_response(
+            request=request,
+            capability=route.capability,
+            deterministic_output=output,
+        )
+        if narration.ok:
+            profile = f" ({narration.profile})" if narration.profile else ""
+            response = f"{response}\n\nLLM narration{profile}\n{narration.text}"
+        elif narration.diagnostic:
+            response = f"{response}\n\nLLM narration unavailable\n{narration.diagnostic}"
+
+    return ok, response
 
 
 def build_parser() -> argparse.ArgumentParser:
