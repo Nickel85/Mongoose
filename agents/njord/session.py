@@ -8,7 +8,6 @@ from typing import Callable, TextIO
 from terminal import style_output, styled
 
 
-AgentCall = Callable[[], tuple[bool, str]]
 AnswerCall = Callable[[str], tuple[bool, str]]
 
 
@@ -28,31 +27,26 @@ RESPONSE_EVENT_KINDS = {
     "done",
     "cancelled",
 }
-SESSION_COMMANDS = {
-    "/help": "Show session commands.",
-    "/status": "Check local Njord configuration without printing secrets.",
-    "/brief": "Generate the read-only financial brief.",
-    "/review": "Run the read-only AI-loop finance review.",
-    "/summary": "Generate the read-only YNAB budget summary.",
-    "/spending": "Review current-month spending.",
-    "/exit": "Exit the Njord session.",
-    "/quit": "Exit the Njord session.",
-}
-EXIT_COMMANDS = {"exit", "quit", "/exit", "/quit"}
+EXIT_COMMANDS = {"exit", "quit"}
 PROMPT = "Njord> "
 
 
 def help_text() -> str:
-    lines = ["Njord session commands"]
-    lines.extend(f"- {command}: {description}" for command, description in SESSION_COMMANDS.items())
-    lines.extend(
+    return "\n".join(
         [
+            "Ask Njord naturally about your budget, spending, cash flow, or financial risk.",
             "",
-            "Type a budget, spending, configuration, or brief request to route it through Njord.",
+            "Examples",
+            "- Review my finances.",
+            "- Give me a financial brief.",
+            "- Summarize my current budget.",
+            "- Show my current-month spending.",
+            "- Check my configuration status.",
+            "",
+            "Type exit or quit to leave the session.",
             "Budget-changing requests are read-only for now and cannot mutate YNAB from chat.",
         ]
     )
-    return "\n".join(lines)
 
 
 def response_events(ok: bool, output: str) -> list[ResponseEvent]:
@@ -78,11 +72,6 @@ def handle_input(
     raw_input: str,
     *,
     answer_request: AnswerCall,
-    config_status: AgentCall,
-    brief: AgentCall,
-    finance_review: AgentCall,
-    budget_summary: AgentCall,
-    spending_review: AgentCall,
 ) -> tuple[bool, list[ResponseEvent]]:
     request = raw_input.strip()
     if not request:
@@ -92,21 +81,15 @@ def handle_input(
     if normalized in EXIT_COMMANDS:
         return True, [ResponseEvent("done")]
 
+    if normalized in {"help", "what can you do", "what can you do?"}:
+        return False, [ResponseEvent("text", help_text()), ResponseEvent("done")]
+
     if request.startswith("/"):
-        if normalized == "/help":
-            return False, [ResponseEvent("text", help_text()), ResponseEvent("done")]
-        if normalized == "/status":
-            return False, response_events(*config_status())
-        if normalized == "/brief":
-            return False, response_events(*brief())
-        if normalized == "/review":
-            return False, response_events(*finance_review())
-        if normalized == "/summary":
-            return False, response_events(*budget_summary())
-        if normalized == "/spending":
-            return False, response_events(*spending_review())
         return False, [
-            ResponseEvent("warning", f"Unknown session command: {request}\nRun /help to see available commands."),
+            ResponseEvent(
+                "warning",
+                "Njord sessions are conversational now. Ask naturally, for example: Review my finances.",
+            ),
             ResponseEvent("done"),
         ]
 
@@ -148,11 +131,6 @@ def run_repl(
     output_stream: TextIO,
     color_enabled: bool,
     answer_request: AnswerCall,
-    config_status: AgentCall,
-    brief: AgentCall,
-    finance_review: AgentCall,
-    budget_summary: AgentCall,
-    spending_review: AgentCall,
 ) -> int:
     while True:
         render_event(ResponseEvent("prompt", PROMPT), color_enabled=color_enabled, output_stream=output_stream)
@@ -164,11 +142,6 @@ def run_repl(
         should_exit, events = handle_input(
             raw_input,
             answer_request=answer_request,
-            config_status=config_status,
-            brief=brief,
-            finance_review=finance_review,
-            budget_summary=budget_summary,
-            spending_review=spending_review,
         )
         for event in events:
             render_event(event, color_enabled=color_enabled, output_stream=output_stream)

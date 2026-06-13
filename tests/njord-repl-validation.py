@@ -72,40 +72,41 @@ def run_session(script: str, answer=None) -> tuple[int, str, list[str]]:
         output_stream=output,
         color_enabled=False,
         answer_request=answer_request,
-        config_status=ok_output("Njord configuration status\nYNAB access token: missing"),
-        brief=ok_output("Njord weekly financial brief"),
-        finance_review=ok_output("Njord finance review"),
-        budget_summary=ok_output("Njord budget summary"),
-        spending_review=ok_output("Njord spending review"),
     )
     return code, output.getvalue(), calls
 
 
-for exit_command in ("exit", "quit", "/exit", "/quit"):
+for exit_command in ("exit", "quit"):
     exit_code, output, routed = run_session(f"{exit_command}\n")
     assert_true(exit_code == 0, f"{exit_command} did not exit cleanly.")
     assert_true("Njord> " in output, f"{exit_command} did not render the prompt.")
     assert_true(routed == [], f"{exit_command} was unexpectedly routed.")
 
-exit_code, output, routed = run_session("/help\nexit\n")
-assert_true(exit_code == 0, "/help session did not exit cleanly.")
-for command in ("/help", "/status", "/brief", "/review", "/summary", "/spending", "/exit"):
-    assert_true(command in output, f"{command} was missing from REPL help.")
-assert_true(routed == [], "/help was unexpectedly routed.")
+exit_code, output, routed = run_session("help\nexit\n")
+assert_true(exit_code == 0, "help session did not exit cleanly.")
+for phrase in ("Review my finances", "Give me a financial brief", "Summarize my current budget", "exit or quit"):
+    assert_true(phrase in output, f"{phrase} was missing from conversational help.")
+assert_true(routed == [], "help was unexpectedly routed.")
 
 exit_code, output, routed = run_session("/unknown\nexit\n")
-assert_true(exit_code == 0, "Unknown slash command session did not exit cleanly.")
-assert_true("Unknown session command: /unknown" in output, "Unknown slash command did not fail clearly.")
-assert_true(routed == [], "Unknown slash command was unexpectedly routed.")
+assert_true(exit_code == 0, "Slash-prefixed input session did not exit cleanly.")
+assert_true("Njord sessions are conversational now" in output, "Slash-prefixed input did not explain conversational use.")
+assert_true(routed == [], "Slash-prefixed input was unexpectedly routed.")
 
-exit_code, output, routed = run_session("/status\n/brief\n/review\n/summary\n/spending\nexit\n")
-assert_true(exit_code == 0, "Slash command session did not exit cleanly.")
-assert_true("Njord configuration status" in output, "/status did not render status output.")
-assert_true("Njord weekly financial brief" in output, "/brief did not render brief output.")
-assert_true("Njord finance review" in output, "/review did not render finance review output.")
-assert_true("Njord budget summary" in output, "/summary did not render summary output.")
-assert_true("Njord spending review" in output, "/spending did not render spending output.")
-assert_true(routed == [], "Slash commands were unexpectedly routed as natural language.")
+exit_code, output, routed = run_session(
+    "check my configuration status\ngive me a financial brief\nreview my finances\nsummarize my current budget\nshow my current-month spending\nexit\n"
+)
+assert_true(exit_code == 0, "Conversational finance session did not exit cleanly.")
+assert_true(
+    routed == [
+        "check my configuration status",
+        "give me a financial brief",
+        "review my finances",
+        "summarize my current budget",
+        "show my current-month spending",
+    ],
+    "Conversational prompts were not routed in order.",
+)
 
 exit_code, output, routed = run_session("summarize my current budget\nexit\n")
 assert_true(exit_code == 0, "Natural-language session did not exit cleanly.")
@@ -115,14 +116,9 @@ assert_true("routed: summarize my current budget" in output, "Natural-language r
 should_exit, events = handle_input(
     "/missing",
     answer_request=lambda request: (_ for _ in ()).throw(AssertionError("unexpected route")),
-    config_status=ok_output("status"),
-    brief=ok_output("brief"),
-    finance_review=ok_output("finance review"),
-    budget_summary=ok_output("summary"),
-    spending_review=ok_output("spending"),
 )
-assert_true(not should_exit, "Unknown slash command should not exit the session.")
-assert_true(events[0].kind == "warning", "Unknown slash command should produce a warning event.")
+assert_true(not should_exit, "Slash-prefixed input should not exit the session.")
+assert_true(events[0].kind == "warning", "Slash-prefixed input should produce a warning event.")
 
 delta_events = text_delta_events("abcdef", chunk_size=2)
 assert_true([event.kind for event in delta_events] == ["text_delta", "text_delta", "text_delta", "done"], "Text delta events were not ordered.")
@@ -181,25 +177,15 @@ try:
 
     output = io.StringIO()
     repl_code = run_repl(
-        input_stream=io.StringIO("/review\nexit\n"),
+        input_stream=io.StringIO("review my finances\nexit\n"),
         output_stream=output,
         color_enabled=False,
         answer_request=njord_agent.answer_request,
-        config_status=ok_output("status"),
-        brief=ok_output("brief"),
-        finance_review=lambda: njord_agent.run_llm_enhanced_capability(
-            request="/review",
-            capability="finance-review",
-            reason="The REPL slash command asks for the interaction-first finance review loop.",
-            runner=lambda: njord_agent.run_finance_review_for_request("/review"),
-        ),
-        budget_summary=ok_output("summary"),
-        spending_review=ok_output("spending"),
     )
-    assert_true(repl_code == 0, "LLM-backed /review REPL session did not exit cleanly.")
+    assert_true(repl_code == 0, "LLM-backed conversational REPL session did not exit cleanly.")
     repl_output = output.getvalue()
-    assert_true("Capability: finance-review" in repl_output, "REPL /review did not render capability metadata.")
-    assert_true("LLM narration (fake-main)" in repl_output, "REPL /review did not use the configured LLM backend.")
+    assert_true("Capability: finance-review" in repl_output, "REPL conversation did not render capability metadata.")
+    assert_true("LLM narration (fake-main)" in repl_output, "REPL conversation did not use the configured LLM backend.")
 finally:
     njord_agent.run_ynab_budget_summary = original_summary
     njord_agent.run_finance_review_for_request = original_finance_review

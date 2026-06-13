@@ -56,7 +56,13 @@ Check the configuration without printing secrets:
 Njord
 ```
 
-Then run `/status` in the session. For automation or direct checks:
+Then ask naturally:
+
+```text
+Njord> Check my configuration status.
+```
+
+For automation or direct checks:
 
 ```powershell
 Njord config status
@@ -168,7 +174,7 @@ The interaction-first finance review is available inside the REPL:
 
 ```powershell
 Njord
-Njord> /review
+Njord> Review my finances.
 ```
 
 For automation or Mongoose dispatch:
@@ -196,7 +202,13 @@ The main manual workflow is:
 Njord
 ```
 
-Then run `/brief` in the session. For automation or direct repository development:
+Then ask naturally:
+
+```text
+Njord> Give me a financial brief.
+```
+
+For automation or direct repository development:
 
 ```powershell
 python agents\njord\agent.py brief
@@ -280,8 +292,8 @@ Njord
 
 Validate YNAB setup first:
 
-```powershell
-/status
+```text
+Njord> Check my configuration status.
 ```
 
 Inside the session, enter a natural-language request:
@@ -332,8 +344,11 @@ From the repository root:
 python agents\njord\agent.py
 ```
 
-The REPL prompt is `Njord>`. It supports `/help`, `/status`, `/brief`,
-`/review`, `/summary`, `/spending`, `/exit`, and natural-language requests.
+The REPL prompt is `Njord>`. It is conversational: ask naturally for budget
+summaries, financial briefs, spending reviews, finance reviews, risk checks,
+configuration status, or follow-up questions. Type `exit` or `quit` to leave
+the session.
+
 Finance-oriented REPL interactions use the configured Mongoose LLM backend for
 read-only narration or structured finance-review judgment when a profile is
 available. Natural language routes through the same capability path used by

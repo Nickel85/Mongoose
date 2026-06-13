@@ -30,7 +30,7 @@ review. It does not write to YNAB.
 
 ```powershell
 Njord
-Njord> /review
+Njord> Review my finances.
 ```
 
 For automation:

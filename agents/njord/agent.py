@@ -266,29 +266,6 @@ def answer_request(request: str) -> tuple[bool, str]:
     return ok, response
 
 
-def run_llm_enhanced_capability(
-    *,
-    request: str,
-    capability: str,
-    reason: str,
-    runner,
-) -> tuple[bool, str]:
-    ok, output = runner()
-    response = f"Request: {request}\nCapability: {capability}\nReason: {reason}\n\n{output}"
-    if ok and capability in {"brief", "ynab-spending-review", "ynab-budget-summary", "finance-review"}:
-        narration = narrate_finance_response(
-            request=request,
-            capability=capability,
-            deterministic_output=output,
-        )
-        if narration.ok:
-            profile = f" ({narration.profile})" if narration.profile else ""
-            response = f"{response}\n\nLLM narration{profile}\n{narration.text}"
-        elif narration.diagnostic:
-            response = f"{response}\n\nLLM narration unavailable\n{narration.diagnostic}"
-    return ok, response
-
-
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Run Njord agent capabilities."
@@ -417,31 +394,6 @@ def main() -> None:
                 output_stream=sys.stdout,
                 color_enabled=color_enabled,
                 answer_request=answer_request,
-                config_status=run_config_status,
-                brief=lambda: run_llm_enhanced_capability(
-                    request="/brief",
-                    capability="brief",
-                    reason="The REPL slash command asks for a financial brief.",
-                    runner=run_brief,
-                ),
-                finance_review=lambda: run_llm_enhanced_capability(
-                    request="/review",
-                    capability="finance-review",
-                    reason="The REPL slash command asks for the interaction-first finance review loop.",
-                    runner=lambda: run_finance_review_for_request("/review"),
-                ),
-                budget_summary=lambda: run_llm_enhanced_capability(
-                    request="/summary",
-                    capability="ynab-budget-summary",
-                    reason="The REPL slash command asks for a YNAB budget summary.",
-                    runner=run_ynab_budget_summary,
-                ),
-                spending_review=lambda: run_llm_enhanced_capability(
-                    request="/spending",
-                    capability="ynab-spending-review",
-                    reason="The REPL slash command asks for a current-month spending review.",
-                    runner=run_ynab_spending_review,
-                ),
             )
         )
 

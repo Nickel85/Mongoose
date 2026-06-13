@@ -147,9 +147,9 @@ This test verifies:
 
 - `Njord`/`agent.py` with no args opens the `Njord>` prompt.
 - `exit`, `quit`, `/exit`, and `/quit` exit cleanly.
-- `/help`, `/status`, `/brief`, `/summary`, and `/spending` are handled as
-  deterministic session commands.
-- unknown slash commands fail clearly and are not routed as natural language.
+- `help` explains natural conversational examples instead of command menus.
+- slash-prefixed input is rejected with guidance to ask naturally.
+- finance prompts route through natural-language capability selection.
 - natural-language input routes through the existing deterministic request path.
 - launcher-style free-form arguments continue to route through `ask`.
 

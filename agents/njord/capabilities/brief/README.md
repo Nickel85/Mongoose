@@ -24,7 +24,7 @@ After installing Njord:
 
 ```powershell
 Njord
-Njord> /brief
+Njord> Give me a financial brief.
 ```
 
 Natural-language routing:
