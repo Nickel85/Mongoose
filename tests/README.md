@@ -13,6 +13,9 @@ The mongoose command smoke workflow lives at `.github/workflows/mongoose-smoke.y
 The generated architecture validation workflow lives at
 `.github/workflows/architecture-validation.yml`.
 
+The release-start workflow lives at
+`.github/workflows/start-release-branch.yml`.
+
 The release-on-merge workflow lives at
 `.github/workflows/release-on-merge.yml`.
 
@@ -32,6 +35,11 @@ The mongoose build workflow runs on:
 It uploads `dist/mongoose.exe` as an Actions artifact. On version tags, it also attaches `mongoose.exe` to the GitHub Release.
 
 The mongoose smoke workflow runs on the same pull request, push, and tag triggers. It builds `mongoose.exe`, validates installed-binary self-update behavior, then smoke-tests `list`, `install`, `uninstall`, and default/scoped `update` flows.
+
+The release-start workflow is manually triggered with a target version, release
+type, and roadmap theme. It creates `release/v<version>`, rolls
+`MONGOOSE_VERSION`, seeds the matching changelog section, validates release
+metadata, commits the version roll, and pushes the release branch.
 
 The release-on-merge workflow runs when a merged pull request to `main` came
 from a `release/v*` branch. It validates release metadata, creates the matching

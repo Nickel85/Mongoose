@@ -1,0 +1,87 @@
+name: Start Release Branch
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version without the leading v, for example 0.7.0"
+        required: true
+        type: string
+      release_type:
+        description: "SemVer impact selected from roadmap scope"
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      release_theme:
+        description: "Short roadmap theme for the release"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  create-release-branch:
+    name: Create release branch and roll version
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Roll version and seed changelog
+        shell: pwsh
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          RELEASE_TYPE: ${{ inputs.release_type }}
+          RELEASE_THEME: ${{ inputs.release_theme }}
+        run: |
+          if ($env:RELEASE_VERSION -notmatch '^\d+\.\d+\.\d+([\-+][A-Za-z0-9_.-]+)?$') {
+            throw "Release version must be semver-like without a leading v."
+          }
+
+          $branch = "release/v$env:RELEASE_VERSION"
+          if (git ls-remote --exit-code --heads origin $branch) {
+            throw "Release branch $branch already exists."
+          }
+          if (git ls-remote --exit-code --tags origin "refs/tags/v$env:RELEASE_VERSION") {
+            throw "Release tag v$env:RELEASE_VERSION already exists."
+          }
+
+          $mongoosePath = ".\mongoose\mongoose.py"
+          $mongoose = Get-Content $mongoosePath -Raw
+          $mongoose = $mongoose -replace 'MONGOOSE_VERSION\s*=\s*"[^"]+"', "MONGOOSE_VERSION = `"$env:RELEASE_VERSION`""
+          Set-Content -Path $mongoosePath -Value $mongoose -Encoding utf8NoBOM
+
+          $changelogPath = ".\CHANGELOG.md"
+          $changelog = Get-Content $changelogPath -Raw
+          $header = "## v$env:RELEASE_VERSION"
+          if ($changelog -notmatch [regex]::Escape($header)) {
+            $entry = @"
+$header - $env:RELEASE_THEME
+
+Planned release type: $env:RELEASE_TYPE.
+
+### Planned
+
+- TODO: summarize issues merged into $branch.
+
+"@
+            $changelog = $changelog -replace "# Changelog\r?\n\r?\n", "# Changelog`r`n`r`n$entry"
+            Set-Content -Path $changelogPath -Value $changelog -Encoding utf8NoBOM
+          }
+
+          python ./tests/release-version-validation.py
+
+          git checkout -b $branch
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add $mongoosePath $changelogPath
+          git commit -m "chore: start v$env:RELEASE_VERSION release branch"
+          git push origin $branch

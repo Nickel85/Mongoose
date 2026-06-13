@@ -90,9 +90,11 @@ start only after their dependency gates are satisfied.
 ## Release Branch Workflow
 
 Mongoose uses release branches for configuration management. Start each release
-from `main` with a branch named `release/v<version>`, such as
-`release/v0.7.0`. Issue branches for that release start from the release branch
-and target their pull requests back to that release branch.
+from `main` with the `Start Release Branch` GitHub Actions workflow. The
+workflow creates `release/v<version>`, rolls `MONGOOSE_VERSION`, and seeds the
+matching changelog section from the selected release type and roadmap theme.
+Issue branches for that release start from the release branch and target their
+pull requests back to that release branch.
 
 The version is selected at release-branch start from the roadmap and SemVer
 impact: patch for corrective fixes, minor for additive release capability, and
