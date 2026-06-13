@@ -187,6 +187,7 @@ for required_text in (
     "- main",
     "startsWith(github.event.pull_request.head.ref, 'release/v')",
     "MONGOOSE_RELEASE_BRANCH",
+    '.StartsWith("$header - ")',
     "gh release create $env:RELEASE_TAG",
     "--target main",
     "--notes-file .\\release-notes.md",
