@@ -20,6 +20,25 @@ contain raw credentials.
 
 ## Commands
 
+The recommended first step is guided setup:
+
+```text
+mongoose llm setup
+mongoose llm ping
+```
+
+For local Ollama setup, Mongoose can bootstrap the local runtime and model:
+
+```text
+mongoose llm setup --provider ollama --yes --bootstrap
+mongoose llm setup --provider ollama --yes --bootstrap --model gemma4
+```
+
+The bootstrap path is opt-in. It checks for Ollama, starts the local service
+when possible, pulls the selected model when needed, configures `ollama-local`,
+pings the profile, and performs a small invocation check. The default bootstrap
+model is `llama3.2`.
+
 Add a fake profile for local validation:
 
 ```text

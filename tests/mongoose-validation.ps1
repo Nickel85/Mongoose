@@ -289,16 +289,26 @@ Assert-True ($setup.ExitCode -eq 0) "mongoose setup failed. Output: $($setup.Out
 $help = Invoke-Mongoose -Arguments @("--help")
 Assert-True ($help.ExitCode -eq 0) "mongoose --help failed. Output: $($help.Output)"
 Assert-True ($help.Output -match "mongoose --version") "mongoose --help did not include version example."
+Assert-True ($help.Output -match "quick start") "mongoose --help did not include quick start guidance."
+Assert-True ($help.Output -match "mongoose setup") "mongoose --help did not include setup quick start guidance."
 Assert-True ($help.Output -match "mongoose capabilities") "mongoose --help did not include capabilities example."
 Assert-True ($help.Output -match "mongoose install Njord") "mongoose --help did not include install example."
 Assert-True ($help.Output -match "mongoose show Njord") "mongoose --help did not include show example."
 Assert-True ($help.Output -match "mongoose run Njord") "mongoose --help did not include run example."
 Assert-True ($help.Output -match "mongoose route") "mongoose --help did not include route example."
-Assert-True ($help.Output -match "mongoose llm add") "mongoose --help did not include LLM profile example."
+Assert-True ($help.Output -match "mongoose llm setup") "mongoose --help did not include guided LLM setup example."
+Assert-True ($help.Output -match "mongoose llm setup --provider ollama --yes --bootstrap") "mongoose --help did not include Ollama bootstrap example."
 Assert-True ($help.Output -match "mongoose validate") "mongoose --help did not include validate example."
 Assert-True ($help.Output -match "mongoose remove Njord") "mongoose --help did not include remove example."
 Assert-True ($help.Output -match "mongoose update") "mongoose --help did not include update guidance."
 Assert-True ($help.Output -match "mongoose state --init") "mongoose --help did not include state guidance."
+
+$llmHelp = Invoke-Mongoose -Arguments @("llm", "--help")
+Assert-True ($llmHelp.ExitCode -eq 0) "mongoose llm --help failed. Output: $($llmHelp.Output)"
+Assert-True ($llmHelp.Output -match "mongoose llm setup") "mongoose llm --help did not recommend guided setup."
+Assert-True ($llmHelp.Output -match "mongoose llm setup --provider ollama --yes") "mongoose llm --help did not include Ollama setup example."
+Assert-True ($llmHelp.Output -match "mongoose llm invoke") "mongoose llm --help did not include invocation example."
+Assert-True ($llmHelp.Output -match "advanced manual setup") "mongoose llm --help did not distinguish manual setup."
 
 $version = Invoke-Mongoose -Arguments @("--version")
 Assert-True ($version.ExitCode -eq 0) "mongoose --version failed. Output: $($version.Output)"
@@ -327,6 +337,22 @@ Assert-True ($emptyLlmList.Output -match "No LLM profiles configured") "empty LL
 $missingLlmPing = Invoke-Mongoose -Arguments @("llm", "ping")
 Assert-True ($missingLlmPing.ExitCode -ne 0) "mongoose llm ping unexpectedly passed without a default profile. Output: $($missingLlmPing.Output)"
 Assert-True ($missingLlmPing.Output -match "mongoose.llm_profile_missing") "missing default LLM ping did not emit a structured error."
+
+$missingLlmStatus = Invoke-Mongoose -Arguments @("status")
+Assert-True ($missingLlmStatus.ExitCode -eq 0) "mongoose status failed before LLM setup. Output: $($missingLlmStatus.Output)"
+Assert-True ($missingLlmStatus.Output -match "No default LLM profile configured. Run: mongoose llm setup") "mongoose status did not guide users to LLM setup."
+
+$fakeOllama = Join-Path $fixtureRoot "fake-ollama.exe"
+New-Item -ItemType File -Path $fakeOllama -Force | Out-Null
+$env:MONGOOSE_OLLAMA_BIN = $fakeOllama
+$env:MONGOOSE_TEST_OLLAMA_MODELS = "llama3.2"
+$ollamaSetup = Invoke-Mongoose -Arguments @("llm", "setup", "--provider", "ollama", "--yes", "--bootstrap", "--skip-ping")
+Remove-Item Env:\MONGOOSE_OLLAMA_BIN
+Remove-Item Env:\MONGOOSE_TEST_OLLAMA_MODELS
+Assert-True ($ollamaSetup.ExitCode -eq 0) "mongoose llm setup --bootstrap failed with mocked Ollama. Output: $($ollamaSetup.Output)"
+Assert-True ($ollamaSetup.Output -match "Ollama bootstrap") "mocked Ollama bootstrap did not run."
+Assert-True ($ollamaSetup.Output -match "Model: llama3.2") "mocked Ollama bootstrap did not configure the default model."
+Assert-True ($ollamaSetup.Output -match "Default: yes") "mocked Ollama bootstrap did not select the default profile."
 
 $missingSecretProfile = Invoke-Mongoose -Arguments @("llm", "add", "openai-main", "--provider", "openai", "--model", "gpt-test", "--api-key-env", "MONGOOSE_TEST_OPENAI_KEY")
 Assert-True ($missingSecretProfile.ExitCode -eq 0) "mongoose llm add openai-main failed. Output: $($missingSecretProfile.Output)"
