@@ -1,5 +1,30 @@
 # Changelog
 
+## v0.6.1 - Njord REPL-First Session
+
+Planned release type: patch.
+
+This release makes Njord open an interactive REPL by default while preserving
+one-shot capability commands for Mongoose routing, scripts, and automation.
+
+### Added
+
+- Add the Njord `Njord>` interactive session with `/help`, `/status`,
+  `/brief`, `/summary`, `/spending`, `/exit`, and `/quit`.
+- Add a response-event session layer for text, warnings, errors, prompts,
+  approval requests, and completion events.
+- Add REPL validation coverage for no-arg startup, clean exits, slash commands,
+  natural-language routing, and launcher-style free-form requests.
+
+### Changed
+
+- Update installed `Njord.cmd` launchers to pass user arguments directly to the
+  agent entrypoint instead of forcing `ask`.
+- Keep free-form installed invocations routing through the existing `ask` path
+  while bare `Njord` opens the REPL.
+- Update Njord documentation so the REPL is the primary human workflow and
+  one-shot commands remain documented for automation.
+
 ## v0.6.0 - Persistent Runtime, Observability, and LLM Setup
 
 Planned release type: minor.

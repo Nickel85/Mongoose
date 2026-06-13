@@ -156,7 +156,7 @@ $releaseUrl = New-ReleaseFixture -AssetPath $releaseAsset
 Install-TestMongoose
 $version = Invoke-InstalledMongoose -Arguments @("--version")
 Assert-True ($version.ExitCode -eq 0) "installed mongoose.exe --version failed. Output: $($version.Output)"
-Assert-True ($version.Output -match "mongoose 0.6.0") "installed mongoose.exe did not report expected version. Output: $($version.Output)"
+Assert-True ($version.Output -match "mongoose 0.6.1") "installed mongoose.exe did not report expected version. Output: $($version.Output)"
 
 $update = Invoke-InstalledMongoose -Arguments @("update", "--self") -Environment @{
     MONGOOSE_RELEASES_API_URL = $releaseUrl
