@@ -71,8 +71,8 @@ The `fake` provider is for validation and tests. It returns a deterministic
 
 ## Agent-Facing Interface
 
-Runtime Contract v1 exposes LLM availability through the `llm` provider
-descriptor in `MONGOOSE_RUNTIME_CONTEXT`:
+Runtime Contract v1 exposes LLM availability and an invocation command through
+the `llm` provider descriptor in `MONGOOSE_RUNTIME_CONTEXT`:
 
 ```json
 {
@@ -87,7 +87,18 @@ descriptor in `MONGOOSE_RUNTIME_CONTEXT`:
         "model": "gpt-4.1-mini",
         "apiKeyEnv": "OPENAI_API_KEY",
         "secretAvailable": true
-      }
+      },
+      "invokeCommand": [
+        "python",
+        "C:\\Users\\you\\AppData\\Local\\Agents\\mongoose\\mongoose.py",
+        "llm",
+        "invoke",
+        "--json",
+        "--profile",
+        "openai-main"
+      ],
+      "input": "stdin prompt text",
+      "output": "json"
     }
   }
 }
@@ -97,6 +108,29 @@ Agents should request an LLM profile by explicit profile name, the default
 profile, or manifest-declared requirement. They should treat provider-specific
 credentials as opaque and let Mongoose resolve profile readiness.
 
+Installed agents invoke the provider by running the advertised `invokeCommand`
+and passing prompt text on stdin. The command returns JSON:
+
+```json
+{
+  "ok": true,
+  "profile": "openai-main",
+  "provider": "openai",
+  "model": "gpt-4.1-mini",
+  "response": {
+    "role": "assistant",
+    "content": "Generated narration..."
+  }
+}
+```
+
+For local validation, the `fake` provider returns deterministic narration and
+does not require network access or secrets:
+
+```text
+mongoose llm invoke --profile fake-main "Explain these deterministic facts"
+```
+
 ## Runtime Errors
 
 LLM setup and ping failures use structured runtime error codes:
@@ -105,6 +139,7 @@ LLM setup and ping failures use structured runtime error codes:
 - `mongoose.llm_profile_invalid`
 - `mongoose.llm_secret_missing`
 - `mongoose.llm_ping_failed`
+- `mongoose.llm_invoke_failed`
 - `mongoose.provider_unavailable`
 
 Diagnostics are redacted before printing. Missing environment variable names may

@@ -10,7 +10,7 @@ package MongooseAgents {
     attribute displayName = "Njord";
     attribute manifestPath = "agents/njord/agent.json";
     attribute entrypointPath = "agents/njord/agent.py";
-    attribute llmMode = "none";
+    attribute llmMode = "optional";
     attribute taskType = "budget";
     attribute taskType = "finance";
     attribute taskType = "ynab";
@@ -20,7 +20,7 @@ package MongooseAgents {
       attribute name = "brief";
       attribute displayName = "Manual Financial Brief";
       attribute entrypointPath = "agents/njord/agent.py";
-      attribute llmMode = "none";
+      attribute llmMode = "optional";
       attribute taskType = "brief";
       attribute taskType = "finance";
       attribute taskType = "financial-brief";
@@ -50,7 +50,7 @@ package MongooseAgents {
       attribute name = "ynab-budget-summary";
       attribute displayName = "YNAB Budget Summary";
       attribute entrypointPath = "agents/njord/agent.py";
-      attribute llmMode = "none";
+      attribute llmMode = "optional";
       attribute taskType = "budget-summary";
       attribute taskType = "finance";
       attribute taskType = "review-needed";
@@ -62,7 +62,7 @@ package MongooseAgents {
       attribute name = "ynab-spending-review";
       attribute displayName = "YNAB Spending Review";
       attribute entrypointPath = "agents/njord/agent.py";
-      attribute llmMode = "none";
+      attribute llmMode = "optional";
       attribute taskType = "cash-flow";
       attribute taskType = "finance";
       attribute taskType = "spending-review";

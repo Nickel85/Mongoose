@@ -62,6 +62,7 @@ function New-FixtureAgent {
     $agentPython = @"
 import json
 import os
+import subprocess
 import sys
 
 print("$Name fixture agent")
@@ -76,9 +77,29 @@ if context_path:
     print("CTX_CAPABILITY=" + str((context.get("capability") or {}).get("name", "")))
     print("CTX_STORAGE=" + str(context.get("providers", {}).get("storage", {}).get("available")))
     print("CTX_CONFIG_PROVIDER=" + str(context.get("providers", {}).get("configuration", {}).get("interface", "")))
+    print("CTX_LLM_PROVIDER=" + str(context.get("providers", {}).get("llm", {}).get("interface", "")))
+    print("CTX_LLM_AVAILABLE=" + str(context.get("providers", {}).get("llm", {}).get("available")))
     print("CTX_RUNTIME_PATH=" + str(bool(context.get("paths", {}).get("runtime"))))
     secret_value = os.environ.get("ALPHA_SECRET_TOKEN", "")
     print("CTX_HAS_SECRET=" + str(bool(secret_value and secret_value in json.dumps(context))))
+    if len(sys.argv) > 1 and sys.argv[1] == "llm-ready":
+        command = context.get("providers", {}).get("llm", {}).get("invokeCommand", [])
+        if not command:
+            print("LLM_INVOKE_MISSING=True")
+            raise SystemExit(3)
+        completed = subprocess.run(
+            command,
+            input="Explain this fixture capability result.",
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        print("LLM_INVOKE_EXIT=" + str(completed.returncode))
+        if completed.stdout:
+            payload = json.loads(completed.stdout)
+            print("LLM_INVOKE_OK=" + str(payload.get("ok")))
+            print("LLM_INVOKE_PROFILE=" + str(payload.get("profile")))
+            print("LLM_INVOKE_TEXT=" + str(payload.get("response", {}).get("content", "")))
 "@
     Set-Content -Path (Join-Path $agentDirectory "agent.py") -Value $agentPython -Encoding ASCII
 
@@ -337,6 +358,17 @@ Assert-True ($llmPing.ExitCode -eq 0) "mongoose llm ping fake-main failed. Outpu
 Assert-True ($llmPing.Output -match "LLM provider reachable") "mongoose llm ping did not report reachability."
 Assert-True ($llmPing.Output -match "Response: pong") "mongoose llm ping fake provider did not report fake response."
 
+$llmInvoke = Invoke-Mongoose -Arguments @("llm", "invoke", "--profile", "fake-main", "Explain fixture facts")
+Assert-True ($llmInvoke.ExitCode -eq 0) "mongoose llm invoke fake-main failed. Output: $($llmInvoke.Output)"
+Assert-True ($llmInvoke.Output -match "LLM provider invoked") "mongoose llm invoke did not report invocation success."
+Assert-True ($llmInvoke.Output -match "Fake LLM narration") "mongoose llm invoke did not print fake-provider narration."
+
+$llmInvokeJson = Invoke-Mongoose -Arguments @("llm", "invoke", "--profile", "fake-main", "--json", "Explain fixture facts")
+Assert-True ($llmInvokeJson.ExitCode -eq 0) "mongoose llm invoke --json fake-main failed. Output: $($llmInvokeJson.Output)"
+Assert-True ($llmInvokeJson.Output -match '"ok": true') "mongoose llm invoke --json did not report ok."
+Assert-True ($llmInvokeJson.Output -match '"profile": "fake-main"') "mongoose llm invoke --json did not report the profile."
+Assert-True ($llmInvokeJson.Output -notmatch "super-secret-fixture-token") "mongoose llm invoke --json leaked a secret value."
+
 $list = Invoke-Mongoose -Arguments @("list")
 Assert-True ($list.ExitCode -eq 0) "mongoose list failed. Output: $($list.Output)"
 Assert-True ($list.Output -match "Njord") "mongoose list did not include Njord."
@@ -371,7 +403,7 @@ Assert-True ($showNjord.Output -match "Capabilities") "mongoose show Njord did n
 Assert-True ($showNjord.Output -match "Manifest schema: 1") "mongoose show Njord did not include manifest schema."
 Assert-True ($showNjord.Output -match "Task types: finance") "mongoose show Njord did not include task types."
 Assert-True ($showNjord.Output -match "Required config: YNAB_ACCESS_TOKEN") "mongoose show Njord did not include configuration requirements."
-Assert-True ($showNjord.Output -match "LLM mode: none") "mongoose show Njord did not include LLM metadata."
+Assert-True ($showNjord.Output -match "LLM mode: optional") "mongoose show Njord did not include LLM metadata."
 
 $installedList = Invoke-Mongoose -Arguments @("list", "--installed")
 Assert-True ($installedList.ExitCode -eq 0) "mongoose list --installed failed. Output: $($installedList.Output)"
@@ -462,6 +494,12 @@ $llmReadyRoute = Invoke-Mongoose -Arguments @("route", "--task-type", "llm-ready
 Assert-True ($llmReadyRoute.ExitCode -eq 0) "mongoose route did not run an LLM-required capability with a configured fake profile. Output: $($llmReadyRoute.Output)"
 Assert-True ($llmReadyRoute.Output -match "Selected: Alpha::llm-ready") "mongoose route did not select the llm-ready capability."
 Assert-True ($llmReadyRoute.Output -match "ARGS=llm-ready\|hello") "mongoose route did not pass llm-ready capability arguments."
+Assert-True ($llmReadyRoute.Output -match "CTX_LLM_PROVIDER=mongoose.llm.v1") "runtime context did not expose the LLM provider interface."
+Assert-True ($llmReadyRoute.Output -match "CTX_LLM_AVAILABLE=True") "runtime context did not mark the fake LLM provider available."
+Assert-True ($llmReadyRoute.Output -match "LLM_INVOKE_EXIT=0") "fixture capability could not invoke the Mongoose LLM runtime."
+Assert-True ($llmReadyRoute.Output -match "LLM_INVOKE_OK=True") "fixture capability did not receive an ok LLM invocation result."
+Assert-True ($llmReadyRoute.Output -match "LLM_INVOKE_PROFILE=fake-main") "fixture capability did not invoke the expected LLM profile."
+Assert-True ($llmReadyRoute.Output -match "Fake LLM narration") "fixture capability did not receive fake-provider narration."
 
 $futureRuntimeRoute = Invoke-Mongoose -Arguments @("route", "--task-type", "future-runtime")
 Assert-True ($futureRuntimeRoute.ExitCode -ne 0) "mongoose route unexpectedly ran an incompatible runtime capability. Output: $($futureRuntimeRoute.Output)"

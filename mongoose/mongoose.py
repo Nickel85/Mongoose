@@ -345,6 +345,13 @@ def llm_profile_summary(name: str, profile: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def llm_invoke_command(profile_name: str = "") -> list[str]:
+    command = [sys.executable, str(Path(__file__).resolve()), "llm", "invoke", "--json"]
+    if profile_name:
+        command.extend(["--profile", profile_name])
+    return command
+
+
 def resolve_llm_profile(name: str | None = None) -> tuple[str, dict[str, Any], dict[str, Any] | None]:
     data = load_llm_profiles()
     profile_name = normalize_profile_name(name) if name else str(data.get("default", "")).strip()
@@ -970,6 +977,9 @@ def runtime_provider_descriptors(agent: dict[str, Any], capability: dict[str, An
             "mode": llm_mode,
             "defaultProfile": default_llm,
             "profile": default_summary,
+            "invokeCommand": llm_invoke_command(default_llm),
+            "input": "stdin prompt text",
+            "output": "json",
             "reason": "" if default_summary else "No default LLM profile is configured yet.",
         },
     }
@@ -2523,6 +2533,25 @@ def fake_llm_ping(profile: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def fake_llm_invoke(profile: dict[str, Any], messages: list[dict[str, str]]) -> dict[str, Any]:
+    user_text = ""
+    for message in reversed(messages):
+        if message.get("role") == "user":
+            user_text = message.get("content", "")
+            break
+    trimmed = " ".join(user_text.split())[:160]
+    content = f"Fake LLM narration based on deterministic context: {trimmed}"
+    return {
+        "ok": True,
+        "message": "Fake LLM provider invoked.",
+        "response": {
+            "role": "assistant",
+            "content": content,
+            "model": profile.get("model", ""),
+        },
+    }
+
+
 def http_llm_ping(profile: dict[str, Any], timeout_seconds: float) -> dict[str, Any]:
     provider = str(profile.get("provider", "")).strip()
     endpoint = str(profile.get("endpoint", "")).strip()
@@ -2552,6 +2581,199 @@ def http_llm_ping(profile: dict[str, Any], timeout_seconds: float) -> dict[str, 
         return {"ok": False, "message": "LLM provider ping timed out."}
     except OSError as exc:
         return {"ok": False, "message": redact_secret_text(str(exc))}
+
+
+def http_llm_invoke(profile: dict[str, Any], messages: list[dict[str, str]], timeout_seconds: float) -> dict[str, Any]:
+    provider = str(profile.get("provider", "")).strip()
+    endpoint = str(profile.get("endpoint", "")).strip()
+    model = str(profile.get("model", "")).strip()
+    secret = profile.get("secret", {}) if isinstance(profile.get("secret", {}), dict) else {}
+    api_key = os.environ.get(str(secret.get("env", "")).strip(), "")
+    headers = {
+        "Content-Type": "application/json",
+        "User-Agent": f"mongoose/{MONGOOSE_VERSION}",
+    }
+    payload: dict[str, Any]
+
+    if provider == "openai":
+        endpoint = endpoint or "https://api.openai.com/v1/chat/completions"
+        headers["Authorization"] = f"Bearer {api_key}"
+        payload = {
+            "model": model,
+            "messages": messages,
+            "temperature": 0.2,
+            "max_tokens": 500,
+        }
+    elif provider == "anthropic":
+        endpoint = endpoint or "https://api.anthropic.com/v1/messages"
+        headers["x-api-key"] = api_key
+        headers["anthropic-version"] = "2023-06-01"
+        system = "\n".join(message["content"] for message in messages if message.get("role") == "system")
+        anthropic_messages = [
+            {"role": message.get("role", "user"), "content": message.get("content", "")}
+            for message in messages
+            if message.get("role") != "system"
+        ]
+        payload = {
+            "model": model,
+            "system": system,
+            "messages": anthropic_messages,
+            "max_tokens": 500,
+        }
+    else:
+        if endpoint.endswith("/api/tags"):
+            endpoint = endpoint[: -len("/api/tags")] + "/api/chat"
+        payload = {
+            "model": model,
+            "messages": messages,
+            "stream": False,
+        }
+
+    request = urllib.request.Request(
+        endpoint,
+        data=json.dumps(payload).encode("utf-8"),
+        headers=headers,
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
+            status = getattr(response, "status", 200)
+            body = response.read().decode("utf-8", errors="replace")
+    except urllib.error.HTTPError as exc:
+        return {
+            "ok": False,
+            "status": exc.code,
+            "message": "LLM provider returned an HTTP error.",
+        }
+    except TimeoutError:
+        return {"ok": False, "message": "LLM provider invocation timed out."}
+    except OSError as exc:
+        return {"ok": False, "message": redact_secret_text(str(exc))}
+
+    try:
+        data = json.loads(body) if body else {}
+    except json.JSONDecodeError:
+        return {"ok": False, "status": status, "message": "LLM provider returned invalid JSON."}
+
+    content = ""
+    if provider == "openai":
+        choices = data.get("choices", []) if isinstance(data, dict) else []
+        first = choices[0] if choices and isinstance(choices[0], dict) else {}
+        message = first.get("message", {}) if isinstance(first.get("message", {}), dict) else {}
+        content = str(message.get("content", "")).strip()
+    elif provider == "anthropic":
+        blocks = data.get("content", []) if isinstance(data, dict) else []
+        parts = [str(block.get("text", "")).strip() for block in blocks if isinstance(block, dict)]
+        content = "\n".join(part for part in parts if part)
+    else:
+        message = data.get("message", {}) if isinstance(data, dict) and isinstance(data.get("message", {}), dict) else {}
+        content = str(message.get("content") or data.get("response", "") if isinstance(data, dict) else "").strip()
+
+    if not content:
+        return {"ok": False, "status": status, "message": "LLM provider returned an empty response."}
+    return {
+        "ok": 200 <= status < 300,
+        "status": status,
+        "message": "LLM provider invoked.",
+        "response": {
+            "role": "assistant",
+            "content": content,
+            "model": model,
+        },
+    }
+
+
+def invoke_llm_profile(
+    *,
+    profile_name: str | None,
+    prompt: str,
+    system_prompt: str = "",
+    timeout_seconds: float = 30.0,
+) -> tuple[int, dict[str, Any]]:
+    name, profile, error = resolve_llm_profile(profile_name)
+    if error:
+        return 1, {
+            "ok": False,
+            "error": error,
+            "profile": name,
+            "response": {},
+        }
+
+    messages: list[dict[str, str]] = []
+    if system_prompt.strip():
+        messages.append({"role": "system", "content": system_prompt.strip()})
+    messages.append({"role": "user", "content": prompt})
+
+    start = time.perf_counter()
+    provider = str(profile.get("provider", "")).strip()
+    if provider == "fake":
+        result = fake_llm_invoke(profile, messages)
+    else:
+        result = http_llm_invoke(profile, messages, timeout_seconds=timeout_seconds)
+    latency_ms = int((time.perf_counter() - start) * 1000)
+
+    response = result.get("response", {}) if isinstance(result.get("response", {}), dict) else {}
+    payload = {
+        "ok": bool(result.get("ok")),
+        "profile": name,
+        "provider": provider,
+        "model": profile.get("model", ""),
+        "latencyMs": latency_ms,
+        "message": str(result.get("message", "")),
+        "response": {
+            "role": response.get("role", "assistant"),
+            "content": redact_secret_text(str(response.get("content", ""))),
+            "model": response.get("model", profile.get("model", "")),
+        },
+    }
+    if result.get("status") not in (None, ""):
+        payload["status"] = result.get("status")
+    if not result.get("ok"):
+        payload["error"] = runtime_error(
+            "mongoose.llm_invoke_failed",
+            str(result.get("message", "LLM provider invocation failed.")),
+            profile=name,
+            provider=provider,
+            status=result.get("status", ""),
+        )
+        return 1, payload
+    return 0, payload
+
+
+def cmd_llm_invoke(args: argparse.Namespace) -> int:
+    prompt = " ".join(args.prompt or []).strip()
+    if not prompt:
+        prompt = sys.stdin.read().strip()
+    if not prompt:
+        print_error("llm invoke requires prompt text from arguments or stdin.")
+        return 1
+
+    code, payload = invoke_llm_profile(
+        profile_name=args.profile,
+        prompt=prompt,
+        system_prompt=args.system or "",
+        timeout_seconds=args.timeout,
+    )
+    if args.json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+        return code
+
+    if payload.get("ok"):
+        print_success("LLM provider invoked.")
+        print(label_line("Profile", payload.get("profile", "")))
+        print(label_line("Provider", payload.get("provider", "")))
+        print(label_line("Model", payload.get("model", "")))
+        print(label_line("Latency", f"{payload.get('latencyMs', 0)} ms", "muted"))
+        print("")
+        print(str(payload.get("response", {}).get("content", "")))
+        return 0
+
+    error = payload.get("error")
+    if isinstance(error, dict):
+        print_runtime_error(error)
+    else:
+        print_error(str(payload.get("message", "LLM provider invocation failed.")))
+    return code
 
 
 def cmd_llm_ping(args: argparse.Namespace) -> int:
@@ -3285,6 +3507,18 @@ workflow:
     llm_ping.add_argument("name", nargs="?", help="Profile name; defaults to the active default profile.")
     llm_ping.add_argument("--timeout", type=float, default=10.0, help="Ping timeout in seconds.")
     llm_ping.set_defaults(handler=cmd_llm_ping)
+
+    llm_invoke = llm_subparsers.add_parser(
+        "invoke",
+        help=argparse.SUPPRESS,
+        description="Invoke a configured provider-neutral LLM profile.",
+    )
+    llm_invoke.add_argument("prompt", nargs="*", help="Prompt text. Reads stdin when omitted.")
+    llm_invoke.add_argument("--profile", help="Profile name; defaults to the active default profile.")
+    llm_invoke.add_argument("--system", help="Optional system prompt.")
+    llm_invoke.add_argument("--timeout", type=float, default=30.0, help="Invocation timeout in seconds.")
+    llm_invoke.add_argument("--json", action="store_true", help="Print structured invocation result JSON.")
+    llm_invoke.set_defaults(handler=cmd_llm_invoke)
 
     validate = subparsers.add_parser(
         "validate",
