@@ -37,7 +37,7 @@ DEFAULT_JOB_RETENTION = 50
 DEFAULT_OLLAMA_TAGS_ENDPOINT = "http://localhost:11434/api/tags"
 MONGOOSE_RELEASES_API_URL = "https://api.github.com/repos/Nickel85/Mongoose/releases"
 MONGOOSE_RELEASE_ASSET_NAME = "mongoose.exe"
-MONGOOSE_VERSION = "0.6.1"
+MONGOOSE_VERSION = "0.7.0"
 MONGOOSE_RELEASE_KIND = "development"
 MONGOOSE_RELEASE_TAG = ""
 # Increment only for breaking manifest contract changes. Additive optional metadata stays on the same version.

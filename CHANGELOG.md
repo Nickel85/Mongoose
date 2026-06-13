@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.7.0 - LLM Capability Provider Runtime
+
+Planned release type: minor.
+
+This release makes the provider-neutral LLM runtime usable by installed
+capabilities and by Njord's REPL for safe, read-only finance narration.
+
+### Planned
+
+- Add the first Mongoose-managed LLM invocation path for installed
+  capabilities.
+- Connect Njord's REPL to Mongoose-managed LLM profiles for read-only finance
+  narration from deterministic Njord facts.
+- Finish the response-event model needed for progressive LLM narration and
+  future UI session surfaces.
+
 ## v0.6.1 - Njord REPL-First Session
 
 Planned release type: patch.
