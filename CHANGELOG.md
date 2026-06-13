@@ -1,6 +1,11 @@
 # Changelog
 
-## Unreleased
+## v0.7.1 - Discoverable Ollama LLM Bootstrap
+
+Planned release type: patch.
+
+This release makes first-time local LLM setup easier to discover and easier to
+complete from the terminal.
 
 ### Added
 

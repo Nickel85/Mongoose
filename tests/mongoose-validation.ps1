@@ -312,7 +312,7 @@ Assert-True ($llmHelp.Output -match "advanced manual setup") "mongoose llm --hel
 
 $version = Invoke-Mongoose -Arguments @("--version")
 Assert-True ($version.ExitCode -eq 0) "mongoose --version failed. Output: $($version.Output)"
-Assert-True ($version.Output -match "mongoose 0.7.0") "mongoose --version did not report expected version."
+Assert-True ($version.Output -match "mongoose 0.7.1") "mongoose --version did not report expected version."
 Assert-True ($version.Output -match "development") "mongoose --version did not report development release kind."
 
 $state = Invoke-Mongoose -Arguments @("state", "--init", "--json")
@@ -321,7 +321,7 @@ $statePaths = $state.Output | ConvertFrom-Json
 Assert-True (Test-Path $statePaths.state) "mongoose state did not create the shared state directory."
 Assert-True (Test-Path $statePaths.logs) "mongoose state did not create the log directory."
 Assert-True (Test-Path $statePaths.jobs) "mongoose state did not create the jobs directory."
-Assert-True ($statePaths.version -eq "0.7.0") "mongoose state did not report CLI version."
+Assert-True ($statePaths.version -eq "0.7.1") "mongoose state did not report CLI version."
 Assert-True ($statePaths.releaseKind -eq "development") "mongoose state did not report development release kind."
 Assert-True ($statePaths.releaseTag -eq "") "mongoose state should not report a release tag for development builds."
 Assert-True ($statePaths.cliSource -match "mongoose.py") "mongoose state did not report CLI source."
