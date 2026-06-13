@@ -160,19 +160,49 @@ fake_profile = run_mongoose("llm", "add", "fake-main", "--provider", "fake", "--
 assert_true(fake_profile.returncode == 0, f"fake LLM profile setup failed: {fake_profile.stdout}{fake_profile.stderr}")
 invoke = f'"{sys.executable}" "{MONGOOSE_CLI}" llm invoke --json'
 original_summary = njord_agent.run_ynab_budget_summary
+original_finance_review = njord_agent.run_finance_review_for_request
 original_localappdata = os.environ.get("LOCALAPPDATA")
 original_invoke = os.environ.get("MONGOOSE_LLM_INVOKE")
 try:
     os.environ["LOCALAPPDATA"] = str(TEST_LOCAL_APP_DATA)
     os.environ["MONGOOSE_LLM_INVOKE"] = invoke
     njord_agent.run_ynab_budget_summary = lambda: (True, "Budget facts\nAvailable to assign: $42.00")
+    njord_agent.run_finance_review_for_request = lambda request: (True, "Njord finance review\nRisk score: 42")
     ok, narrated = njord_agent.answer_request("summarize my budget")
     assert_true(ok, "Njord finance answer did not succeed with fixture summary.")
     assert_true("LLM narration (fake-main)" in narrated, "Njord did not label fake-provider LLM narration.")
     assert_true("Fake LLM narration" in narrated, "Njord did not include fake-provider LLM response.")
     assert_true("Available to assign: $42.00" in narrated, "Njord dropped deterministic finance facts.")
+
+    ok, review_answer = njord_agent.answer_request("review my finances")
+    assert_true(ok, "Njord finance review answer did not succeed with fixture review.")
+    assert_true("Capability: finance-review" in review_answer, "Finance review request did not route to finance-review.")
+    assert_true("LLM narration (fake-main)" in review_answer, "Finance review answer did not use configured LLM narration.")
+
+    output = io.StringIO()
+    repl_code = run_repl(
+        input_stream=io.StringIO("/review\nexit\n"),
+        output_stream=output,
+        color_enabled=False,
+        answer_request=njord_agent.answer_request,
+        config_status=ok_output("status"),
+        brief=ok_output("brief"),
+        finance_review=lambda: njord_agent.run_llm_enhanced_capability(
+            request="/review",
+            capability="finance-review",
+            reason="The REPL slash command asks for the interaction-first finance review loop.",
+            runner=lambda: njord_agent.run_finance_review_for_request("/review"),
+        ),
+        budget_summary=ok_output("summary"),
+        spending_review=ok_output("spending"),
+    )
+    assert_true(repl_code == 0, "LLM-backed /review REPL session did not exit cleanly.")
+    repl_output = output.getvalue()
+    assert_true("Capability: finance-review" in repl_output, "REPL /review did not render capability metadata.")
+    assert_true("LLM narration (fake-main)" in repl_output, "REPL /review did not use the configured LLM backend.")
 finally:
     njord_agent.run_ynab_budget_summary = original_summary
+    njord_agent.run_finance_review_for_request = original_finance_review
     if original_localappdata is None:
         os.environ.pop("LOCALAPPDATA", None)
     else:

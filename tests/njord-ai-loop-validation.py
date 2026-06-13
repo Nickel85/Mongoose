@@ -23,6 +23,7 @@ from fact_packet import (  # noqa: E402
     build_financial_risk_fact_packet,
 )
 from finance_review import build_finance_review_from_snapshot  # noqa: E402
+from llm_runtime import LlmDecisionResult  # noqa: E402
 from loop_contract import (  # noqa: E402
     LLM_DECISION_GUARDRAILS,
     LOOP_EXECUTION_ENVELOPE,
@@ -195,7 +196,39 @@ assert_true("Cash Flow Forecasting" in review.output, "Finance review missing ca
 assert_true("Financial Risk" in review.output, "Finance review missing risk loop.")
 assert_true("Fact packets" in review.output, "Finance review missing fact packet section.")
 assert_true("LLM decision validation" in review.output, "Finance review missing validation section.")
+assert_true("LLM decision unavailable" in review.output, "Finance review should explain missing LLM backend.")
 assert_true("read-only" in review.output, "Finance review missing read-only guardrail.")
 assert_true("write to YNAB" not in review.output, "Finance review should not claim write execution.")
+
+
+def structured_backend(*, request, fact_packet):
+    decision = {
+        "recommendation": "Prioritize reviewing the negative cash flow before planning changes.",
+        "rationale": "The deterministic risk packet shows negative cash flow and category pressure.",
+        "confidence": 0.72,
+        "assumptions": ["The current snapshot is representative enough for a review."],
+        "risks": ["The review period may not include all upcoming income."],
+        "requires_user_approval": True,
+    }
+    validation_result = validate_llm_decision(decision, fact_packet)
+    return LlmDecisionResult(
+        validation_result.ok,
+        decision=decision,
+        validation=validation_result,
+        profile="fixture-llm",
+    )
+
+
+llm_review = build_finance_review_from_snapshot(
+    snapshot,
+    request="review my finances",
+    decision_backend=structured_backend,
+)
+assert_true("LLM decision (fixture-llm)" in llm_review.output, "Finance review did not render LLM decision profile.")
+assert_true(
+    "Prioritize reviewing the negative cash flow" in llm_review.output,
+    "Finance review did not render structured LLM recommendation.",
+)
+assert_true("LLM decision contract valid" in llm_review.output, "Finance review did not validate LLM decision.")
 
 print("Njord AI loop validation passed.")

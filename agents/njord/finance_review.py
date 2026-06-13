@@ -13,6 +13,7 @@ from fact_packet import (
     build_financial_risk_fact_packet,
 )
 from loop_contract import get_contract
+from llm_runtime import LlmDecisionResult, invoke_finance_decision
 from review import review_snapshot
 from snapshot import FinancialSnapshot, load_snapshot
 from spending import review_spending
@@ -26,7 +27,29 @@ class FinanceReviewResult:
     fact_packets: list[FinanceFactPacket]
 
 
-def build_finance_review_from_snapshot(snapshot: FinancialSnapshot) -> FinanceReviewResult:
+def fallback_decision_payload() -> dict[str, Any]:
+    return {
+        "recommendation": "Review the deterministic finance facts before requesting a budget change.",
+        "rationale": "The finance review is read-only and uses validated fact packets.",
+        "confidence": 0.8,
+        "assumptions": [
+            "The loaded YNAB snapshot is the current source of truth.",
+            "Missing scheduled transaction data lowers forecast confidence.",
+        ],
+        "risks": [
+            "Short review periods can make cash flow look worse than the full month.",
+            "No budget changes are executed from this review.",
+        ],
+        "requires_user_approval": True,
+    }
+
+
+def build_finance_review_from_snapshot(
+    snapshot: FinancialSnapshot,
+    *,
+    request: str = "Review my finances.",
+    decision_backend=invoke_finance_decision,
+) -> FinanceReviewResult:
     spending = review_spending(snapshot)
     review_summary = review_snapshot(snapshot)
     review_flags = [flag.to_dict() for flag in review_summary.flags]
@@ -37,23 +60,8 @@ def build_finance_review_from_snapshot(snapshot: FinancialSnapshot) -> FinanceRe
         review_flags,
         cash_flow_packet=cash_flow,
     )
-    validation = validate_llm_decision(
-        {
-            "recommendation": "Review the deterministic finance facts before requesting a budget change.",
-            "rationale": "The v0.8 finance review is read-only and uses validated fact packets.",
-            "confidence": 0.8,
-            "assumptions": [
-                "The loaded YNAB snapshot is the current source of truth.",
-                "Missing scheduled transaction data lowers forecast confidence.",
-            ],
-            "risks": [
-                "Short review periods can make cash flow look worse than the full month.",
-                "No budget changes are executed from this review.",
-            ],
-            "requires_user_approval": True,
-        },
-        risk,
-    )
+    validation = validate_llm_decision(fallback_decision_payload(), risk)
+    llm_decision = decision_backend(request=request, fact_packet=risk)
     lines = [
         "Njord finance review",
         f"Plan: {snapshot.metadata.plan_name}",
@@ -92,7 +100,12 @@ def build_finance_review_from_snapshot(snapshot: FinancialSnapshot) -> FinanceRe
             f"- {risk.packet_id}: {risk.capability}; confidence {risk.confidence}",
             "",
             "LLM decision validation",
-            f"- {validation.summary()}",
+            f"- Deterministic fallback: {validation.summary()}",
+        ]
+    )
+    lines.extend(format_llm_decision_lines(llm_decision))
+    lines.extend(
+        [
             "",
             "Guardrails",
             "- This review is read-only.",
@@ -112,7 +125,28 @@ def build_finance_review_from_snapshot(snapshot: FinancialSnapshot) -> FinanceRe
     return FinanceReviewResult(True, "\n".join(lines), [cash_flow, risk])
 
 
-def load_finance_review() -> tuple[bool, str]:
+def format_llm_decision_lines(result: LlmDecisionResult) -> list[str]:
+    profile = f" ({result.profile})" if result.profile else ""
+    if not result.ok:
+        diagnostic = result.diagnostic or "Configured LLM backend did not return a valid decision."
+        return [f"- LLM decision unavailable{profile}: {diagnostic}"]
+
+    decision = result.decision or {}
+    lines = [
+        f"- LLM decision{profile}: {result.validation.summary() if result.validation else 'valid'}",
+        f"  - Recommendation: {decision.get('recommendation', '')}",
+        f"  - Rationale: {decision.get('rationale', '')}",
+        f"  - Confidence: {decision.get('confidence', '')}",
+        f"  - Requires user approval: {decision.get('requires_user_approval', '')}",
+        "  - Assumptions:",
+    ]
+    lines.extend(f"    - {item}" for item in decision.get("assumptions", []))
+    lines.append("  - Risks:")
+    lines.extend(f"    - {item}" for item in decision.get("risks", []))
+    return lines
+
+
+def load_finance_review(*, request: str = "Review my finances.") -> tuple[bool, str]:
     try:
         config = current_config_snapshot()
     except ConfigFileError as exc:
@@ -161,7 +195,7 @@ def load_finance_review() -> tuple[bool, str]:
                 ]
             ),
         )
-    result = build_finance_review_from_snapshot(snapshot_result.snapshot)
+    result = build_finance_review_from_snapshot(snapshot_result.snapshot, request=request)
     return result.ok, result.output
 
 
@@ -173,4 +207,3 @@ def summarize_fact_packet(packet: FinanceFactPacket) -> dict[str, Any]:
         "source_snapshot_ids": packet.source_snapshot_ids,
         "generated_facts": packet.generated_facts,
     }
-

@@ -5,9 +5,10 @@ read-only AI capability loops for cash-flow forecasting and financial risk.
 
 ## Role
 
-The capability turns a YNAB snapshot into deterministic fact packets, validates
-the LLM decision contract, and prints a REPL-friendly review. It does not write
-to YNAB.
+The capability turns a YNAB snapshot into deterministic fact packets, asks the
+configured Mongoose LLM backend for structured read-only judgment when
+available, validates the LLM decision contract, and prints a REPL-friendly
+review. It does not write to YNAB.
 
 ## Inputs
 
@@ -22,6 +23,7 @@ to YNAB.
 - financial risk score and risk drivers.
 - fact packet identifiers.
 - decision-contract validation summary.
+- validated LLM decision or an explicit unavailable/invalid-backend diagnostic.
 - guardrails and next actions.
 
 ## Examples
@@ -49,6 +51,8 @@ Njord> review my finances
 - The loop is read-only.
 - The LLM may explain validated facts but cannot calculate balances or approve
   writes.
+- If the configured LLM backend is missing or returns unstructured text, the
+  deterministic review still renders and reports the LLM decision as
+  unavailable.
 - Budget-changing requests remain draft-only until guarded write planning and
   execution are implemented.
-

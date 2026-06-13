@@ -179,9 +179,14 @@ mongoose run Njord finance-review
 ```
 
 The review composes cash-flow forecasting and financial-risk loops, prints fact
-packet identifiers, validates an LLM decision contract, and keeps all behavior
-read-only. Natural-language requests can ask for a finance review, but they
-cannot mutate YNAB before guarded planning and write execution exist.
+packet identifiers, asks the configured Mongoose LLM backend for structured
+judgment when available, validates that LLM decision contract, and keeps all
+behavior read-only. Natural-language requests can ask for a finance review, but
+they cannot mutate YNAB before guarded planning and write execution exist.
+
+If no Mongoose LLM profile is configured, or if the backend does not return
+valid structured JSON, Njord keeps the deterministic review visible and reports
+that the LLM decision was unavailable.
 
 ## Manual Financial Brief
 
@@ -328,8 +333,11 @@ python agents\njord\agent.py
 ```
 
 The REPL prompt is `Njord>`. It supports `/help`, `/status`, `/brief`,
-`/review`, `/summary`, `/spending`, `/exit`, and natural-language requests. Natural
-language routes through the same deterministic `ask` path used by automation.
+`/review`, `/summary`, `/spending`, `/exit`, and natural-language requests.
+Finance-oriented REPL interactions use the configured Mongoose LLM backend for
+read-only narration or structured finance-review judgment when a profile is
+available. Natural language routes through the same capability path used by
+automation.
 
 For scripts, tests, and Mongoose dispatch, one-shot commands remain available:
 

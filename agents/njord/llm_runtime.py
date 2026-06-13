@@ -10,6 +10,9 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from decision_contract import DecisionValidationResult, validate_llm_decision
+from fact_packet import FinanceFactPacket
+
 
 MAX_CONTEXT_CHARS = 5000
 
@@ -18,6 +21,15 @@ MAX_CONTEXT_CHARS = 5000
 class LlmNarration:
     ok: bool
     text: str = ""
+    profile: str = ""
+    diagnostic: str = ""
+
+
+@dataclass(frozen=True)
+class LlmDecisionResult:
+    ok: bool
+    decision: dict | None = None
+    validation: DecisionValidationResult | None = None
     profile: str = ""
     diagnostic: str = ""
 
@@ -85,6 +97,56 @@ def build_narration_prompt(*, request: str, capability: str, deterministic_outpu
     )
 
 
+def build_decision_prompt(*, request: str, fact_packet: FinanceFactPacket) -> str:
+    return "\n".join(
+        [
+            "You are Njord, a read-only budgeting assistant.",
+            "Use only the deterministic fact packet below.",
+            "Return only a JSON object with these exact fields:",
+            "- recommendation: string",
+            "- rationale: string",
+            "- confidence: number from 0.0 to 1.0",
+            "- assumptions: array of strings",
+            "- risks: array of strings",
+            "- requires_user_approval: boolean",
+            "",
+            "Rules:",
+            "- Do not invent balances, transactions, or budget changes.",
+            "- Do not calculate balances; use provided facts only.",
+            "- Do not claim any YNAB write happened.",
+            "- Do not approve cash floor violations.",
+            "- Budget-changing recommendations must require user approval.",
+            "",
+            f"User request: {request}",
+            f"Capability: {fact_packet.capability}",
+            "",
+            "Fact packet:",
+            fact_packet.to_prompt_context(),
+        ]
+    )
+
+
+def parse_json_object(text: str) -> dict | None:
+    stripped = text.strip()
+    if not stripped:
+        return None
+    try:
+        payload = json.loads(stripped)
+        return payload if isinstance(payload, dict) else None
+    except json.JSONDecodeError:
+        pass
+
+    start = stripped.find("{")
+    end = stripped.rfind("}")
+    if start == -1 or end == -1 or end <= start:
+        return None
+    try:
+        payload = json.loads(stripped[start : end + 1])
+    except json.JSONDecodeError:
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
 def narrate_finance_response(*, request: str, capability: str, deterministic_output: str) -> LlmNarration:
     command = llm_invoke_command()
     if not command:
@@ -128,3 +190,54 @@ def narrate_finance_response(*, request: str, capability: str, deterministic_out
     if not text:
         return LlmNarration(False, diagnostic="Mongoose LLM invocation returned an empty response.")
     return LlmNarration(True, text=text, profile=str(payload.get("profile", "")))
+
+
+def invoke_finance_decision(*, request: str, fact_packet: FinanceFactPacket) -> LlmDecisionResult:
+    command = llm_invoke_command()
+    if not command:
+        return LlmDecisionResult(False, diagnostic="No Mongoose LLM invocation command is available.")
+
+    prompt = build_decision_prompt(request=request, fact_packet=fact_packet)
+    system_prompt = (
+        "You produce strict JSON finance decisions from validated deterministic facts. "
+        "Return only JSON and never claim that state changed."
+    )
+    completed = subprocess.run(
+        [*command, "--system", system_prompt],
+        input=prompt,
+        text=True,
+        capture_output=True,
+        check=False,
+        timeout=45,
+    )
+    output = completed.stdout.strip()
+    if not output:
+        diagnostic = completed.stderr.strip() or "Mongoose LLM invocation returned no output."
+        return LlmDecisionResult(False, diagnostic=diagnostic)
+    outer_payload = parse_json_object(output)
+    if outer_payload is None:
+        return LlmDecisionResult(False, diagnostic="Mongoose LLM invocation returned invalid JSON.")
+    if not outer_payload.get("ok"):
+        message = str(outer_payload.get("message", "")).strip()
+        error = outer_payload.get("error", {}) if isinstance(outer_payload.get("error", {}), dict) else {}
+        if error.get("message"):
+            message = str(error.get("message"))
+        return LlmDecisionResult(False, diagnostic=message or "Mongoose LLM invocation failed.")
+
+    response = outer_payload.get("response", {}) if isinstance(outer_payload.get("response", {}), dict) else {}
+    content = str(response.get("content", "")).strip()
+    decision = parse_json_object(content)
+    if decision is None:
+        return LlmDecisionResult(
+            False,
+            profile=str(outer_payload.get("profile", "")),
+            diagnostic="LLM response did not contain a structured finance decision JSON object.",
+        )
+    validation = validate_llm_decision(decision, fact_packet)
+    return LlmDecisionResult(
+        validation.ok,
+        decision=decision,
+        validation=validation,
+        profile=str(outer_payload.get("profile", "")),
+        diagnostic="" if validation.ok else validation.summary(),
+    )
