@@ -14,6 +14,7 @@ if str(AGENT_ROOT) not in sys.path:
     sys.path.insert(0, str(AGENT_ROOT))
 
 from config import ConfigFileError, config_status_lines, current_config_snapshot
+from finance_review import load_finance_review
 from llm_runtime import narrate_finance_response
 from router import route_request
 from session import run_repl
@@ -26,6 +27,7 @@ COMMAND_NAMES = {
     "ynab-budget-summary",
     "brief",
     "ynab-spending-review",
+    "finance-review",
     "config",
     "ask",
 }
@@ -94,6 +96,10 @@ def run_brief() -> tuple[bool, str]:
     module_path = AGENT_ROOT / "capabilities" / "brief" / "brief.py"
     module = load_module("njord_manual_brief", module_path)
     return module.load_manual_brief()
+
+
+def run_finance_review() -> tuple[bool, str]:
+    return load_finance_review()
 
 
 def run_config_status() -> tuple[bool, str]:
@@ -233,13 +239,15 @@ def answer_request(request: str) -> tuple[bool, str]:
         ok, output = run_ynab_spending_review()
     elif route.capability == "ynab-budget-summary":
         ok, output = run_ynab_budget_summary()
+    elif route.capability == "finance-review":
+        ok, output = run_finance_review()
     elif route.capability == "config-status":
         ok, output = run_config_status()
     else:
         return False, f"I do not know how to run capability: {route.capability}"
 
     response = f"Request: {request}\nCapability: {route.capability}\nReason: {route.reason}\n\n{output}"
-    if ok and route.capability in {"brief", "ynab-spending-review", "ynab-budget-summary"}:
+    if ok and route.capability in {"brief", "ynab-spending-review", "ynab-budget-summary", "finance-review"}:
         narration = narrate_finance_response(
             request=request,
             capability=route.capability,
@@ -303,6 +311,11 @@ def build_parser() -> argparse.ArgumentParser:
         choices=("current-month", "previous-month"),
         default="current-month",
         help="Named period to review when --from and --to are not provided.",
+    )
+
+    subparsers.add_parser(
+        "finance-review",
+        help="Run the read-only interaction-first finance review loops.",
     )
     spending_review.add_argument(
         "--from",
@@ -379,6 +392,7 @@ def main() -> None:
                 answer_request=answer_request,
                 config_status=run_config_status,
                 brief=run_brief,
+                finance_review=run_finance_review,
                 budget_summary=run_ynab_budget_summary,
                 spending_review=run_ynab_spending_review,
             )
@@ -411,6 +425,13 @@ def main() -> None:
             start_date=args.start_date,
             end_date=args.end_date,
         )
+        print(style_output(output, color_enabled))
+        if not ok:
+            sys.exit(1)
+        return
+
+    if args.capability == "finance-review":
+        ok, output = run_finance_review()
         print(style_output(output, color_enabled))
         if not ok:
             sys.exit(1)

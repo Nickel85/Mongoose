@@ -17,6 +17,9 @@ package MongooseRuntimeRouting {
     then Njord_brief_ReadYNAB : ReadExternalApi;
     then Njord_config_status : DispatchCapability;
     // branch taskTypes: configuration, credential-status, setup
+    then Njord_finance_review : DispatchCapability;
+    // branch taskTypes: cash-flow-forecast, finance, finance-review, financial-risk, review, ynab
+    then Njord_finance_review_ReadYNAB : ReadExternalApi;
     then Njord_hello_world : DispatchCapability;
     // branch taskTypes: connection-test, diagnostic
     then Njord_ynab_budget_summary : DispatchCapability;

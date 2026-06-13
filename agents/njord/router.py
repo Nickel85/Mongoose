@@ -14,6 +14,16 @@ class Route:
 def route_request(request: str) -> Route:
     normalized = request.lower()
 
+    finance_review_terms = (
+        "finance review",
+        "financial review",
+        "review my finances",
+        "review my money",
+        "risk score",
+        "financial risk",
+        "cash flow forecast",
+        "cashflow forecast",
+    )
     config_terms = (
         "config",
         "configuration",
@@ -67,6 +77,12 @@ def route_request(request: str) -> Route:
         return Route(
             capability="config-status",
             reason="The request asks for local YNAB configuration status.",
+        )
+
+    if any(term in normalized for term in finance_review_terms):
+        return Route(
+            capability="finance-review",
+            reason="The request asks for the interaction-first finance review loop.",
         )
 
     if any(term in normalized for term in brief_terms):

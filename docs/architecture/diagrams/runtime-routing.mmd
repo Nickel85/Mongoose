@@ -7,6 +7,8 @@ flowchart TD
   dispatch_Njord_brief --> ynab["YNAB API read-only"]
   select -->|"configuration, credential-status, setup"| dispatch_Njord_config_status["Njord config-status"]
   dispatch_Njord_config_status --> local["Local deterministic execution"]
+  select -->|"cash-flow-forecast, finance, finance-review, financial-risk, review, ynab"| dispatch_Njord_finance_review["Njord finance-review"]
+  dispatch_Njord_finance_review --> ynab["YNAB API read-only"]
   select -->|"connection-test, diagnostic"| dispatch_Njord_hello_world["Njord hello-world"]
   dispatch_Njord_hello_world --> local["Local deterministic execution"]
   select -->|"budget-summary, finance, review-needed, ynab"| dispatch_Njord_ynab_budget_summary["Njord ynab-budget-summary"]

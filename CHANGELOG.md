@@ -1,5 +1,30 @@
 # Changelog
 
+## v0.8.0 - Interactive Njord Finance Review Foundation
+
+Planned release type: minor.
+
+This release makes Njord more useful from the REPL before adding guarded
+planning, writes, UI, or background automation.
+
+### Added
+
+- Add Njord's interaction-first `finance-review` capability and `/review` REPL
+  command.
+- Define Njord AI capability loop contracts, execution envelope, dependency
+  map, and milestone sequencing gates.
+- Add deterministic finance fact packets for cash-flow forecasting and
+  financial risk loops.
+- Add an LLM decision contract validator that rejects missing fields, forbidden
+  write claims, cash-floor violations, and balance mutation language.
+- Add read-only cash-flow forecasting and financial-risk scoring inside the
+  finance review.
+
+### Changed
+
+- Update Njord capability metadata, docs, and validation coverage for the new
+  loop foundation.
+
 ## v0.7.1 - Discoverable Ollama LLM Bootstrap
 
 Planned release type: patch.

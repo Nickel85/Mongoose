@@ -60,6 +60,36 @@
         },
         {
           "configuration": {
+            "optional": [],
+            "required": [
+              "YNAB_ACCESS_TOKEN",
+              "YNAB_BUDGET_ID"
+            ],
+            "secretRefs": [
+              "YNAB_ACCESS_TOKEN"
+            ]
+          },
+          "description": "Run read-only AI capability loops for cash flow forecasting and financial risk using deterministic fact packets and LLM decision guardrails.",
+          "displayName": "Finance Review",
+          "entrypointPath": "agents/njord/agent.py",
+          "id": "finance_review",
+          "llm": {
+            "deterministicFallback": "Finance review uses deterministic fact packets, cash-flow forecasting, and risk scoring without requiring LLM narration.",
+            "mode": "optional"
+          },
+          "name": "finance-review",
+          "requires": {},
+          "taskTypes": [
+            "cash-flow-forecast",
+            "finance",
+            "finance-review",
+            "financial-risk",
+            "review",
+            "ynab"
+          ]
+        },
+        {
+          "configuration": {
             "optional": [
               "YNAB_ACCESS_TOKEN"
             ],
@@ -178,7 +208,7 @@
       "usedByTaskType": "ynab"
     }
   ],
-  "generatedBy": "mongoose 0.7.1",
+  "generatedBy": "mongoose 0.8.0",
   "providers": [
     {
       "interface": "environment and user-local config names",

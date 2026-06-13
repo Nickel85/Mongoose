@@ -74,6 +74,7 @@ def run_session(script: str, answer=None) -> tuple[int, str, list[str]]:
         answer_request=answer_request,
         config_status=ok_output("Njord configuration status\nYNAB access token: missing"),
         brief=ok_output("Njord weekly financial brief"),
+        finance_review=ok_output("Njord finance review"),
         budget_summary=ok_output("Njord budget summary"),
         spending_review=ok_output("Njord spending review"),
     )
@@ -88,7 +89,7 @@ for exit_command in ("exit", "quit", "/exit", "/quit"):
 
 exit_code, output, routed = run_session("/help\nexit\n")
 assert_true(exit_code == 0, "/help session did not exit cleanly.")
-for command in ("/help", "/status", "/brief", "/summary", "/spending", "/exit"):
+for command in ("/help", "/status", "/brief", "/review", "/summary", "/spending", "/exit"):
     assert_true(command in output, f"{command} was missing from REPL help.")
 assert_true(routed == [], "/help was unexpectedly routed.")
 
@@ -97,10 +98,11 @@ assert_true(exit_code == 0, "Unknown slash command session did not exit cleanly.
 assert_true("Unknown session command: /unknown" in output, "Unknown slash command did not fail clearly.")
 assert_true(routed == [], "Unknown slash command was unexpectedly routed.")
 
-exit_code, output, routed = run_session("/status\n/brief\n/summary\n/spending\nexit\n")
+exit_code, output, routed = run_session("/status\n/brief\n/review\n/summary\n/spending\nexit\n")
 assert_true(exit_code == 0, "Slash command session did not exit cleanly.")
 assert_true("Njord configuration status" in output, "/status did not render status output.")
 assert_true("Njord weekly financial brief" in output, "/brief did not render brief output.")
+assert_true("Njord finance review" in output, "/review did not render finance review output.")
 assert_true("Njord budget summary" in output, "/summary did not render summary output.")
 assert_true("Njord spending review" in output, "/spending did not render spending output.")
 assert_true(routed == [], "Slash commands were unexpectedly routed as natural language.")
@@ -115,6 +117,7 @@ should_exit, events = handle_input(
     answer_request=lambda request: (_ for _ in ()).throw(AssertionError("unexpected route")),
     config_status=ok_output("status"),
     brief=ok_output("brief"),
+    finance_review=ok_output("finance review"),
     budget_summary=ok_output("summary"),
     spending_review=ok_output("spending"),
 )

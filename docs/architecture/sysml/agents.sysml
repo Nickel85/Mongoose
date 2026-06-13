@@ -38,6 +38,20 @@ package MongooseAgents {
       attribute taskType = "credential-status";
       attribute taskType = "setup";
     }
+    part njord_finance_review : Capability {
+      attribute name = "finance-review";
+      attribute displayName = "Finance Review";
+      attribute entrypointPath = "agents/njord/agent.py";
+      attribute llmMode = "optional";
+      attribute taskType = "cash-flow-forecast";
+      attribute taskType = "finance";
+      attribute taskType = "finance-review";
+      attribute taskType = "financial-risk";
+      attribute taskType = "review";
+      attribute taskType = "ynab";
+      attribute requiredConfiguration = "YNAB_ACCESS_TOKEN";
+      attribute requiredConfiguration = "YNAB_BUDGET_ID";
+    }
     part njord_hello_world : Capability {
       attribute name = "hello-world";
       attribute displayName = "Hello World";

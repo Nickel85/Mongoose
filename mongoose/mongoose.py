@@ -40,7 +40,7 @@ DEFAULT_OLLAMA_MODEL = "llama3.2"
 OLLAMA_WINDOWS_INSTALL_URL = "https://ollama.com/install.ps1"
 MONGOOSE_RELEASES_API_URL = "https://api.github.com/repos/Nickel85/Mongoose/releases"
 MONGOOSE_RELEASE_ASSET_NAME = "mongoose.exe"
-MONGOOSE_VERSION = "0.7.1"
+MONGOOSE_VERSION = "0.8.0"
 MONGOOSE_RELEASE_KIND = "development"
 MONGOOSE_RELEASE_TAG = ""
 # Increment only for breaking manifest contract changes. Additive optional metadata stays on the same version.

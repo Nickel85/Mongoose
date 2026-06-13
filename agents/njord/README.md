@@ -146,6 +146,43 @@ Each recommendation separates:
 Recommendations are included only when deterministic evidence is available, so
 the manual brief MVP can reuse them without requiring an LLM.
 
+## AI Capability Loops
+
+Njord's AI-backed finance work is structured as capability loops instead of
+free-form chat. Each loop separates deterministic services, structured fact
+packets, optional LLM judgment, validation, recommendations, audit metadata,
+and any later approval/state update boundary.
+
+The v0.8 loops are:
+
+- Cash Flow Forecasting: calculate-only forecast from balances, transactions,
+  and scheduled data.
+- Financial Risk: deterministic risk score with explain-only LLM behavior.
+
+The loop contract, dependency map, and milestone sequencing gates are documented
+in [ai-loop-roadmap.md](ai-loop-roadmap.md).
+
+## Finance Review
+
+The interaction-first finance review is available inside the REPL:
+
+```powershell
+Njord
+Njord> /review
+```
+
+For automation or Mongoose dispatch:
+
+```powershell
+python agents\njord\agent.py finance-review
+mongoose run Njord finance-review
+```
+
+The review composes cash-flow forecasting and financial-risk loops, prints fact
+packet identifiers, validates an LLM decision contract, and keeps all behavior
+read-only. Natural-language requests can ask for a finance review, but they
+cannot mutate YNAB before guarded planning and write execution exist.
+
 ## Manual Financial Brief
 
 The main manual workflow is:
@@ -262,6 +299,7 @@ For installer internals, update notes, and uninstall instructions, see [../../in
 | --- | --- |
 | `hello-world` | Run a simple Python greeting capability to verify the agent runtime pattern works. |
 | `brief` | Produce a weekly-style financial brief with observations, spending highlights, review items, and suggested next actions. |
+| `finance-review` | Run read-only AI capability loops for cash-flow forecasting and financial risk. |
 | `ynab-budget-summary` | Read YNAB budget data and summarize current financial position, review-needed flags, spending, category activity, and notable changes. |
 | `ynab-spending-review` | Review current month, previous month, or date-range spending with income, outflows, cash flow, top categories, and notable transactions. |
 
@@ -276,6 +314,8 @@ Example requests:
 - "What changed since last month?"
 - "Are there categories I should review?"
 - "Give me a CFO-style weekly financial brief."
+- "Review my finances."
+- "Show my cash flow forecast and risk score."
 
 ## Run The Agent
 
@@ -288,7 +328,7 @@ python agents\njord\agent.py
 ```
 
 The REPL prompt is `Njord>`. It supports `/help`, `/status`, `/brief`,
-`/summary`, `/spending`, `/exit`, and natural-language requests. Natural
+`/review`, `/summary`, `/spending`, `/exit`, and natural-language requests. Natural
 language routes through the same deterministic `ask` path used by automation.
 
 For scripts, tests, and Mongoose dispatch, one-shot commands remain available:
@@ -319,6 +359,12 @@ Manual financial brief:
 
 ```powershell
 python agents\njord\agent.py brief
+```
+
+Finance review:
+
+```powershell
+python agents\njord\agent.py finance-review
 ```
 
 Current month spending review:
@@ -392,6 +438,10 @@ In VS Code, open a terminal from the repository root before running the command.
 - `agent.py`: Command-line entrypoint.
 - `agent.json`: Install metadata discovered by the root installer. Its `commandName` is globally unique; its `entrypointPath` is relative to this directory.
 - `brief.py`: Composes the manual financial brief from snapshot, spending, review, and recommendation outputs.
+- `decision_contract.py`: Validates structured LLM decisions against finance loop guardrails.
+- `fact_packet.py`: Builds deterministic prompt-safe finance fact packets.
+- `finance_review.py`: Composes cash-flow and risk loops for the REPL finance review.
+- `loop_contract.py`: Defines the AI capability loop contract and v0.8 loop registry.
 - `router.py`: Routes natural-language requests to capabilities.
 - `config.py`: Loads local environment values from `.env`.
 - `review.py`: Detects categories and transactions that deserve human review.

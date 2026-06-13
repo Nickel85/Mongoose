@@ -32,6 +32,7 @@ SESSION_COMMANDS = {
     "/help": "Show session commands.",
     "/status": "Check local Njord configuration without printing secrets.",
     "/brief": "Generate the read-only financial brief.",
+    "/review": "Run the read-only AI-loop finance review.",
     "/summary": "Generate the read-only YNAB budget summary.",
     "/spending": "Review current-month spending.",
     "/exit": "Exit the Njord session.",
@@ -79,6 +80,7 @@ def handle_input(
     answer_request: AnswerCall,
     config_status: AgentCall,
     brief: AgentCall,
+    finance_review: AgentCall,
     budget_summary: AgentCall,
     spending_review: AgentCall,
 ) -> tuple[bool, list[ResponseEvent]]:
@@ -97,6 +99,8 @@ def handle_input(
             return False, response_events(*config_status())
         if normalized == "/brief":
             return False, response_events(*brief())
+        if normalized == "/review":
+            return False, response_events(*finance_review())
         if normalized == "/summary":
             return False, response_events(*budget_summary())
         if normalized == "/spending":
@@ -146,6 +150,7 @@ def run_repl(
     answer_request: AnswerCall,
     config_status: AgentCall,
     brief: AgentCall,
+    finance_review: AgentCall,
     budget_summary: AgentCall,
     spending_review: AgentCall,
 ) -> int:
@@ -161,6 +166,7 @@ def run_repl(
             answer_request=answer_request,
             config_status=config_status,
             brief=brief,
+            finance_review=finance_review,
             budget_summary=budget_summary,
             spending_review=spending_review,
         )

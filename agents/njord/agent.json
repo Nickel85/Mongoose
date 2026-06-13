@@ -157,6 +157,38 @@
       }
     },
     {
+      "name": "finance-review",
+      "displayName": "Finance Review",
+      "description": "Run read-only AI capability loops for cash flow forecasting and financial risk using deterministic fact packets and LLM decision guardrails.",
+      "entrypointPath": "agent.py",
+      "taskTypes": [
+        "finance",
+        "finance-review",
+        "cash-flow-forecast",
+        "financial-risk",
+        "review",
+        "ynab"
+      ],
+      "requiredInputs": [
+        "YNAB_ACCESS_TOKEN",
+        "YNAB_BUDGET_ID"
+      ],
+      "configuration": {
+        "required": [
+          "YNAB_ACCESS_TOKEN",
+          "YNAB_BUDGET_ID"
+        ],
+        "optional": [],
+        "secretRefs": [
+          "YNAB_ACCESS_TOKEN"
+        ]
+      },
+      "llm": {
+        "mode": "optional",
+        "deterministicFallback": "Finance review uses deterministic fact packets, cash-flow forecasting, and risk scoring without requiring LLM narration."
+      }
+    },
+    {
       "name": "ynab-spending-review",
       "displayName": "YNAB Spending Review",
       "description": "Review income, outflows, net cash flow, top categories, and notable transactions for a month or date range.",
