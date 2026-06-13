@@ -20,11 +20,13 @@ class ResponseEvent:
 
 RESPONSE_EVENT_KINDS = {
     "text",
+    "text_delta",
     "warning",
     "error",
     "prompt",
     "approval_request",
     "done",
+    "cancelled",
 }
 SESSION_COMMANDS = {
     "/help": "Show session commands.",
@@ -56,6 +58,19 @@ def response_events(ok: bool, output: str) -> list[ResponseEvent]:
     if ok:
         return [ResponseEvent("text", output), ResponseEvent("done")]
     return [ResponseEvent("error", output), ResponseEvent("done")]
+
+
+def text_delta_events(output: str, *, chunk_size: int = 80) -> list[ResponseEvent]:
+    if chunk_size <= 0:
+        raise ValueError("chunk_size must be positive.")
+    if not output:
+        return [ResponseEvent("done")]
+    events = [
+        ResponseEvent("text_delta", output[index : index + chunk_size])
+        for index in range(0, len(output), chunk_size)
+    ]
+    events.append(ResponseEvent("done"))
+    return events
 
 
 def handle_input(
@@ -98,7 +113,12 @@ def render_event(event: ResponseEvent, *, color_enabled: bool, output_stream: Te
     if event.kind not in RESPONSE_EVENT_KINDS:
         raise ValueError(f"Unknown response event kind: {event.kind}")
 
-    if event.kind == "done" or not event.text:
+    if event.kind in {"done", "cancelled"} or not event.text:
+        return
+
+    if event.kind == "text_delta":
+        output_stream.write(style_output(event.text, color_enabled))
+        output_stream.flush()
         return
 
     if event.kind == "prompt":

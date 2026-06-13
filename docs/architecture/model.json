@@ -18,8 +18,8 @@
           "entrypointPath": "agents/njord/agent.py",
           "id": "brief",
           "llm": {
-            "deterministicFallback": "Manual brief uses deterministic YNAB reads, review flags, spending review, and recommendations.",
-            "mode": "none"
+            "deterministicFallback": "Manual brief uses deterministic YNAB reads, review flags, spending review, and recommendations without LLM narration.",
+            "mode": "optional"
           },
           "name": "brief",
           "requires": {},
@@ -99,8 +99,8 @@
           "entrypointPath": "agents/njord/agent.py",
           "id": "ynab_budget_summary",
           "llm": {
-            "deterministicFallback": "Budget summary uses deterministic YNAB reads and snapshot calculations.",
-            "mode": "none"
+            "deterministicFallback": "Budget summary uses deterministic YNAB reads and snapshot calculations without LLM narration.",
+            "mode": "optional"
           },
           "name": "ynab-budget-summary",
           "requires": {},
@@ -127,8 +127,8 @@
           "entrypointPath": "agents/njord/agent.py",
           "id": "ynab_spending_review",
           "llm": {
-            "deterministicFallback": "Spending review uses deterministic YNAB reads and snapshot calculations.",
-            "mode": "none"
+            "deterministicFallback": "Spending review uses deterministic YNAB reads and snapshot calculations without LLM narration.",
+            "mode": "optional"
           },
           "name": "ynab-spending-review",
           "requires": {},
@@ -157,8 +157,8 @@
       "entrypointPath": "agents/njord/agent.py",
       "id": "njord",
       "llm": {
-        "deterministicFallback": "All current Njord capabilities run without an LLM.",
-        "mode": "none"
+        "deterministicFallback": "Njord can produce deterministic finance output without an LLM; configured LLM profiles add read-only narration.",
+        "mode": "optional"
       },
       "manifestId": "njord",
       "manifestPath": "agents/njord/agent.json",
@@ -178,7 +178,7 @@
       "usedByTaskType": "ynab"
     }
   ],
-  "generatedBy": "mongoose 0.6.1",
+  "generatedBy": "mongoose 0.7.0",
   "providers": [
     {
       "interface": "environment and user-local config names",
