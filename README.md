@@ -87,6 +87,23 @@ Release scope gates are documented in
 [docs/release-scope-gates.md](docs/release-scope-gates.md) so later milestones
 start only after their dependency gates are satisfied.
 
+## Release Branch Workflow
+
+Mongoose uses release branches for configuration management. Start each release
+from `main` with a branch named `release/v<version>`, such as
+`release/v0.7.0`. Issue branches for that release start from the release branch
+and target their pull requests back to that release branch.
+
+The version is selected at release-branch start from the roadmap and SemVer
+impact: patch for corrective fixes, minor for additive release capability, and
+major for incompatible runtime or automation changes. The release branch keeps
+`MONGOOSE_VERSION`, `CHANGELOG.md`, milestone scope, and release notes aligned
+while issues are merged into it.
+
+When the release branch is merged to `main`, GitHub Actions creates the matching
+`v<version>` tag and GitHub Release. The tag build then attaches the official
+`dist\mongoose.exe` asset.
+
 ## Agents
 
 | Agent | Description | Documentation |
@@ -241,7 +258,10 @@ The `.env` file is ignored by Git. Commit `.env.example` only.
 
 Tests live in `tests/` and are run by GitHub Actions on `push` and `pull_request`. See [tests/README.md](tests/README.md) for the current test list and local run instructions.
 
-`mongoose.exe` is built by GitHub Actions for pull requests targeting `main`, pushes to `main`, and version tags. Pull request builds upload `mongoose.exe` as an Actions artifact, and version tag builds attach it to the GitHub Release.
+`mongoose.exe` is built by GitHub Actions for pull requests targeting `main` or
+`release/v*`, pushes to `main` or `release/v*`, and version tags. Pull request
+builds upload `mongoose.exe` as an Actions artifact, and version tag builds
+attach it to the GitHub Release.
 
 GitHub Actions also smoke-tests the built executable by running `mongoose list`, `mongoose install`, `mongoose uninstall`, and scoped/default `mongoose update` flows.
 

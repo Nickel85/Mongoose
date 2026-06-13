@@ -1,0 +1,73 @@
+name: Release On Merge
+
+on:
+  pull_request:
+    types:
+      - closed
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  publish-release:
+    name: Publish merged release branch
+    if: github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'release/v')
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout merged source
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Validate release version metadata
+        shell: pwsh
+        env:
+          MONGOOSE_RELEASE_BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: python ./tests/release-version-validation.py
+
+      - name: Resolve release tag
+        id: release
+        shell: pwsh
+        run: |
+          $source = Get-Content .\mongoose\mongoose.py -Raw
+          if ($source -notmatch 'MONGOOSE_VERSION\s*=\s*"([^"]+)"') {
+            throw "MONGOOSE_VERSION was not found in mongoose.py."
+          }
+          $version = $Matches[1]
+          "tag=v$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Create tag and release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          if (git ls-remote --exit-code --tags origin "refs/tags/$env:RELEASE_TAG") {
+            throw "Release tag $env:RELEASE_TAG already exists."
+          }
+          $lines = Get-Content .\CHANGELOG.md
+          $header = "## $env:RELEASE_TAG"
+          $start = [Array]::IndexOf($lines, $header)
+          if ($start -lt 0) {
+            throw "CHANGELOG.md is missing release section $header."
+          }
+          $end = $lines.Length
+          for ($i = $start + 1; $i -lt $lines.Length; $i++) {
+            if ($lines[$i] -match '^## v') {
+              $end = $i
+              break
+            }
+          }
+          $notes = $lines[$start..($end - 1)]
+          Set-Content -Path .\release-notes.md -Value $notes -Encoding utf8
+          gh release create $env:RELEASE_TAG --target main --title $env:RELEASE_TAG --notes-file .\release-notes.md --latest

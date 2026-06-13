@@ -14,6 +14,51 @@ necessary for the active Njord milestone's read, plan, approve, execute,
 reconcile, or learn loop. Otherwise, platform, UI, commerce, and non-Njord agent
 work should remain in their own milestones.
 
+## Configuration Management Strategy
+
+Each release owns a long-lived integration branch named
+`release/v<major>.<minor>.<patch>`, for example `release/v0.7.0`.
+
+Release branches are the only place where release scope is integrated before it
+lands on `main`. Issue branches for that release branch from the release branch,
+not from `main`, and target their pull requests back to the same release branch:
+
+```text
+main
+  -> release/v0.7.0
+       -> issue/126-njord-llm-runtime
+       -> issue/118-response-events
+```
+
+When the release branch is ready, it is merged to `main` through a pull request.
+That merge is the release boundary. GitHub Actions validates the release branch
+version, creates the matching `v<version>` tag/release from the merged source,
+and the existing tag build attaches the official `mongoose.exe` asset.
+
+The release version is rolled at the start of the release branch, not at the end
+of unrelated issue work. The selected version must come from SemVer impact and
+roadmap intent:
+
+- patch: corrective fixes or narrow refinements inside the current release
+  promise.
+- minor: additive user-facing behavior, new runtime surfaces, or the next
+  roadmap capability release.
+- major: incompatible command, manifest, runtime contract, storage, or
+  automation behavior changes.
+
+The release branch must keep these values aligned before it can merge:
+
+- branch name: `release/v<version>`
+- source version: `MONGOOSE_VERSION`
+- changelog section: `## v<version>`
+- GitHub milestone/release-prep issue scope
+
+After a release branch merges, `main` should represent the latest official
+release source. New work starts by creating the next release branch from `main`.
+Emergency fixes may use a patch release branch from `main` or from the affected
+release tag, but they still merge through `main` and publish through the same
+Actions path.
+
 ## v0.2.0 Exit Checklist
 
 v0.2.0 is the update lifecycle release. It is ready to ship only when all of
@@ -91,6 +136,14 @@ Every release-prep issue should include this checklist:
 - [ ] Issues explicitly deferred:
 - [ ] User-facing behavior changes:
 
+## Configuration management
+- [ ] Release branch is named `release/v<version>`.
+- [ ] Issue branches for this release branch from `release/v<version>`.
+- [ ] Issue pull requests target `release/v<version>`, not `main`.
+- [ ] The release branch version matches `MONGOOSE_VERSION`.
+- [ ] The release branch version matches the changelog section.
+- [ ] The version bump matches SemVer impact and roadmap intent.
+
 ## Scope gate
 - [ ] Earlier milestone gates are satisfied.
 - [ ] This release does not pull in later milestone work without an explicit issue.
@@ -108,6 +161,7 @@ Every release-prep issue should include this checklist:
 ## Release assets
 - [ ] MONGOOSE_VERSION matches the release tag.
 - [ ] CHANGELOG.md includes the release section.
+- [ ] Release branch PR merge to `main` created the matching GitHub Release.
 - [ ] GitHub Release includes dist\mongoose.exe.
 - [ ] Release asset reports official release metadata.
 
