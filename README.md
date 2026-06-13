@@ -222,6 +222,12 @@ mongoose llm setup
 mongoose llm ping
 ```
 
+For local Ollama setup, Mongoose can also bootstrap the local provider:
+
+```powershell
+mongoose llm setup --provider ollama --yes --bootstrap
+```
+
 Secrets do not belong in manifests. Manifests should reference configuration names such as `YNAB_ACCESS_TOKEN`; actual tokens stay in environment variables, user-local config, or future Mongoose secret/profile storage.
 
 Architecture artifacts can be regenerated from manifests and runtime metadata:

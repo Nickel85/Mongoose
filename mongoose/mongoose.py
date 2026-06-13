@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 from datetime import datetime, timedelta, timezone
+import tempfile
 import json
 import os
 import re
@@ -35,6 +36,8 @@ DEFAULT_REGISTRY_URL = "https://github.com/Nickel85/Mongoose.git"
 DEFAULT_LOG_RETENTION_DAYS = 30
 DEFAULT_JOB_RETENTION = 50
 DEFAULT_OLLAMA_TAGS_ENDPOINT = "http://localhost:11434/api/tags"
+DEFAULT_OLLAMA_MODEL = "llama3.2"
+OLLAMA_WINDOWS_INSTALL_URL = "https://ollama.com/install.ps1"
 MONGOOSE_RELEASES_API_URL = "https://api.github.com/repos/Nickel85/Mongoose/releases"
 MONGOOSE_RELEASE_ASSET_NAME = "mongoose.exe"
 MONGOOSE_VERSION = "0.7.0"
@@ -1735,6 +1738,22 @@ def runtime_health_summary() -> dict[str, Any]:
     installed = load_installed_agents()
     llm_profiles = load_llm_profiles()
     default_llm = str(llm_profiles.get("default", "")).strip()
+    llm_status = "not-configured"
+    llm_guidance = "No default LLM profile configured. Run: mongoose llm setup"
+    llm_ping: dict[str, Any] = {}
+    if default_llm:
+        _, profile, error = resolve_llm_profile(default_llm)
+        if error:
+            llm_status = "invalid"
+            llm_guidance = "Default LLM profile needs attention. Run: mongoose llm show"
+        else:
+            llm_ping = http_llm_ping(profile, timeout_seconds=1.5) if profile.get("provider") != "fake" else fake_llm_ping(profile)
+            if llm_ping.get("ok"):
+                llm_status = "reachable"
+                llm_guidance = ""
+            else:
+                llm_status = "unreachable"
+                llm_guidance = "LLM profile configured but unreachable. Run: mongoose llm ping"
     registry = registry_path(load_config())
     return {
         "version": MONGOOSE_VERSION,
@@ -1756,6 +1775,9 @@ def runtime_health_summary() -> dict[str, Any]:
         "llm": {
             "defaultProfile": default_llm,
             "configuredProfiles": len(llm_profiles.get("profiles", {})) if isinstance(llm_profiles.get("profiles", {}), dict) else 0,
+            "status": llm_status,
+            "guidance": llm_guidance,
+            "pingMessage": llm_ping.get("message", ""),
         },
     }
 
@@ -1773,7 +1795,10 @@ def print_runtime_health(summary: dict[str, Any]) -> None:
     if summary["jobs"].get("latest"):
         print(label_line("Latest job", summary["jobs"]["latest"], "muted"))
     llm_default = summary["llm"].get("defaultProfile") or "none"
-    print(label_line("Default LLM", llm_default, "success" if llm_default != "none" else "warning"))
+    llm_status = summary["llm"].get("status", "not-configured")
+    print(label_line("Default LLM", llm_default, "success" if llm_status == "reachable" else "warning"))
+    if summary["llm"].get("guidance"):
+        print_muted(summary["llm"]["guidance"])
 
 
 def cmd_status(args: argparse.Namespace) -> int:
@@ -2318,6 +2343,11 @@ def normalize_setup_provider(provider: str) -> str:
 
 
 def ollama_models(endpoint: str, timeout_seconds: float = 2.0) -> tuple[bool, list[str], str]:
+    test_models = os.environ.get("MONGOOSE_TEST_OLLAMA_MODELS")
+    if test_models is not None:
+        models = [model.strip() for model in test_models.split(",") if model.strip()]
+        return True, sorted(dict.fromkeys(models)), ""
+
     request = urllib.request.Request(endpoint, headers={"User-Agent": f"mongoose/{MONGOOSE_VERSION}"}, method="GET")
     try:
         with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
@@ -2333,6 +2363,167 @@ def ollama_models(endpoint: str, timeout_seconds: float = 2.0) -> tuple[bool, li
                 if name:
                     models.append(name)
     return True, sorted(dict.fromkeys(models)), ""
+
+
+def local_ollama_path() -> Path:
+    return Path(os.environ.get("LOCALAPPDATA", Path.home())) / "Programs" / "Ollama" / "ollama.exe"
+
+
+def find_ollama_executable() -> Path | None:
+    explicit = os.environ.get("MONGOOSE_OLLAMA_BIN", "").strip()
+    candidates = [Path(explicit)] if explicit else []
+    found = shutil.which("ollama")
+    if found:
+        candidates.append(Path(found))
+    candidates.append(local_ollama_path())
+    for candidate in candidates:
+        if candidate and candidate.exists():
+            return candidate
+    return None
+
+
+def run_ollama_command(ollama: Path, args: list[str], timeout_seconds: float = 120.0) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [str(ollama), *args],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=timeout_seconds,
+    )
+
+
+def install_ollama_windows(yes: bool) -> bool:
+    if os.name != "nt":
+        print_warning("Ollama bootstrap install is currently only automated on Windows.")
+        print_muted("Install Ollama manually, then rerun: mongoose llm setup --provider ollama --yes --bootstrap")
+        return False
+    if not yes and not prompt_yes_no("Ollama was not found. Install Ollama now?", True):
+        print_muted("Install Ollama manually, then rerun: mongoose llm setup --provider ollama --yes --bootstrap")
+        return False
+
+    print_heading("Install Ollama")
+    print_muted(f"Downloading installer from {OLLAMA_WINDOWS_INSTALL_URL}")
+    installer = Path(tempfile.gettempdir()) / "mongoose-ollama-install.ps1"
+    try:
+        urllib.request.urlretrieve(OLLAMA_WINDOWS_INSTALL_URL, installer)
+    except OSError as exc:
+        print_warning("Could not download the Ollama installer.")
+        print_muted(redact_secret_text(str(exc)))
+        print_muted("Manual install command: irm https://ollama.com/install.ps1 | iex")
+        return False
+
+    completed = subprocess.run(
+        ["powershell", "-ExecutionPolicy", "Bypass", "-File", str(installer)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if completed.returncode != 0:
+        print_warning("Ollama installer did not complete successfully.")
+        output = (completed.stderr or completed.stdout).strip()
+        if output:
+            print_muted(redact_secret_text(output))
+        print_muted("Manual install command: irm https://ollama.com/install.ps1 | iex")
+        return False
+    print_success("Ollama installed.")
+    return True
+
+
+def start_ollama_service(ollama: Path) -> None:
+    flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" and hasattr(subprocess, "CREATE_NO_WINDOW") else 0
+    try:
+        subprocess.Popen(
+            [str(ollama), "serve"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            stdin=subprocess.DEVNULL,
+            creationflags=flags,
+        )
+    except OSError as exc:
+        print_warning("Could not start Ollama automatically.")
+        print_muted(redact_secret_text(str(exc)))
+
+
+def wait_for_ollama(endpoint: str, timeout_seconds: float = 10.0) -> tuple[bool, list[str], str]:
+    deadline = time.monotonic() + timeout_seconds
+    last_error = ""
+    while time.monotonic() < deadline:
+        reachable, models, error = ollama_models(endpoint, timeout_seconds=1.0)
+        if reachable:
+            return True, models, ""
+        last_error = error
+        time.sleep(0.5)
+    return False, [], last_error
+
+
+def ollama_model_available(model: str, models: list[str]) -> bool:
+    requested = model.strip()
+    if not requested:
+        return False
+    return any(installed == requested or installed == f"{requested}:latest" for installed in models)
+
+
+def bootstrap_ollama(endpoint: str, model: str, yes: bool) -> tuple[bool, list[str]]:
+    print_heading("Ollama bootstrap")
+    ollama = find_ollama_executable()
+    if not ollama:
+        if not install_ollama_windows(yes):
+            return False, []
+        ollama = find_ollama_executable()
+    if not ollama:
+        print_warning("Ollama is still not available after installation.")
+        print_muted(f"Expected Windows path: {local_ollama_path()}")
+        return False, []
+
+    print(label_line("Ollama", ollama, "muted"))
+    reachable, models, error = ollama_models(endpoint, timeout_seconds=2.0)
+    if not reachable:
+        print_muted("Starting Ollama service...")
+        start_ollama_service(ollama)
+        reachable, models, error = wait_for_ollama(endpoint)
+    if not reachable:
+        print_warning("Ollama is installed but the local endpoint is not reachable.")
+        print_muted(f"Endpoint error: {error}")
+        print_muted(f"Try manually: & \"{ollama}\" serve")
+        return False, []
+
+    if not ollama_model_available(model, models):
+        print_muted(f"Pulling Ollama model: {model}")
+        try:
+            completed = run_ollama_command(ollama, ["pull", model], timeout_seconds=1800.0)
+        except subprocess.TimeoutExpired:
+            print_warning("Ollama model pull timed out.")
+            print_muted(f"Try manually: & \"{ollama}\" pull {model}")
+            return False, models
+        if completed.returncode != 0:
+            print_warning(f"Ollama could not pull model '{model}'.")
+            output = (completed.stderr or completed.stdout).strip()
+            if output:
+                print_muted(redact_secret_text(output))
+            print_muted(f"Try manually: & \"{ollama}\" pull {model}")
+            return False, models
+        reachable, models, _ = ollama_models(endpoint, timeout_seconds=2.0)
+    else:
+        print_success(f"Ollama model already installed: {model}")
+    return True, models
+
+
+def warm_llm_profile(name: str, timeout_seconds: float) -> int:
+    prompt = "Reply with only: ready"
+    for timeout in (timeout_seconds, max(timeout_seconds, 90.0)):
+        code, payload = invoke_llm_profile(profile_name=name, prompt=prompt, timeout_seconds=timeout)
+        if code == 0:
+            print_success("LLM provider invocation verified.")
+            content = payload.get("response", {}).get("content", "") if isinstance(payload.get("response"), dict) else ""
+            if content:
+                print(label_line("Response", content))
+            return 0
+        if timeout >= 90.0:
+            message = str(payload.get("message", "LLM provider invocation failed."))
+            print_warning(message)
+            return code
+        print_muted("Initial local model invocation timed out; retrying with a longer warmup timeout.")
+    return 1
 
 
 def save_llm_profile_from_setup(
@@ -2396,6 +2587,16 @@ def cmd_llm_setup(args: argparse.Namespace) -> int:
 
     if provider == "local-http":
         endpoint = endpoint or (DEFAULT_OLLAMA_TAGS_ENDPOINT if args.yes else prompt_text("Local HTTP endpoint", DEFAULT_OLLAMA_TAGS_ENDPOINT))
+        model = model or (DEFAULT_OLLAMA_MODEL if args.bootstrap else "")
+        if args.bootstrap:
+            if display_provider != "ollama" and not args.yes and not prompt_yes_no("Bootstrap Ollama for this local HTTP profile?", True):
+                print_muted("Skipped Ollama bootstrap.")
+            else:
+                ok, models = bootstrap_ollama(endpoint, model, args.yes)
+                if not ok:
+                    return 1
+                if models:
+                    print(label_line("Available models", ", ".join(models)))
         reachable, models, error = ollama_models(endpoint)
         if reachable:
             print_success("Local LLM endpoint reachable.")
@@ -2404,13 +2605,15 @@ def cmd_llm_setup(args: argparse.Namespace) -> int:
                 model = model or (models[0] if args.yes else prompt_text("Model", models[0]))
             else:
                 print_warning("No local models were reported by the endpoint.")
-                print_muted("For Ollama, install a model with: ollama pull llama3.2")
-                model = model or ("llama3.2" if args.yes else prompt_text("Model to configure", "llama3.2"))
+                print_muted(f"For Ollama, install a model with: ollama pull {DEFAULT_OLLAMA_MODEL}")
+                print_muted("Or let Mongoose bootstrap it with: mongoose llm setup --provider ollama --yes --bootstrap")
+                model = model or (DEFAULT_OLLAMA_MODEL if args.yes else prompt_text("Model to configure", DEFAULT_OLLAMA_MODEL))
         else:
             print_warning("Local LLM endpoint was not reachable.")
             print_muted(f"Endpoint error: {error}")
-            print_muted("For Ollama, start Ollama and install a model with: ollama pull llama3.2")
-            model = model or ("llama3.2" if args.yes else prompt_text("Model to configure", "llama3.2"))
+            print_muted(f"For Ollama, start Ollama and install a model with: ollama pull {DEFAULT_OLLAMA_MODEL}")
+            print_muted("Or let Mongoose bootstrap it with: mongoose llm setup --provider ollama --yes --bootstrap")
+            model = model or (DEFAULT_OLLAMA_MODEL if args.yes else prompt_text("Model to configure", DEFAULT_OLLAMA_MODEL))
     elif provider == "fake":
         model = model or ("fake-chat" if args.yes else prompt_text("Model", "fake-chat"))
     elif provider == "openai":
@@ -2459,7 +2662,13 @@ def cmd_llm_setup(args: argparse.Namespace) -> int:
     result = cmd_llm_ping(ping_args)
     if result != 0:
         print_muted("Review the diagnostics above, then rerun: mongoose llm ping " + name)
-    return result
+        return result
+
+    if args.bootstrap and provider == "local-http":
+        print("")
+        print_heading("Warmup")
+        return warm_llm_profile(name, args.timeout)
+    return 0
 
 
 def cmd_llm_use(args: argparse.Namespace) -> int:
@@ -3235,6 +3444,7 @@ def cmd_architecture_validate(args: argparse.Namespace) -> int:
 def build_parser() -> argparse.ArgumentParser:
     examples = """examples:
   mongoose --version
+  mongoose setup
   mongoose list
   mongoose list --installed
   mongoose capabilities
@@ -3245,8 +3455,9 @@ def build_parser() -> argparse.ArgumentParser:
   mongoose route --task-type budget-summary "current budget"
   mongoose jobs list
   mongoose status
-  mongoose llm add openai-main --provider openai --model gpt-4.1-mini --api-key-env OPENAI_API_KEY
   mongoose llm setup
+  mongoose llm setup --provider ollama --yes --bootstrap
+  mongoose llm add openai-main --provider openai --model gpt-4.1-mini --api-key-env OPENAI_API_KEY
   mongoose llm ping openai-main
   mongoose validate
   mongoose architecture generate --root .
@@ -3258,16 +3469,23 @@ def build_parser() -> argparse.ArgumentParser:
   mongoose state --init
   mongoose setup --registry-root C:\\path\\to\\Agents
 
+quick start:
+  1. Run `mongoose setup` from the Mongoose checkout.
+  2. Run `mongoose install Njord` to install the first agent.
+  3. Run `mongoose llm setup` before using LLM-backed agent features.
+  4. Run `mongoose run Njord` to start Njord.
+
 workflow:
-  1. Run `mongoose list` to see available agents.
-  2. Run `mongoose install <agent-or-path>` to install one as a command.
-  3. Run `mongoose show <agent>` to inspect installed metadata and capabilities.
-  4. Run `mongoose capabilities` to inspect routeable installed capabilities.
-  5. Run `mongoose route --task-type <type> ...` or `mongoose run <agent> ...`.
-  6. Run `mongoose jobs list` and `mongoose status` to inspect runtime activity.
-  7. Run `mongoose llm setup` or `mongoose llm add ...` before enabling LLM-backed agents.
-  8. Run `mongoose update` to refresh the registry and check for a Mongoose CLI update.
-  9. Use `mongoose update --registry-only` or `mongoose update --self-only` for scoped updates.
+  1. Run `mongoose setup` to configure the local registry checkout.
+  2. Run `mongoose list` to see available agents.
+  3. Run `mongoose install <agent-or-path>` to install one as a command.
+  4. Run `mongoose show <agent>` to inspect installed metadata and capabilities.
+  5. Run `mongoose capabilities` to inspect routeable installed capabilities.
+  6. Run `mongoose route --task-type <type> ...` or `mongoose run <agent> ...`.
+  7. Run `mongoose jobs list` and `mongoose status` to inspect runtime activity.
+  8. Run `mongoose llm setup` before enabling LLM-backed agents.
+  9. Run `mongoose update` to refresh the registry and check for a Mongoose CLI update.
+  10. Use `mongoose update --registry-only` or `mongoose update --self-only` for scoped updates.
 """
     parser = argparse.ArgumentParser(
         prog="mongoose",
@@ -3293,7 +3511,7 @@ workflow:
         help="Configure mongoose for an agent registry.",
         description="Configure mongoose with a local registry checkout and optional GitHub registry URL.",
     )
-    setup.add_argument("--registry-root", required=True, help="Local registry checkout path.")
+    setup.add_argument("--registry-root", default=".", help="Local registry checkout path. Defaults to the current directory.")
     setup.add_argument("--registry-url", default=DEFAULT_REGISTRY_URL, help="Git registry URL.")
     setup.set_defaults(handler=cmd_setup)
 
@@ -3441,10 +3659,22 @@ workflow:
     )
     route.set_defaults(handler=cmd_route)
 
+    llm_examples = """recommended setup:
+  mongoose llm setup
+  mongoose llm setup --provider ollama --yes
+  mongoose llm setup --provider ollama --yes --bootstrap
+  mongoose llm ping
+  mongoose llm invoke "Reply with only: ready"
+
+advanced manual setup:
+  mongoose llm add openai-main --provider openai --model gpt-4.1-mini --api-key-env OPENAI_API_KEY --default
+"""
     llm = subparsers.add_parser(
         "llm",
         help="Configure and test provider-neutral LLM profiles.",
-        description="Configure, inspect, select, and ping secret-safe provider-neutral LLM profiles.",
+        description="Configure, inspect, select, ping, and invoke secret-safe provider-neutral LLM profiles. Start with `mongoose llm setup`; use `llm add` for advanced manual setup.",
+        epilog=llm_examples,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     llm_subparsers = llm.add_subparsers(dest="llm_command", required=True)
 
@@ -3461,6 +3691,7 @@ workflow:
     llm_setup.add_argument("--default", action="store_true", help="Make this profile the default.")
     llm_setup.add_argument("--yes", action="store_true", help="Accept non-secret defaults for omitted prompts.")
     llm_setup.add_argument("--skip-ping", action="store_true", help="Configure the profile without pinging it.")
+    llm_setup.add_argument("--bootstrap", action="store_true", help="For Ollama, install/check Ollama, pull the model, configure the profile, and verify invocation.")
     llm_setup.add_argument("--timeout", type=float, default=10.0, help="Ping timeout in seconds.")
     llm_setup.set_defaults(handler=cmd_llm_setup)
 
@@ -3510,7 +3741,7 @@ workflow:
 
     llm_invoke = llm_subparsers.add_parser(
         "invoke",
-        help=argparse.SUPPRESS,
+        help="Invoke a configured LLM profile.",
         description="Invoke a configured provider-neutral LLM profile.",
     )
     llm_invoke.add_argument("prompt", nargs="*", help="Prompt text. Reads stdin when omitted.")

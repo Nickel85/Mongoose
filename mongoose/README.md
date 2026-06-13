@@ -288,6 +288,7 @@ Configure and test an LLM profile before LLM-backed agents use it:
 
 ```powershell
 mongoose llm setup
+mongoose llm setup --provider ollama --yes --bootstrap
 mongoose llm add fake-main --provider fake --model fake-chat --default
 mongoose llm ping fake-main
 mongoose llm list
@@ -309,7 +310,13 @@ fake/test provider:
 mongoose llm setup
 mongoose llm setup --provider fake --yes
 mongoose llm setup --provider ollama --yes
+mongoose llm setup --provider ollama --yes --bootstrap
 ```
+
+The Ollama bootstrap path checks for Ollama, starts it when possible, pulls the
+selected model when needed, configures `ollama-local`, pings it, and performs a
+small invocation check. The default bootstrap model is `llama3.2`; use
+`--model gemma4` or another installed model when you want a larger local model.
 
 Remove an installed agent:
 

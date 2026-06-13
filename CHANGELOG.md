@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Add discoverable LLM setup quick-start guidance and an opt-in Ollama
+  bootstrap path for `mongoose llm setup`.
+
 ## v0.7.0 - LLM Capability Provider Runtime
 
 Planned release type: minor.
