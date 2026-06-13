@@ -101,6 +101,16 @@ assert_true(spec is not None and spec.loader is not None, "Could not load mongoo
 mongoose = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mongoose)
 
+
+def next_patch_version(version: str) -> str:
+    parsed = mongoose.parse_release_version(f"v{version}")
+    assert_true(parsed is not None, f"Could not parse current Mongoose version: {version}")
+    major, minor, patch, _prerelease = parsed
+    return f"{major}.{minor}.{patch + 1}"
+
+
+next_version = next_patch_version(mongoose.MONGOOSE_VERSION)
+
 assert_true(mongoose.compare_release_versions("0.1.3", "0.1.2") > 0, "Newer patch did not compare higher.")
 assert_true(mongoose.compare_release_versions("0.1.2", "0.1.2") == 0, "Equal versions did not compare equal.")
 assert_true(mongoose.compare_release_versions("0.1.2", "0.1.3") < 0, "Older patch did not compare lower.")
@@ -117,19 +127,19 @@ release_current = {
     "assets": [{"name": "mongoose.exe", "browser_download_url": "https://example.invalid/mongoose.exe"}],
 }
 release_next = {
-    "tag_name": "v0.6.1",
+    "tag_name": f"v{next_version}",
     "draft": False,
     "prerelease": False,
     "assets": [{"name": "mongoose.exe", "browser_download_url": "https://example.invalid/mongoose.exe"}],
 }
 release_prerelease = {
-    "tag_name": "v0.6.2-alpha",
+    "tag_name": f"v{next_version}-alpha",
     "draft": False,
     "prerelease": True,
     "assets": [{"name": "mongoose.exe", "browser_download_url": "https://example.invalid/mongoose.exe"}],
 }
 release_without_asset = {
-    "tag_name": "v0.6.1",
+    "tag_name": f"v{next_version}",
     "draft": False,
     "prerelease": False,
     "assets": [],
@@ -155,7 +165,7 @@ assert_true(code == 0, f"Update-available path failed: {output}")
 assert_true(downloads, "Update-available path did not download the release asset.")
 assert_true(replacements, "Update-available path did not replace the executable.")
 assert_true(replacements[0][1] == mongoose.installed_mongoose_exe_path(), "Self-update targeted the wrong executable.")
-assert_true("Updated Mongoose to 0.6.1" in output, "Successful update output did not report the new version.")
+assert_true(f"Updated Mongoose to {next_version}" in output, "Successful update output did not report the new version.")
 
 code, output, _downloads, replacements = run_update(mongoose, [release_without_asset])
 assert_true(code == 1, "Missing release asset did not fail.")
