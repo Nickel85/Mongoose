@@ -18,6 +18,8 @@ work should remain in their own milestones.
 
 Each release owns a long-lived integration branch named
 `release/v<major>.<minor>.<patch>`, for example `release/v0.7.0`.
+Create it with the `Start Release Branch` GitHub Actions workflow so the branch
+name, `MONGOOSE_VERSION`, and `CHANGELOG.md` are rolled together.
 
 Release branches are the only place where release scope is integrated before it
 lands on `main`. Issue branches for that release branch from the release branch,
@@ -36,8 +38,9 @@ version, creates the matching `v<version>` tag/release from the merged source,
 and the existing tag build attaches the official `mongoose.exe` asset.
 
 The release version is rolled at the start of the release branch, not at the end
-of unrelated issue work. The selected version must come from SemVer impact and
-roadmap intent:
+of unrelated issue work. The `Start Release Branch` workflow requires the
+target version, release type, and roadmap theme. The selected version must come
+from SemVer impact and roadmap intent:
 
 - patch: corrective fixes or narrow refinements inside the current release
   promise.
@@ -137,6 +140,7 @@ Every release-prep issue should include this checklist:
 - [ ] User-facing behavior changes:
 
 ## Configuration management
+- [ ] Release branch was created with the `Start Release Branch` workflow.
 - [ ] Release branch is named `release/v<version>`.
 - [ ] Issue branches for this release branch from `release/v<version>`.
 - [ ] Issue pull requests target `release/v<version>`, not `main`.

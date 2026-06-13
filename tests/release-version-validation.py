@@ -19,6 +19,7 @@ EMBEDDER = REPO_ROOT / "mongoose" / "launcher" / "embed_mongoose.py"
 MONGOOSE_BUILD_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "mongoose-build.yml"
 INSTALL_VALIDATION_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "install-validation.yml"
 MONGOOSE_SMOKE_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "mongoose-smoke.yml"
+START_RELEASE_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "start-release-branch.yml"
 RELEASE_ON_MERGE_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "release-on-merge.yml"
 RELEASE_SCOPE_GATES = REPO_ROOT / "docs" / "release-scope-gates.md"
 TEXT_EXTENSIONS = {
@@ -119,6 +120,7 @@ assert_true(RELEASE_SCOPE_GATES.exists(), "docs/release-scope-gates.md is missin
 release_scope_gates = RELEASE_SCOPE_GATES.read_text(encoding="utf-8")
 for required_text in (
     "## Configuration Management Strategy",
+    "Start Release Branch",
     "release/v<major>.<minor>.<patch>",
     "Issue branches for that release branch from the release branch",
     "GitHub Actions validates the release branch",
@@ -149,6 +151,7 @@ for path in active_text_files():
 build_workflow = assert_workflow_runs_release_validation(MONGOOSE_BUILD_WORKFLOW)
 install_workflow = assert_workflow_runs_release_validation(INSTALL_VALIDATION_WORKFLOW)
 smoke_workflow = assert_workflow_runs_release_validation(MONGOOSE_SMOKE_WORKFLOW)
+start_release_workflow = assert_workflow_runs_release_validation(START_RELEASE_WORKFLOW)
 release_workflow = assert_workflow_runs_release_validation(RELEASE_ON_MERGE_WORKFLOW)
 
 for path, workflow in (
@@ -158,6 +161,23 @@ for path, workflow in (
     assert_true(
         '"release/v*"' in workflow,
         f"{path.relative_to(REPO_ROOT)} must run for release/v* branches.",
+    )
+
+for required_text in (
+    "workflow_dispatch:",
+    "version:",
+    "release_type:",
+    "release_theme:",
+    "release/v$env:RELEASE_VERSION",
+    "MONGOOSE_VERSION",
+    "CHANGELOG.md",
+    "python ./tests/release-version-validation.py",
+    "git checkout -b $branch",
+    "git push origin $branch",
+):
+    assert_true(
+        required_text in start_release_workflow,
+        f"start-release-branch.yml is missing required release-start automation text: {required_text}",
     )
 
 for required_text in (
